@@ -1,0 +1,136 @@
+﻿// 20240217190347
+// https://raw.githubusercontent.com/KomorXD/SolarSystemSim/main/CMakePresets.json
+
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "windows-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "installDir": "${sourceDir}/out/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "TARGET_WINDOWS": true,
+        "TARGET_LINUX": false,
+        "BUILD_ARCHITECTURE": "x86-64"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "x64-debug-windows",
+      "displayName": "x64 Debug Windows",
+      "inherits": "windows-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "FE_DEBUG": true,
+        "FE_RELEASE": false,
+        "FE_PROD": false
+      }
+    },
+    {
+      "name": "x64-release-windows",
+      "displayName": "x64 Release Windows",
+      "inherits": "windows-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "FE_DEBUG": false,
+        "FE_RELEASE": true,
+        "FE_PROD": false
+      }
+    },
+    {
+      "name": "x64-prod-windows",
+      "displayName": "x64 Prod Windows",
+      "inherits": "windows-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "FE_DEBUG": false,
+        "FE_RELEASE": false,
+        "FE_PROD": true
+      }
+    },
+    {
+      "name": "linux-base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "installDir": "${sourceDir}/out/install/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "TARGET_LINUX": true,
+        "TARGET_WINDOWS": false,
+        "BUILD_ARCHITECTURE": "x86-64"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "x64-debug-linux",
+      "displayName": "x64 Debug Linux",
+      "inherits": "linux-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "FE_DEBUG": true,
+        "FE_RELEASE": false,
+        "FE_PROD": false
+      }
+    },
+    {
+      "name": "x64-release-linux",
+      "displayName": "x64 Release Linux",
+      "inherits": "linux-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "FE_DEBUG": false,
+        "FE_RELEASE": true,
+        "FE_PROD": false
+      }
+    },
+    {
+      "name": "x64-prod-linux",
+      "displayName": "x64 Prod Linux",
+      "inherits": "linux-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "FE_DEBUG": false,
+        "FE_RELEASE": false,
+        "FE_PROD": true
+      }
+    }
+  ]
+}
