@@ -1,8 +1,8 @@
-﻿#include <stdio.h>
+﻿#include "Application.hpp"
 
 int main()
 {
-	printf("siema xafdsfsdad\n");
+	Application app;
 	
 	return 0;
 }
