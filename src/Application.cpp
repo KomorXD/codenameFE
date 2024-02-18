@@ -66,18 +66,25 @@ Application::Application(const WindowSpec& spec)
 
 	LOG_INFO("GLAD loaded.");
 
-	Renderer::Init();
-
 	s_Instance = this;
 }
 
 Application::~Application()
 {
 	s_Instance = nullptr;
+
+	if (m_Window)
+	{
+		glfwDestroyWindow(m_Window);
+	}
+
+	glfwTerminate();
+	Renderer::Shutdown();
 }
 
 void Application::Run()
 {
+	Renderer::Init();
 	m_Layers.push(std::make_unique<EditorLayer>());
 
 	IMGUI_CHECKVERSION();
