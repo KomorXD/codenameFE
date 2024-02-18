@@ -52,11 +52,3 @@ TEST(Timer, Restarting)
 
 	ASSERT_NEAR(t.GetElapsedTime(), 200.0f, MAX_ERROR_IN_MS) << "Timer expected to restart and run for ~200ms, which it did not.";
 }
-
-int main(int argc, char** argv)
-{
-	Logger::Init();
-	
-	testing::InitGoogleTest(&argc, argv);
-	return RUN_ALL_TESTS();
-}
