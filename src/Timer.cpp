@@ -8,9 +8,8 @@
 Timer::Timer(const std::string& taskName)
 	: m_Name(taskName)
 {
-	m_StartTS = std::chrono::steady_clock::now();
-
 	LOG_INFO("Started {}.", m_Name);
+	m_StartTS = std::chrono::steady_clock::now();
 }
 
 Timer::~Timer()
@@ -33,8 +32,8 @@ void Timer::Start()
 
 void Timer::Stop()
 {
-	m_IsRunning = false;
 	m_AccumulatedTime += std::chrono::duration<float>(std::chrono::steady_clock::now() - m_StartTS).count() * 1000.0f;
+	m_IsRunning = false;
 }
 
 void Timer::Restart()

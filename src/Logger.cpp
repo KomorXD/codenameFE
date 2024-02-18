@@ -1,4 +1,5 @@
 #include "Logger.hpp"
+#include "Version.hpp"
 
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -24,7 +25,7 @@ void Logger::Init()
 	logSinks[1]->set_pattern("%^[%T] %n: %v%$");
 #endif
 
-	s_Logger = std::make_shared<spdlog::logger>("codenameFE", std::begin(logSinks), std::end(logSinks));
+	s_Logger = std::make_shared<spdlog::logger>(APP_NAME, std::begin(logSinks), std::end(logSinks));
 	spdlog::register_logger(s_Logger);
 	s_Logger->set_level(spdlog::level::trace);
 	s_Logger->flush_on(spdlog::level::trace);

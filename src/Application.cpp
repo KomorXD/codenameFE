@@ -8,12 +8,15 @@
 
 #include "Application.hpp"
 #include "Logger.hpp"
+#include "Timer.hpp"
 #include "layers/EditorLayer.hpp"
 #include "renderer/Renderer.hpp"
 
 Application::Application(const WindowSpec& spec)
 	: m_Spec(spec)
 {
+	Logger::Init();
+	FUNC_PROFILE();
 	assert((s_Instance == nullptr) && "Only one instance of Application allowed!");
 
 	if (glfwInit() == GLFW_FALSE)
@@ -22,6 +25,8 @@ Application::Application(const WindowSpec& spec)
 
 		return;
 	}
+
+	LOG_INFO("GLFW initialized.");
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -45,6 +50,8 @@ Application::Application(const WindowSpec& spec)
 		return;
 	}
 
+	LOG_INFO("Window created.");
+
 	glfwMakeContextCurrent(m_Window);
 	glfwSwapInterval(0);
 	glfwSetWindowUserPointer(m_Window, this);
@@ -57,7 +64,8 @@ Application::Application(const WindowSpec& spec)
 		return;
 	}
 
-	Logger::Init();
+	LOG_INFO("GLAD loaded.");
+
 	Renderer::Init();
 
 	s_Instance = this;

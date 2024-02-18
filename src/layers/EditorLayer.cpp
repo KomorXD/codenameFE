@@ -1,17 +1,19 @@
 #include "EditorLayer.hpp"
 
-#include <glad/glad.h>
 #include "../Application.hpp"
+#include "../Timer.hpp"
 #include "../renderer/Renderer.hpp"
 
 #include <imgui/imgui.h>
 
 EditorLayer::EditorLayer()
 {
+	FUNC_PROFILE();
 }
 
 void EditorLayer::OnAttach()
 {
+	FUNC_PROFILE();
 }
 
 void EditorLayer::OnEvent(Event& ev)

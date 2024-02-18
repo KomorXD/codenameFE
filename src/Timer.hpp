@@ -23,14 +23,14 @@ public:
 };
 
 #ifdef TARGET_WINDOWS
-#define FUNC_NAME __func__
+#define FUNC_NAME __FUNCTION__
 #else
-#define FUNC_NAME __PRETTY_FUNCTION__
+#define FUNC_NAME __FUNCTION__
 #endif
 
 #ifndef CONF_PROD
 #define SCOPE_PROFILE(name) Timer t##__LINE__(name)
-#define FUNC_PROFILE() Timer t##FUNC_NAME(FUNC_NAME)
+#define FUNC_PROFILE() Timer t##FUNC_NAME(FUNC_NAME "()")
 #else
 #define SCOPE_PROFILE(name)
 #define FUNC_PROFILE()
