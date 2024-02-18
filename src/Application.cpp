@@ -1,4 +1,5 @@
 #include "Application.hpp"
+#include "Logger.hpp"
 
 #include <cassert>
 #include <glad/glad.h>
@@ -11,7 +12,7 @@ Application::Application(const WindowSpec& spec)
 
 	if (glfwInit() == GLFW_FALSE)
 	{
-		fprintf(stderr, "Failed to initialize GLFW!");
+		LOG_CRITICAL("Failed to initialize GLFW!");
 
 		return;
 	}
@@ -33,7 +34,7 @@ Application::Application(const WindowSpec& spec)
 
 	if (!m_Window)
 	{
-		fprintf(stderr, "Failed to create a window!");
+		LOG_CRITICAL("Failed to create a window!");
 
 		return;
 	}
@@ -41,13 +42,16 @@ Application::Application(const WindowSpec& spec)
 	glfwMakeContextCurrent(m_Window);
 	glfwSwapInterval(0);
 	glfwSetWindowUserPointer(m_Window, this);
+	SetWindowCallbacks();
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
-		fprintf(stderr, "Failed to load GLAD!");
+		LOG_CRITICAL("Failed to load GLAD!");
 
 		return;
 	}
+
+	Logger::Init();
 
 	s_Instance = this;
 }
@@ -69,10 +73,104 @@ void Application::Run()
 		currTime = glfwGetTime();
 		timestep = currTime - prevTime;
 
+		Event ev{};
+		while (m_EventQueue.PollEvents(ev))
+		{
+			// Handle events
+		}
+
+		// Handle input
+		// Handle update
+		// Render
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glClearColor(0.16f, 0.16f, 0.16f, 1.0f);
 
 		glfwPollEvents();
 		glfwSwapBuffers(m_Window);
 	}
+}
+
+void Application::SetWindowCallbacks()
+{
+	glfwSetErrorCallback(
+		[](int errorCode, const char* description)
+		{
+			LOG_ERROR("GLFW error #{}: {}", errorCode, description);
+		});
+
+	glfwSetKeyCallback(m_Window,
+		[](GLFWwindow* window, int key, int scancode, int action, int mods)
+		{
+			Application* app = (Application*)glfwGetWindowUserPointer(window);
+			Event ev{};
+
+			switch (action)
+			{
+			case GLFW_PRESS:   ev.Type = Event::KeyPressed;  break;
+			case GLFW_RELEASE: ev.Type = Event::KeyReleased; break;
+			case GLFW_REPEAT:  ev.Type = Event::KeyHeld;	 break;
+			}
+
+			ev.Key.Code = (Key)key;
+			ev.Key.AltPressed = Input::IsKeyPressed((Key)GLFW_KEY_LEFT_ALT);
+			ev.Key.CtrlPressed = Input::IsKeyPressed((Key)GLFW_KEY_LEFT_CONTROL);
+			ev.Key.ShiftPressed = Input::IsKeyPressed((Key)GLFW_KEY_LEFT_SHIFT);
+
+			app->m_EventQueue.SubmitEvent(ev);
+		});
+
+	glfwSetCursorPosCallback(m_Window,
+		[](GLFWwindow* window, double xPos, double yPos)
+		{
+			Application* app = (Application*)glfwGetWindowUserPointer(window);
+			Event ev{};
+
+			ev.Type = Event::MouseMoved;
+			ev.Mouse.PosX = (float)xPos;
+			ev.Mouse.PosY = (float)yPos;
+
+			app->m_EventQueue.SubmitEvent(ev);
+		});
+
+	glfwSetMouseButtonCallback(m_Window,
+		[](GLFWwindow* window, int button, int action, int mods)
+		{
+			Application* app = (Application*)glfwGetWindowUserPointer(window);
+			Event ev{};
+
+			ev.Type = (action == GLFW_RELEASE ? Event::MouseButtonReleased : Event::MouseButtonPressed);
+			ev.MouseButton.Button = (MouseButton)button;
+
+			app->m_EventQueue.SubmitEvent(ev);
+		});
+
+	glfwSetScrollCallback(m_Window,
+		[](GLFWwindow* window, double xOffset, double yOffset)
+		{
+			Application* app = (Application*)glfwGetWindowUserPointer(window);
+			Event ev{};
+
+			ev.Type = Event::MouseWheelScrolled;
+			ev.MouseWheel.OffsetX = (float)xOffset;
+			ev.MouseWheel.OffsetY = (float)yOffset;
+
+			app->m_EventQueue.SubmitEvent(ev);
+		});
+
+	glfwSetWindowSizeCallback(m_Window,
+		[](GLFWwindow* window, int width, int height)
+		{
+			Application* app = (Application*)glfwGetWindowUserPointer(window);
+			Event ev{};
+
+			ev.Type = Event::WindowResized;
+			ev.Size.Width = width;
+			ev.Size.Height = height;
+
+			app->m_Spec.Width = width;
+			app->m_Spec.Height = height;
+
+			app->m_EventQueue.SubmitEvent(ev);
+		});
 }

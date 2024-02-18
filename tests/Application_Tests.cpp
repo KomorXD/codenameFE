@@ -7,7 +7,7 @@ TEST(Application, WindowCreated)
 {
 	volatile Application app;
 
-	ASSERT_NE(app.Instance().Window(), nullptr) << "Window was not created as it should.";
+	ASSERT_NE(app.Instance()->Window(), nullptr) << "Window was not created as it should.";
 }
 
 TEST(Application, MultipleAppGuard)

@@ -3,6 +3,8 @@
 #include <string>
 #include <memory>
 
+#include "Event.hpp"
+
 struct GLFWwindow;
 
 struct WindowSpec
@@ -20,14 +22,17 @@ public:
 
 	void Run();
 
-	inline GLFWwindow* Window() { return m_Window; }
-	inline const WindowSpec& Spec() const { return m_Spec; }
+	inline GLFWwindow* Window()		const { return m_Window; }
+	inline const WindowSpec& Spec() const { return m_Spec;	 }
 
-	inline static Application& Instance() { return *s_Instance; }
+	inline static Application* Instance() { return s_Instance; }
 
 private:
+	void SetWindowCallbacks();
+
 	WindowSpec m_Spec{};
 	GLFWwindow* m_Window = nullptr;
+	EventQueue m_EventQueue;
 
 	inline static Application* s_Instance = nullptr;
 };

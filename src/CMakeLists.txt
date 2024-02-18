@@ -23,11 +23,11 @@ file(GLOB_RECURSE PROJECT_CONFIGS CONFIGURE_DEPENDS
 
 list(REMOVE_ITEM PROJECT_SOURCES "Main.cpp")
 
-if(SSS_DEBUG)
+if(FE_DEBUG)
 	add_definitions(-DCONF_DEBUG=1)
-elseif(SSS_RELEASE)
+elseif(FE_RELEASE)
 	add_definitions(-DCONF_RELEASE=1)
-elseif(SSS_PROD)
+elseif(FE_PROD)
 	add_definitions(-DCONF_PROD=1)
 endif()
 
