@@ -35,6 +35,7 @@ public:
 
 private:
 	void SetWindowCallbacks();
+	void ApplyImGuiStyles();
 
 	WindowSpec m_Spec{};
 	GLFWwindow* m_Window = nullptr;

@@ -3,6 +3,8 @@
 #include <glad/glad.h>
 #include "../Application.hpp"
 
+#include <imgui/imgui.h>
+
 EditorLayer::EditorLayer()
 {
 }
@@ -40,4 +42,11 @@ void EditorLayer::OnRender()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.66f, 0.11f, 0.22f, 1.0f);
+
+	ImGui::Begin("Hiii!!!!!!");
+	if (ImGui::Button("bye:("))
+	{
+		Application::Instance()->Shutdown();
+	}
+	ImGui::End();
 }

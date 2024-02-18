@@ -14,6 +14,7 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "*.cpp")
 file(GLOB_RECURSE PROJECT_HEADERS CONFIGURE_DEPENDS "*.hpp")
 file(GLOB_RECURSE VENDORS_SOURCES CONFIGURE_DEPENDS 
     "${CMAKE_SOURCE_DIR}/extern/glad/src/glad.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/vendors/*.cpp"
 )
 file(GLOB_RECURSE PROJECT_CONFIGS CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/CMakeLists.txt"
@@ -50,6 +51,7 @@ target_include_directories(${PROJECT_NAME}-Lib
         "${CMAKE_SOURCE_DIR}/extern/glad/include/"
         "${CMAKE_SOURCE_DIR}/extern/glm/"
         "${CMAKE_SOURCE_DIR}/extern/spdlog/include/"
+        "${CMAKE_CURRENT_SOURCE_DIR}/vendors/"
 )
 target_link_libraries(${PROJECT_NAME}-Lib
     PRIVATE
@@ -64,6 +66,7 @@ target_include_directories(${PROJECT_NAME}
         "${CMAKE_SOURCE_DIR}/extern/glad/include/"
         "${CMAKE_SOURCE_DIR}/extern/glm/"
         "${CMAKE_SOURCE_DIR}/extern/spdlog/include/"
+        "${CMAKE_CURRENT_SOURCE_DIR}/vendors/"
 )
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-Lib)
 set_target_properties(${PROJECT_NAME}

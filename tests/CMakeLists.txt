@@ -27,6 +27,7 @@ target_include_directories(${PROJECT_NAME}-Tests
         "${CMAKE_SOURCE_DIR}/extern/glad/include/"
         "${CMAKE_SOURCE_DIR}/extern/glm/"
         "${CMAKE_SOURCE_DIR}/extern/spdlog/include/"
+        "${CMAKE_SOURCE_DIR}/src/vendors/"
 )
 target_link_libraries(${PROJECT_NAME}-Tests gtest gtest_main)
 target_link_libraries(${PROJECT_NAME}-Tests ${PROJECT_NAME}-Lib)
