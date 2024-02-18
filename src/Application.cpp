@@ -72,6 +72,7 @@ Application::Application(const WindowSpec& spec)
 Application::~Application()
 {
 	s_Instance = nullptr;
+	Renderer::Shutdown();
 
 	if (m_Window)
 	{
@@ -79,7 +80,6 @@ Application::~Application()
 	}
 
 	glfwTerminate();
-	Renderer::Shutdown();
 }
 
 void Application::Run()
@@ -93,6 +93,7 @@ void Application::Run()
 
 	ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
 	ImGui_ImplOpenGL3_Init();
+	ApplyImGuiStyles();
 	
 	double prevTime = 0.0;
 	double currTime = 0.0;
