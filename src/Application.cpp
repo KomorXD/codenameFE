@@ -1,9 +1,11 @@
-#include "Application.hpp"
-#include "Logger.hpp"
-
 #include <cassert>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+#include "Application.hpp"
+#include "Application.hpp"
+#include "Logger.hpp"
+#include "layers/EditorLayer.hpp"
 
 Application::Application(const WindowSpec& spec)
 	: m_Spec(spec)
@@ -63,9 +65,11 @@ Application::~Application()
 
 void Application::Run()
 {
-	double prevTime = 0.0f;
-	double currTime = 0.0f;
-	double timestep = 1.0f / 60.0f;
+	m_Layers.push(std::make_unique<EditorLayer>());
+	
+	double prevTime = 0.0;
+	double currTime = 0.0;
+	double timestep = 1.0 / 60.0;
 
 	while (!glfwWindowShouldClose(m_Window))
 	{
@@ -76,18 +80,42 @@ void Application::Run()
 		Event ev{};
 		while (m_EventQueue.PollEvents(ev))
 		{
-			// Handle events
+			m_Layers.top()->OnEvent(ev);
 		}
 
-		// Handle input
-		// Handle update
-		// Render
-
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.16f, 0.16f, 0.16f, 1.0f);
+		m_Layers.top()->OnUpdate((float)timestep);
+		m_Layers.top()->OnRender();
 
 		glfwPollEvents();
 		glfwSwapBuffers(m_Window);
+	}
+}
+
+void Application::Shutdown()
+{
+	LOG_WARN("Application is about to shut down...");
+
+	glfwSetWindowShouldClose(m_Window, true);
+}
+
+void Application::PushLayer(std::unique_ptr<Layer>&& layer)
+{
+	m_Layers.push(std::move(layer));
+	m_Layers.top()->OnAttach();
+}
+
+void Application::PopLayer()
+{
+	if (m_Layers.empty())
+	{
+		return;
+	}
+
+	m_Layers.pop();
+
+	if (!m_Layers.empty())
+	{
+		m_Layers.top()->OnAttach();
 	}
 }
 

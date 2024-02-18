@@ -1,11 +1,13 @@
 #pragma once
 
 #include <string>
+#include <stack>
 #include <memory>
 
 #include "Event.hpp"
 
 struct GLFWwindow;
+class Layer;
 
 struct WindowSpec
 {
@@ -21,6 +23,10 @@ public:
 	~Application();
 
 	void Run();
+	void Shutdown();
+	
+	void PushLayer(std::unique_ptr<Layer>&& layer);
+	void PopLayer();
 
 	inline GLFWwindow* Window()		const { return m_Window; }
 	inline const WindowSpec& Spec() const { return m_Spec;	 }
@@ -33,6 +39,7 @@ private:
 	WindowSpec m_Spec{};
 	GLFWwindow* m_Window = nullptr;
 	EventQueue m_EventQueue;
+	std::stack<std::unique_ptr<Layer>> m_Layers;
 
 	inline static Application* s_Instance = nullptr;
 };
