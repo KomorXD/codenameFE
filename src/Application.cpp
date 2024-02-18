@@ -7,9 +7,9 @@
 #include <imgui/imgui_impl_opengl3.h>
 
 #include "Application.hpp"
-#include "Application.hpp"
 #include "Logger.hpp"
 #include "layers/EditorLayer.hpp"
+#include "renderer/Renderer.hpp"
 
 Application::Application(const WindowSpec& spec)
 	: m_Spec(spec)
@@ -58,6 +58,7 @@ Application::Application(const WindowSpec& spec)
 	}
 
 	Logger::Init();
+	Renderer::Init();
 
 	s_Instance = this;
 }

@@ -2,6 +2,7 @@
 
 #include <glad/glad.h>
 #include "../Application.hpp"
+#include "../renderer/Renderer.hpp"
 
 #include <imgui/imgui.h>
 
@@ -18,12 +19,22 @@ void EditorLayer::OnEvent(Event& ev)
 	switch (ev.Type)
 	{
 	case Event::KeyPressed:
+	{
 		if (ev.Key.Code == Key::Escape)
 		{
 			Application::Instance()->Shutdown();
 		}
 
 		break;
+	}
+
+	case Event::WindowResized:
+	{
+		Viewport viewport{ 0, 0, ev.Size.Width, ev.Size.Height };
+		Renderer::OnWindowResize(viewport);
+
+		break;
+	}
 		
 	default:
 		break;
@@ -40,8 +51,12 @@ void EditorLayer::OnTick()
 
 void EditorLayer::OnRender()
 {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glClearColor(0.66f, 0.11f, 0.22f, 1.0f);
+	Renderer::Clear();
+	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
+
+	Renderer::SceneBegin();
+	Renderer::DrawQuad({ 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
+	Renderer::SceneEnd();
 
 	ImGui::Begin("Hiii!!!!!!");
 	if (ImGui::Button("bye:("))

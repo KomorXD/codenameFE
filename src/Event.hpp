@@ -8,8 +8,8 @@ struct Event
 {
 	struct ResizeEvent
 	{
-		uint32_t Width;
-		uint32_t Height;
+		int32_t Width;
+		int32_t Height;
 	};
 
 	struct KeyEvent
