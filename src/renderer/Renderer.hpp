@@ -6,6 +6,7 @@
 
 class Shader;
 class VertexArray;
+class Camera;
 
 struct Viewport
 {
@@ -25,7 +26,7 @@ public:
 
 	static void OnWindowResize(const Viewport& newViewport);
 
-	static void SceneBegin();
+	static void SceneBegin(Camera& camera);
 	static void SceneEnd();
 	static void Flush();
 

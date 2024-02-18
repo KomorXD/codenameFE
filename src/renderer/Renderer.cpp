@@ -2,6 +2,7 @@
 #include "OpenGL.hpp"
 #include "../Logger.hpp"
 #include "../Timer.hpp"
+#include "Camera.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -135,8 +136,12 @@ void Renderer::OnWindowResize(const Viewport& newViewport)
 	GLCall(glViewport(x, y, width, height));
 }
 
-void Renderer::SceneBegin()
+void Renderer::SceneBegin(Camera& camera)
 {
+	s_ViewProjection = camera.GetViewProjection();
+	s_Projection	 = camera.GetProjection();
+	s_View			 = camera.GetViewMatrix();
+
 	StartBatch();
 }
 

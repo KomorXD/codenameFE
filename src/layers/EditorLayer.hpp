@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Layer.hpp"
+#include "../renderer/Camera.hpp"
 
 class EditorLayer : public Layer
 {
@@ -12,4 +13,7 @@ public:
 	virtual void OnUpdate(float ts) override;
 	virtual void OnTick()			override;
 	virtual void OnRender()			override;
+
+private:
+	Camera m_EditorCamera;
 };
