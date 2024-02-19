@@ -35,16 +35,18 @@ bool GLCheckForErrors(const char* func, const char* filename, int32_t line);
 class VertexBuffer
 {
 public:
-	VertexBuffer(const void* data, uint64_t size);
+	VertexBuffer(const void* data, uint64_t size, uint32_t count = 0);
 	~VertexBuffer();
 
 	void Bind() const;
 	void Unbind() const;
+	void SetData(const void* data, uint32_t size, uint32_t offset = 0) const;
 
-	void SetData(const void* data, uint32_t size, uint32_t offset = 0);
+	inline uint32_t VertexCount() const { return m_VertexCount; }
 
 private:
 	uint32_t m_ID = 0;
+	uint32_t m_VertexCount = 0;
 };
 
 class IndexBuffer
@@ -124,15 +126,17 @@ public:
 
 	void AddBuffers(const std::shared_ptr<VertexBuffer>& vbo, std::unique_ptr<IndexBuffer>& ibo, const VertexBufferLayout& layout, uint32_t attribOffset = 0);
 	void AddVertexBuffer(const std::shared_ptr<VertexBuffer>& vbo, const VertexBufferLayout& layout, uint32_t attribOffset = 0);
-	void AddInstancedVertexBuffer(const std::shared_ptr<VertexBuffer>& vbo, const VertexBufferLayout& layout, uint32_t attribOffset = 0);
+	void AddInstancedVertexBuffer(const std::shared_ptr<VertexBuffer>& vbo, const VertexBufferLayout& layout, uint32_t attribOffset = 0) const;
 
 	void Bind() const;
 	void Unbind() const;
 
+	inline uint32_t VertexCount() const { return m_VertexCount; }
 	inline const std::unique_ptr<IndexBuffer>& GetIndexBuffer() const { return m_IBO; }
 
 private:
 	uint32_t m_ID = 0;
+	uint32_t m_VertexCount = 0;
 	std::unique_ptr<IndexBuffer> m_IBO;
 };
 

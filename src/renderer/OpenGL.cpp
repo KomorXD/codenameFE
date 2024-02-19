@@ -20,7 +20,8 @@ bool GLCheckForErrors(const char* func, const char* filename, int32_t line)
 	return true;
 }
 
-VertexBuffer::VertexBuffer(const void* data, uint64_t size)
+VertexBuffer::VertexBuffer(const void* data, uint64_t size, uint32_t count)
+	: m_VertexCount(count)
 {
 	GLCall(glGenBuffers(1, &m_ID));
 	GLCall(glBindBuffer(GL_ARRAY_BUFFER, m_ID));
@@ -46,7 +47,7 @@ void VertexBuffer::Unbind() const
 	GLCall(glBindBuffer(GL_ARRAY_BUFFER, 0));
 }
 
-void VertexBuffer::SetData(const void* data, uint32_t size, uint32_t offset)
+void VertexBuffer::SetData(const void* data, uint32_t size, uint32_t offset) const
 {
 	Bind();
 	GLCall(glBufferSubData(GL_ARRAY_BUFFER, (GLintptr)offset, size, data));
@@ -125,6 +126,7 @@ void VertexArray::AddBuffers(const std::shared_ptr<VertexBuffer>& vbo, std::uniq
 		offset += element.count * VertexBufferElement::GetSizeOfType(element.type);
 	}
 
+	m_VertexCount = vbo->VertexCount();
 	m_IBO = std::move(ibo);
 }
 
@@ -145,9 +147,11 @@ void VertexArray::AddVertexBuffer(const std::shared_ptr<VertexBuffer>& vbo, cons
 
 		offset += element.count * VertexBufferElement::GetSizeOfType(element.type);
 	}
+	
+	m_VertexCount = vbo->VertexCount();
 }
 
-void VertexArray::AddInstancedVertexBuffer(const std::shared_ptr<VertexBuffer>& vbo, const VertexBufferLayout& layout, uint32_t attribOffset)
+void VertexArray::AddInstancedVertexBuffer(const std::shared_ptr<VertexBuffer>& vbo, const VertexBufferLayout& layout, uint32_t attribOffset) const
 {
 	Bind();
 	vbo->Bind();
