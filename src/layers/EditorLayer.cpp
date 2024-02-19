@@ -19,6 +19,7 @@ EditorLayer::EditorLayer()
 	dummyEv.Size.Height = spec.Height;
 
 	m_EditorCamera.OnEvent(dummyEv);
+	m_EditorCamera.m_Position = { 0.0f, 10.0f, 20.0f };
 }
 
 void EditorLayer::OnAttach()
@@ -68,10 +69,21 @@ void EditorLayer::OnRender()
 
 	Renderer::SceneBegin(m_EditorCamera);
 	Renderer::DrawQuad({ 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
+
 	Renderer::DrawLine({  10.0f, 0.0f,  10.0f }, { -10.0f, 0.0f,  10.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
 	Renderer::DrawLine({ -10.0f, 0.0f,  10.0f }, { -10.0f, 0.0f, -10.0f }, { 0.0f, 1.0f, 0.0f, 1.0f });
 	Renderer::DrawLine({ -10.0f, 0.0f, -10.0f }, {  10.0f, 0.0f, -10.0f }, { 0.0f, 0.0f, 1.0f, 1.0f });
 	Renderer::DrawLine({  10.0f, 0.0f, -10.0f }, {  10.0f, 0.0f,  10.0f }, { 0.0f, 1.0f, 1.0f, 1.0f });
+	
+	constexpr float radius = 10.0f;
+	constexpr uint32_t count = 20;
+	constexpr float step = 2.0f * glm::pi<float>() / count;
+	for (uint32_t i = 0; i < count; i++)
+	{
+		glm::vec3 pos = { glm::cos(i * step) * radius, 5.0f, glm::sin(i * step) * radius };
+		Renderer::DrawCube(pos, { 1.0f, 1.0f, 1.0f }, glm::vec4(glm::normalize(pos), 1.0f));
+	}
+
 	Renderer::SceneEnd();
 
 	ImGui::Begin("Hiii!!!!!!");
