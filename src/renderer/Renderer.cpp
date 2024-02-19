@@ -35,6 +35,12 @@ struct QuadVertex
 	glm::vec4 Color;
 };
 
+struct LineVertex
+{
+	glm::vec3 Position;
+	glm::vec4 Color;
+};
+
 struct RendererData
 {
 	static constexpr uint32_t MaxQuads = 5000;
@@ -45,9 +51,17 @@ struct RendererData
 	std::shared_ptr<VertexBuffer> QuadVertexBuffer;
 	std::shared_ptr<Shader>		  QuadShader;
 
+	std::shared_ptr<VertexArray>  LineVertexArray;
+	std::shared_ptr<VertexBuffer> LineVertexBuffer;
+	std::shared_ptr<Shader>		  LineShader;
+
 	uint32_t	QuadIndexCount = 0;
 	QuadVertex* QuadBufferBase = nullptr;
-	QuadVertex* QuadBufferPtr = nullptr;
+	QuadVertex* QuadBufferPtr  = nullptr;
+
+	uint32_t	LineVertexCount = 0;
+	LineVertex* LineBufferBase  = nullptr;
+	LineVertex* LineBufferPtr   = nullptr;
 
 	std::array<glm::vec4, 4> QuadVertices;
 };
@@ -118,11 +132,28 @@ void Renderer::Init()
 		s_Data.QuadVertices[2] = {  0.5f,  0.5f, 0.0f, 1.0f };
 		s_Data.QuadVertices[3] = { -0.5f,  0.5f, 0.0f, 1.0f };
 	}
+	
+	{
+		SCOPE_PROFILE("Line data init");
+
+		s_Data.LineVertexArray = std::make_shared<VertexArray>();
+		s_Data.LineVertexBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxVertices * sizeof(LineVertex));
+
+		VertexBufferLayout layout;
+
+		layout.Push<float>(3); // Position
+		layout.Push<float>(4); // Color
+
+		s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer, layout);
+		s_Data.LineBufferBase = new LineVertex[s_Data.MaxVertices];
+		s_Data.LineShader = std::make_shared<Shader>("resources/shaders/Quad.vert", "resources/shaders/Quad.frag");
+	}
 }
 
 void Renderer::Shutdown()
 {
 	delete[] s_Data.QuadBufferBase;
+	delete[] s_Data.LineBufferBase;
 }
 
 void Renderer::ReloadShaders()
@@ -159,7 +190,18 @@ void Renderer::Flush()
 		s_Data.QuadVertexBuffer->SetData(s_Data.QuadBufferBase, dataSize);
 
 		GLCall(glDisable(GL_CULL_FACE));
-		DrawIndexed(s_Data.QuadShader, s_Data.QuadVertexArray, s_Data.QuadIndexCount);
+		DrawIndexed(s_Data.QuadShader, s_Data.QuadVertexArray, s_Data.QuadIndexCount, GL_TRIANGLES);
+		GLCall(glEnable(GL_CULL_FACE));
+	}
+
+	if (s_Data.LineVertexCount)
+	{
+		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.LineBufferPtr - (uint8_t*)s_Data.LineBufferBase);
+
+		s_Data.LineVertexBuffer->SetData(s_Data.LineBufferBase, dataSize);
+
+		GLCall(glDisable(GL_CULL_FACE));
+		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
 		GLCall(glEnable(GL_CULL_FACE));
 	}
 }
@@ -194,7 +236,25 @@ void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const 
 	s_Data.QuadIndexCount += 6;
 }
 
-void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count)
+void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color)
+{
+	if (s_Data.LineVertexCount + 2 >= s_Data.MaxVertices)
+	{
+		NextBatch();
+	}
+
+	s_Data.LineBufferPtr->Position = start;
+	s_Data.LineBufferPtr->Color = color;
+	++s_Data.LineBufferPtr;
+
+	s_Data.LineBufferPtr->Position = end;
+	s_Data.LineBufferPtr->Color = color;
+	++s_Data.LineBufferPtr;
+
+	s_Data.LineVertexCount += 2;
+}
+
+void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t primitiveType)
 {
 	uint32_t indices = count ? count : vao->GetIndexBuffer()->GetCount();
 
@@ -203,13 +263,26 @@ void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::sha
 
 	vao->Bind();
 
-	GLCall(glDrawElements(GL_TRIANGLES, indices, GL_UNSIGNED_INT, nullptr));
+	GLCall(glDrawElements(primitiveType, indices, GL_UNSIGNED_INT, nullptr));
+}
+
+void Renderer::DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType)
+{
+	shader->Bind();
+	shader->SetUniformMat4("u_ViewProjection", s_ViewProjection);
+
+	vao->Bind();
+
+	GLCall(glDrawArrays(primitiveType, 0, vertexCount));
 }
 
 void Renderer::StartBatch()
 {
 	s_Data.QuadIndexCount = 0;
 	s_Data.QuadBufferPtr = s_Data.QuadBufferBase;
+
+	s_Data.LineVertexCount = 0;
+	s_Data.LineBufferPtr = s_Data.LineBufferBase;
 }
 
 void Renderer::NextBatch()
