@@ -3,6 +3,7 @@
 #include "../Logger.hpp"
 #include "../Timer.hpp"
 #include "Camera.hpp"
+#include "PrimitivesGen.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -41,6 +42,12 @@ struct LineVertex
 	glm::vec4 Color;
 };
 
+struct CubeInstance
+{
+	glm::mat4 Transform;
+	glm::vec4 Color;
+};
+
 struct RendererData
 {
 	static constexpr uint32_t MaxQuads = 5000;
@@ -55,15 +62,23 @@ struct RendererData
 	std::shared_ptr<VertexBuffer> LineVertexBuffer;
 	std::shared_ptr<Shader>		  LineShader;
 
+	std::shared_ptr<VertexArray>  CubeVertexArray;
+	std::shared_ptr<VertexBuffer> CubeVertexBuffer;
+	std::shared_ptr<VertexBuffer> CubeInstanceBuffer;
+	std::shared_ptr<Shader>		  CubeShader;
+
 	uint32_t	QuadIndexCount = 0;
 	QuadVertex* QuadBufferBase = nullptr;
 	QuadVertex* QuadBufferPtr  = nullptr;
+	std::array<glm::vec4, 4> QuadVertices;
 
 	uint32_t	LineVertexCount = 0;
 	LineVertex* LineBufferBase  = nullptr;
 	LineVertex* LineBufferPtr   = nullptr;
 
-	std::array<glm::vec4, 4> QuadVertices;
+	uint32_t	  CubeInstanceCount = 0;
+	CubeInstance* CubeBufferBase	= nullptr;
+	CubeInstance* CubeBufferPtr	    = nullptr;
 };
 
 static RendererData s_Data{};
@@ -121,9 +136,7 @@ void Renderer::Init()
 		}
 
 		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(quadIndices.data(), (uint32_t)quadIndices.size());
-
 		s_Data.QuadVertexArray->AddBuffers(s_Data.QuadVertexBuffer, ibo, layout);
-
 		s_Data.QuadBufferBase = new QuadVertex[s_Data.MaxVertices];
 		s_Data.QuadShader = std::make_shared<Shader>("resources/shaders/Quad.vert", "resources/shaders/Quad.frag");
 
@@ -131,6 +144,8 @@ void Renderer::Init()
 		s_Data.QuadVertices[1] = {  0.5f, -0.5f, 0.0f, 1.0f };
 		s_Data.QuadVertices[2] = {  0.5f,  0.5f, 0.0f, 1.0f };
 		s_Data.QuadVertices[3] = { -0.5f,  0.5f, 0.0f, 1.0f };
+
+		s_Data.QuadVertexArray->Unbind();
 	}
 	
 	{
@@ -147,6 +162,34 @@ void Renderer::Init()
 		s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer, layout);
 		s_Data.LineBufferBase = new LineVertex[s_Data.MaxVertices];
 		s_Data.LineShader = std::make_shared<Shader>("resources/shaders/Quad.vert", "resources/shaders/Quad.frag");
+		s_Data.LineVertexArray->Unbind();
+	}
+
+	{
+		SCOPE_PROFILE("Cube data init");
+
+		std::vector<CubeVertex> cubeVertices = CubeVertexData();
+
+		s_Data.CubeVertexArray = std::make_shared<VertexArray>();
+		s_Data.CubeVertexBuffer = std::make_shared<VertexBuffer>(cubeVertices.data(), cubeVertices.size() * sizeof(CubeVertex), cubeVertices.size());
+
+		VertexBufferLayout layout;
+		layout.Push<float>(3); // 0 Position
+		layout.Push<float>(3); // 1 Normal
+		s_Data.CubeVertexArray->AddVertexBuffer(s_Data.CubeVertexBuffer, layout);
+
+		layout.Clear();
+		layout.Push<float>(4); // 2 Transform
+		layout.Push<float>(4); // 3 Transform
+		layout.Push<float>(4); // 4 Transform
+		layout.Push<float>(4); // 5 Transform
+		layout.Push<float>(4); // 6 Color
+		s_Data.CubeInstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxVertices * sizeof(CubeInstance));
+		s_Data.CubeVertexArray->AddInstancedVertexBuffer(s_Data.CubeInstanceBuffer, layout, 2);
+
+		s_Data.CubeBufferBase = new CubeInstance[255];
+		s_Data.CubeShader = std::make_shared<Shader>("resources/shaders/Cube.vert", "resources/shaders/Cube.frag");
+		s_Data.CubeVertexArray->Unbind();
 	}
 }
 
@@ -154,11 +197,14 @@ void Renderer::Shutdown()
 {
 	delete[] s_Data.QuadBufferBase;
 	delete[] s_Data.LineBufferBase;
+	delete[] s_Data.CubeBufferBase;
 }
 
 void Renderer::ReloadShaders()
 {
 	s_Data.QuadShader->ReloadShader();
+	s_Data.LineShader->ReloadShader();
+	s_Data.CubeShader->ReloadShader();
 }
 
 void Renderer::OnWindowResize(const Viewport& newViewport)
@@ -186,7 +232,6 @@ void Renderer::Flush()
 	if (s_Data.QuadIndexCount)
 	{
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.QuadBufferPtr - (uint8_t*)s_Data.QuadBufferBase);
-
 		s_Data.QuadVertexBuffer->SetData(s_Data.QuadBufferBase, dataSize);
 
 		GLCall(glDisable(GL_CULL_FACE));
@@ -197,12 +242,19 @@ void Renderer::Flush()
 	if (s_Data.LineVertexCount)
 	{
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.LineBufferPtr - (uint8_t*)s_Data.LineBufferBase);
-
 		s_Data.LineVertexBuffer->SetData(s_Data.LineBufferBase, dataSize);
 
 		GLCall(glDisable(GL_CULL_FACE));
 		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
 		GLCall(glEnable(GL_CULL_FACE));
+	}
+
+	if (s_Data.CubeInstanceCount)
+	{
+		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.CubeBufferPtr - (uint8_t*)s_Data.CubeBufferBase);
+		s_Data.CubeInstanceBuffer->SetData(s_Data.CubeBufferBase, dataSize);
+
+		DrawArraysInstanced(s_Data.CubeShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
 }
 
@@ -254,6 +306,20 @@ void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm:
 	s_Data.LineVertexCount += 2;
 }
 
+void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color)
+{
+	if (s_Data.CubeInstanceCount >= 254)
+	{
+		NextBatch();
+	}
+
+	s_Data.CubeBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
+	s_Data.CubeBufferPtr->Color = color;
+
+	++s_Data.CubeBufferPtr;
+	++s_Data.CubeInstanceCount;
+}
+
 void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t primitiveType)
 {
 	uint32_t indices = count ? count : vao->GetIndexBuffer()->GetCount();
@@ -276,6 +342,16 @@ void Renderer::DrawArrays(const std::shared_ptr<Shader>& shader, const std::shar
 	GLCall(glDrawArrays(primitiveType, 0, vertexCount));
 }
 
+void Renderer::DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances)
+{
+	shader->Bind();
+	shader->SetUniformMat4("u_ViewProjection", s_ViewProjection);
+
+	vao->Bind();
+
+	GLCall(glDrawArraysInstanced(GL_TRIANGLES, 0, vao->VertexCount(), instances));
+}
+
 void Renderer::StartBatch()
 {
 	s_Data.QuadIndexCount = 0;
@@ -283,6 +359,9 @@ void Renderer::StartBatch()
 
 	s_Data.LineVertexCount = 0;
 	s_Data.LineBufferPtr = s_Data.LineBufferBase;
+
+	s_Data.CubeInstanceCount = 0;
+	s_Data.CubeBufferPtr = s_Data.CubeBufferBase;
 }
 
 void Renderer::NextBatch()
