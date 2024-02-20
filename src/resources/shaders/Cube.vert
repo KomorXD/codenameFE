@@ -5,7 +5,11 @@ layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in mat4 a_Transform;
 layout(location = 6) in vec4 a_Color;
 
-uniform mat4 u_ViewProjection;
+layout (std140, binding = 0) uniform Matrices
+{
+	mat4 u_Projection;
+	mat4 u_View;
+};
 
 out VS_OUT
 {
@@ -20,5 +24,5 @@ void main()
 	vs_out.normal = a_Normal;
 	vs_out.color = a_Color;
 
-	gl_Position = u_ViewProjection * a_Transform * vec4(a_Pos, 1.0);
+	gl_Position = u_Projection * u_View * a_Transform * vec4(a_Pos, 1.0);
 }
