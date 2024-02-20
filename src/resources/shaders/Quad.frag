@@ -1,10 +1,13 @@
 #version 430 core
 
-in vec4 color;
+in VS_OUT
+{
+	vec4 color;
+} fs_in;
 
 out vec4 fragColor;
 
 void main()
 {
-	fragColor = color;
+	fragColor = fs_in.color;
 }

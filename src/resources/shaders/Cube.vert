@@ -7,13 +7,18 @@ layout(location = 6) in vec4 a_Color;
 
 uniform mat4 u_ViewProjection;
 
-out vec3 normal;
-out vec4 color;
+out VS_OUT
+{
+	vec3 worldPos;
+	vec3 normal;
+	vec4 color;
+} vs_out;
 
 void main()
 {
-	normal = a_Normal;
-	color = a_Color;
+	vs_out.worldPos = (a_Transform * vec4(a_Pos, 1.0)).xyz;
+	vs_out.normal = a_Normal;
+	vs_out.color = a_Color;
 
 	gl_Position = u_ViewProjection * a_Transform * vec4(a_Pos, 1.0);
 }

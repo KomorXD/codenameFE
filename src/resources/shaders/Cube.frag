@@ -1,18 +1,61 @@
 #version 430 core
 
-in vec3 normal;
-in vec4 color;
+struct DirectionalLight
+{
+	vec3 direction;
+	vec3 color;
+};
+
+struct PointLight
+{
+	vec3 position;
+	vec3 color;
+	float linearTerm;
+	float quadraticTerm;
+};
+
+in VS_OUT
+{
+	vec3 worldPos;
+	vec3 normal;
+	vec4 color;
+} fs_in;
+
+uniform vec3 u_ViewPos = vec3(0.0);
+uniform float u_AmbientStrength = 0.1;
+uniform DirectionalLight u_DirLights[4];
+uniform int u_DirLightsCount = 0;
+uniform PointLight u_PointLights[8];
+uniform int u_PointLightsCount = 0;
 
 out vec4 fragColor;
 
-const float AMBIENT_STRENGTH = 0.1;
-const vec3 DIRECTIONAL_DIR = normalize(vec3(-0.3, -0.5, -0.6));
-
 void main()
 {
-	float directionalDiffuse = max(dot(normal, -DIRECTIONAL_DIR), 0.0);
-	
-	fragColor.rgb = (AMBIENT_STRENGTH + directionalDiffuse) * color.rgb;
+	vec3 totalDirectional = vec3(0.0);
+	for(int i = 0; i < u_DirLightsCount; i++)
+	{
+		totalDirectional += max(dot(fs_in.normal, -u_DirLights[i].direction), 0.0) * u_DirLights[i].color;
+	}
+
+	vec3 totalDiffuse = vec3(0.0);
+	vec3 totalSpecular = vec3(0.0);
+	for(int i = 0; i < u_PointLightsCount; i++)
+	{
+		PointLight pointLight = u_PointLights[i];
+		
+		vec3 lightDir = normalize(pointLight.position - fs_in.worldPos);
+		float fragToLightDist = length(pointLight.position - fs_in.worldPos);
+		float attenuation = 1.0 / (1.0 + pointLight.linearTerm * fragToLightDist + pointLight.quadraticTerm * fragToLightDist * fragToLightDist);
+		
+		vec3 viewDir = normalize(u_ViewPos - fs_in.worldPos);
+		vec3 halfway = normalize(lightDir + viewDir);
+
+		totalDiffuse += max(dot(fs_in.normal, lightDir), 0.0) * pointLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir));
+		totalSpecular += pow(max(dot(fs_in.normal, halfway), 0.0), 32.0) * pointLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir));
+	}
+
+	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * fs_in.color.rgb;
 	fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
-	fragColor.a = 1.0;
+	fragColor.a = fs_in.color.a;
 }
