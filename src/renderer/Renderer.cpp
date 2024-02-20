@@ -79,6 +79,9 @@ struct RendererData
 	uint32_t	  CubeInstanceCount = 0;
 	CubeInstance* CubeBufferBase	= nullptr;
 	CubeInstance* CubeBufferPtr	    = nullptr;
+
+	uint32_t DirLightsCount   = 0;
+	uint32_t PointLightsCount = 0;
 };
 
 static RendererData s_Data{};
@@ -219,6 +222,9 @@ void Renderer::SceneBegin(Camera& camera)
 	s_Projection	 = camera.GetProjection();
 	s_View			 = camera.GetViewMatrix();
 
+	s_Data.CubeShader->Bind();
+	s_Data.CubeShader->SetUniform3f("u_ViewPos", camera.Position);
+
 	StartBatch();
 }
 
@@ -253,6 +259,10 @@ void Renderer::Flush()
 	{
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.CubeBufferPtr - (uint8_t*)s_Data.CubeBufferBase);
 		s_Data.CubeInstanceBuffer->SetData(s_Data.CubeBufferBase, dataSize);
+
+		s_Data.CubeShader->Bind();
+		s_Data.CubeShader->SetUniform1i("u_DirLightsCount", s_Data.DirLightsCount);
+		s_Data.CubeShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
 
 		DrawArraysInstanced(s_Data.CubeShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
@@ -352,6 +362,28 @@ void Renderer::DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const 
 	GLCall(glDrawArraysInstanced(GL_TRIANGLES, 0, vao->VertexCount(), instances));
 }
 
+void Renderer::AddDirectionalLight(const DirectionalLight& light)
+{
+	s_Data.CubeShader->Bind();
+	s_Data.CubeShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", light.Direction);
+	s_Data.CubeShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",		light.Color);
+	s_Data.CubeShader->Unbind();
+
+	s_Data.DirLightsCount++;
+}
+
+void Renderer::AddPointLight(const PointLight& light)
+{
+	s_Data.CubeShader->Bind();
+	s_Data.CubeShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",		light.Position);
+	s_Data.CubeShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].color",			light.Color);
+	s_Data.CubeShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	light.LinearTerm);
+	s_Data.CubeShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
+	s_Data.CubeShader->Unbind();
+
+	s_Data.PointLightsCount++;
+}
+
 void Renderer::StartBatch()
 {
 	s_Data.QuadIndexCount = 0;
@@ -362,6 +394,9 @@ void Renderer::StartBatch()
 
 	s_Data.CubeInstanceCount = 0;
 	s_Data.CubeBufferPtr = s_Data.CubeBufferBase;
+
+	s_Data.DirLightsCount = 0;
+	s_Data.PointLightsCount = 0;
 }
 
 void Renderer::NextBatch()

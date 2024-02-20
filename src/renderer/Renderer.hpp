@@ -4,6 +4,8 @@
 #include <memory>
 #include <string>
 
+#include "LightCasters.hpp"
+
 class Shader;
 class VertexArray;
 class Camera;
@@ -40,6 +42,9 @@ public:
 	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t primitiveType);
 	static void DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType);
 	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances);
+
+	static void AddDirectionalLight(const DirectionalLight& light);
+	static void AddPointLight(const PointLight& light);
 
 private:
 	static void StartBatch();
