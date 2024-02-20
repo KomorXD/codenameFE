@@ -6,6 +6,7 @@
 #include "PrimitivesGen.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 static void OpenGLMessageCallback(
 	unsigned source,
@@ -82,6 +83,8 @@ struct RendererData
 
 	uint32_t DirLightsCount   = 0;
 	uint32_t PointLightsCount = 0;
+
+	std::shared_ptr<UniformBuffer> MatricesBuffer;
 };
 
 static RendererData s_Data{};
@@ -194,6 +197,13 @@ void Renderer::Init()
 		s_Data.CubeShader = std::make_shared<Shader>("resources/shaders/Cube.vert", "resources/shaders/Cube.frag");
 		s_Data.CubeVertexArray->Unbind();
 	}
+
+	{
+		SCOPE_PROFILE("Uniform buffers init");
+
+		s_Data.MatricesBuffer = std::make_shared<UniformBuffer>(nullptr, 2 * sizeof(glm::mat4));
+		s_Data.MatricesBuffer->BindBufferRange(0, 0, 2 * sizeof(glm::mat4));
+	}
 }
 
 void Renderer::Shutdown()
@@ -221,6 +231,10 @@ void Renderer::SceneBegin(Camera& camera)
 	s_ViewProjection = camera.GetViewProjection();
 	s_Projection	 = camera.GetProjection();
 	s_View			 = camera.GetViewMatrix();
+
+	s_Data.MatricesBuffer->Bind();
+	s_Data.MatricesBuffer->SetData(glm::value_ptr(s_Projection), sizeof(glm::mat4));
+	s_Data.MatricesBuffer->SetData(glm::value_ptr(s_View), sizeof(glm::mat4), sizeof(glm::mat4));
 
 	s_Data.CubeShader->Bind();
 	s_Data.CubeShader->SetUniform3f("u_ViewPos", camera.Position);
@@ -333,31 +347,24 @@ void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const 
 void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t primitiveType)
 {
 	uint32_t indices = count ? count : vao->GetIndexBuffer()->GetCount();
-
-	shader->Bind();
-	shader->SetUniformMat4("u_ViewProjection", s_ViewProjection);
-
 	vao->Bind();
+	shader->Bind();
 
 	GLCall(glDrawElements(primitiveType, indices, GL_UNSIGNED_INT, nullptr));
 }
 
 void Renderer::DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType)
 {
-	shader->Bind();
-	shader->SetUniformMat4("u_ViewProjection", s_ViewProjection);
-
 	vao->Bind();
+	shader->Bind();
 
 	GLCall(glDrawArrays(primitiveType, 0, vertexCount));
 }
 
 void Renderer::DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances)
 {
-	shader->Bind();
-	shader->SetUniformMat4("u_ViewProjection", s_ViewProjection);
-
 	vao->Bind();
+	shader->Bind();
 
 	GLCall(glDrawArraysInstanced(GL_TRIANGLES, 0, vao->VertexCount(), instances));
 }

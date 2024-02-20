@@ -140,6 +140,21 @@ private:
 	std::unique_ptr<IndexBuffer> m_IBO;
 };
 
+class UniformBuffer
+{
+public:
+	UniformBuffer(const void* data, uint64_t size);
+	~UniformBuffer();
+
+	void Bind() const;
+	void Unbind() const;
+	void BindBufferRange(uint32_t bufferIndex, uint32_t offset, uint32_t size);
+	void SetData(const void* data, uint32_t size, uint32_t offset = 0) const;
+
+private:
+	uint32_t m_ID = 0;
+};
+
 class Shader
 {
 public:

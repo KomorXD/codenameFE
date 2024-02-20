@@ -181,6 +181,43 @@ void VertexArray::Unbind() const
 	GLCall(glBindVertexArray(0));
 }
 
+UniformBuffer::UniformBuffer(const void* data, uint64_t size)
+{
+	GLCall(glGenBuffers(1, &m_ID));
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, m_ID));
+	GLCall(glBufferData(GL_UNIFORM_BUFFER, size, data, GL_STATIC_DRAW));
+}
+
+UniformBuffer::~UniformBuffer()
+{
+	if (m_ID != 0)
+	{
+		Unbind();
+		GLCall(glDeleteBuffers(1, &m_ID));
+	}
+}
+
+void UniformBuffer::Bind() const
+{
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, m_ID));
+}
+
+void UniformBuffer::Unbind() const
+{
+	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, 0));
+}
+
+void UniformBuffer::BindBufferRange(uint32_t bufferIndex, uint32_t offset, uint32_t size)
+{
+	GLCall(glBindBufferRange(GL_UNIFORM_BUFFER, bufferIndex, m_ID, (GLintptr)offset, size));
+}
+
+void UniformBuffer::SetData(const void* data, uint32_t size, uint32_t offset) const
+{
+	Bind();
+	GLCall(glBufferSubData(GL_UNIFORM_BUFFER, (GLintptr)offset, size, data));
+}
+
 Shader::Shader(const std::string& vs, const std::string& fs)
 	: m_VertexShaderPath(vs), m_FragmentShaderPath(fs), m_ID(0)
 {
