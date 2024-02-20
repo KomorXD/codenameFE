@@ -28,7 +28,7 @@ void Camera::OnEvent(Event& ev)
 
 	if (ev.Type == Event::MouseWheelScrolled)
 	{
-		m_Position += GetForwardDirection() * ev.MouseWheel.OffsetY;
+		Position += GetForwardDirection() * ev.MouseWheel.OffsetY;
 
 		return;
 	}
@@ -83,8 +83,8 @@ void Camera::OnUpdate(float ts)
 		{
 			Input::DisableCursor();
 
-			m_Position -= GetRightDirection() * delta.x * 0.02f;
-			m_Position -= GetUpDirection() * delta.y * 0.02f;
+			Position -= GetRightDirection() * delta.x * 0.02f;
+			Position -= GetUpDirection() * delta.y * 0.02f;
 
 			return;
 		}
@@ -125,7 +125,7 @@ void Camera::OnUpdate(float ts)
 
 		if (glm::length(moveVec) != 0.0f)
 		{
-			m_Position += glm::normalize(moveVec) * 15.0f * ts;
+			Position += glm::normalize(moveVec) * 15.0f * ts;
 		}
 
 		m_Yaw += delta.x * 0.1f;
@@ -138,7 +138,7 @@ void Camera::OnUpdate(float ts)
 
 void Camera::LookAt(const glm::vec3& point)
 {
-	glm::vec3 direction = glm::normalize(point - m_Position);
+	glm::vec3 direction = glm::normalize(point - Position);
 
 	m_Yaw = glm::degrees(std::atan2f(direction.x, direction.z));
 	m_Pitch = glm::degrees(std::asinf(-direction.y));
@@ -172,6 +172,6 @@ void Camera::UpdateProjection()
 
 void Camera::UpdateView()
 {
-	m_View = glm::translate(glm::mat4(1.0f), m_Position) * glm::toMat4(GetOrientation());
+	m_View = glm::translate(glm::mat4(1.0f), Position) * glm::toMat4(GetOrientation());
 	m_View = glm::inverse(m_View);
 }
