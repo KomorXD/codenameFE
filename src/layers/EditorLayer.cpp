@@ -78,10 +78,10 @@ void EditorLayer::OnRender()
 		.Color = s_LightCol,
 		.LinearTerm = s_Linear,
 		.QuadraticTerm = s_Quadratic
-		});
+	});
 	
 	Renderer::DrawCube(s_LightPos, glm::vec3(0.1f), glm::vec4(s_LightCol, 1.0f));
-	Renderer::DrawCube(glm::vec3(0.0f), { 20.0f, 0.2f, 20.0f }, { 1.0f, 1.0f, 0.0f, 1.0f });
+	Renderer::DrawCube(glm::vec3(0.0f), { 15.0f, 0.2f, 15.0f }, { 1.0f, 1.0f, 0.0f, 1.0f });
 
 	Renderer::DrawQuad({ 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
 
