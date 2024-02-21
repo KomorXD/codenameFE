@@ -80,9 +80,10 @@ struct RendererData
 	uint32_t	  CubeInstanceCount = 0;
 	CubeInstance* CubeBufferBase	= nullptr;
 	CubeInstance* CubeBufferPtr	    = nullptr;
-
+	
 	uint32_t DirLightsCount   = 0;
 	uint32_t PointLightsCount = 0;
+	uint32_t SpotLightsCount  = 0;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
 };
@@ -277,6 +278,7 @@ void Renderer::Flush()
 		s_Data.CubeShader->Bind();
 		s_Data.CubeShader->SetUniform1i("u_DirLightsCount", s_Data.DirLightsCount);
 		s_Data.CubeShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
+		s_Data.CubeShader->SetUniform1i("u_SpotLightsCount", s_Data.SpotLightsCount);
 
 		DrawArraysInstanced(s_Data.CubeShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
@@ -391,6 +393,21 @@ void Renderer::AddPointLight(const PointLight& light)
 	s_Data.PointLightsCount++;
 }
 
+void Renderer::AddSpotLight(const SpotLight& light)
+{
+	s_Data.CubeShader->Bind();
+	s_Data.CubeShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   light.Position);
+	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		   glm::cos(glm::radians(light.CutOff)));
+	s_Data.CubeShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	   light.Direction);
+	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].outerCutOff",   glm::cos(glm::radians(light.OuterCutOff)));
+	s_Data.CubeShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		   light.Color);
+	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	   light.LinearTerm);
+	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
+	s_Data.CubeShader->Unbind();
+
+	s_Data.SpotLightsCount++;
+}
+
 void Renderer::StartBatch()
 {
 	s_Data.QuadIndexCount = 0;
@@ -404,6 +421,7 @@ void Renderer::StartBatch()
 
 	s_Data.DirLightsCount = 0;
 	s_Data.PointLightsCount = 0;
+	s_Data.SpotLightsCount = 0;
 }
 
 void Renderer::NextBatch()

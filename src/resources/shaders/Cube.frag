@@ -14,6 +14,20 @@ struct PointLight
 	float quadraticTerm;
 };
 
+struct SpotLight
+{
+	vec3 position;
+	float cutOff;
+
+	vec3 direction;
+	float outerCutOff;
+
+	vec3 color;
+	float linearTerm;
+	
+	float quadraticTerm;
+};
+
 in VS_OUT
 {
 	vec3 worldPos;
@@ -23,10 +37,15 @@ in VS_OUT
 
 uniform vec3 u_ViewPos = vec3(0.0);
 uniform float u_AmbientStrength = 0.1;
+
 uniform DirectionalLight u_DirLights[4];
 uniform int u_DirLightsCount = 0;
+
 uniform PointLight u_PointLights[8];
 uniform int u_PointLightsCount = 0;
+
+uniform SpotLight u_SpotLights[8];
+uniform int u_SpotLightsCount;
 
 out vec4 fragColor;
 
@@ -53,6 +72,28 @@ void main()
 
 		totalDiffuse += max(dot(fs_in.normal, lightDir), 0.0) * pointLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir));
 		totalSpecular += pow(max(dot(fs_in.normal, halfway), 0.0), 32.0) * pointLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir));
+	}
+
+	for(int i = 0; i < u_SpotLightsCount; i++)
+	{
+		SpotLight spotLight = u_SpotLights[i];
+
+		vec3 lightDir = normalize(spotLight.position - fs_in.worldPos);
+		float theta = dot(lightDir, normalize(-spotLight.direction));
+		float epsilon = abs(spotLight.cutOff - spotLight.outerCutOff) + 0.0001;
+		float intensity = clamp((theta - spotLight.outerCutOff) / epsilon, 0.0, 1.0);
+
+		if(theta > spotLight.cutOff)
+		{
+			float fragToLightDist = length(spotLight.position - fs_in.worldPos);
+			float attenuation = 1.0 / (1.0 + spotLight.linearTerm * fragToLightDist + spotLight.quadraticTerm * fragToLightDist * fragToLightDist);
+		
+			vec3 viewDir = normalize(u_ViewPos - fs_in.worldPos);
+			vec3 halfway = normalize(lightDir + viewDir);
+
+			totalDiffuse += max(dot(fs_in.normal, lightDir), 0.0) * spotLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir)) * intensity;
+			totalSpecular += pow(max(dot(fs_in.normal, halfway), 0.0), 32.0) * spotLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir)) * intensity;
+		}
 	}
 
 	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * fs_in.color.rgb;

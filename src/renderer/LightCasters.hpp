@@ -15,3 +15,20 @@ struct PointLight
 	float LinearTerm    = 0.09f;
 	float QuadraticTerm = 0.032f;
 };
+
+struct SpotLight
+{
+	// In shaders, that'll be a vec4
+	glm::vec3 Position = glm::vec3(0.0f);
+	float CutOff = 12.5f;
+
+	// In shaders, that'll be a vec4
+	glm::vec3 Direction = { 0.0f, -1.0f, 0.0f };
+	float OuterCutOff = 17.5f;
+
+	// In shaders, that'll be a vec4
+	glm::vec3 Color = glm::vec3(1.0f);
+	float LinearTerm = 0.09f;
+
+	float QuadraticTerm = 0.032f;
+};

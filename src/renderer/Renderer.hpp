@@ -45,6 +45,7 @@ public:
 
 	static void AddDirectionalLight(const DirectionalLight& light);
 	static void AddPointLight(const PointLight& light);
+	static void AddSpotLight(const SpotLight& light);
 
 private:
 	static void StartBatch();
