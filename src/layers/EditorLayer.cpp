@@ -62,10 +62,13 @@ void EditorLayer::OnTick()
 {
 }
 
-static glm::vec3 s_LightPos = glm::vec3(0.0f);
+static glm::vec3 s_LightPos = glm::vec3(0.0f, 5.0f, 0.0f);
 static glm::vec3 s_LightCol = glm::vec3(1.0f);
+static glm::vec3 s_Dir = glm::vec3(0.0f, -1.0f, 0.0f);
 static float s_Linear    = 0.022f;
 static float s_Quadratic = 0.0019f;
+static float s_CutOff = 12.5f;
+static float s_OuterCutOff = 17.5f;
 
 void EditorLayer::OnRender()
 {
@@ -73,8 +76,17 @@ void EditorLayer::OnRender()
 	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
 
 	Renderer::SceneBegin(m_EditorCamera);
-	Renderer::AddPointLight({
+	/*Renderer::AddPointLight({
 		.Position = s_LightPos,
+		.Color = s_LightCol,
+		.LinearTerm = s_Linear,
+		.QuadraticTerm = s_Quadratic
+	});*/
+	Renderer::AddSpotLight({
+		.Position = s_LightPos,
+		.CutOff = s_CutOff,
+		.Direction = s_Dir,
+		.OuterCutOff = s_OuterCutOff,
 		.Color = s_LightCol,
 		.LinearTerm = s_Linear,
 		.QuadraticTerm = s_Quadratic
@@ -113,8 +125,11 @@ void EditorLayer::OnRender()
 	{
 		ImGui::DragFloat3("Light position", glm::value_ptr(s_LightPos), 0.05f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat3("Color", glm::value_ptr(s_LightCol), 0.01f, 0.0f, 1.0f);
+		ImGui::DragFloat3("Direction", glm::value_ptr(s_Dir), 0.01f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Linear term", &s_Linear, 0.001f, 0.0f, 1.0f);
 		ImGui::DragFloat("Quadratic term", &s_Quadratic, 0.001f, 0.0f, 2.0f);
+		ImGui::DragFloat("Cut off", &s_CutOff, 0.1f, 0.0f, 100.0f);
+		ImGui::DragFloat("Outer cut off", &s_OuterCutOff, 0.1f, 0.0f, 100.0f);
 	}
 	ImGui::End();
 }
