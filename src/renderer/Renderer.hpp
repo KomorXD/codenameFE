@@ -36,6 +36,7 @@ public:
 	static void Clear();
 
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
+	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
 	static void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color);
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture);

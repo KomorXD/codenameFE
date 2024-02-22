@@ -35,6 +35,8 @@ struct QuadVertex
 {
 	glm::vec3 Position;
 	glm::vec4 Color;
+	glm::vec2 TextureUV;
+	float	  TextureSlot;
 };
 
 struct LineVertex
@@ -73,6 +75,7 @@ struct RendererData
 	QuadVertex* QuadBufferBase = nullptr;
 	QuadVertex* QuadBufferPtr  = nullptr;
 	std::array<glm::vec4, 4> QuadVertices;
+	std::array<glm::vec2, 4> QuadUVs;
 
 	uint32_t	LineVertexCount = 0;
 	LineVertex* LineBufferBase  = nullptr;
@@ -125,14 +128,13 @@ void Renderer::Init()
 		s_Data.QuadVertexBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxVertices * sizeof(QuadVertex));
 
 		VertexBufferLayout layout;
-
-		layout.Push<float>(3); // Position
-		layout.Push<float>(4); // Color
+		layout.Push<float>(3); // 0 Position
+		layout.Push<float>(4); // 1 Color
+		layout.Push<float>(2); // 2 Texture UV
+		layout.Push<float>(1); // 3 Texture slot
 
 		std::vector<uint32_t> quadIndices(s_Data.MaxIndices);
-
 		uint32_t offset = 0;
-
 		for (uint32_t i = 0; i < s_Data.MaxIndices; i += 6)
 		{
 			quadIndices[i + 0] = offset + 0;
@@ -150,11 +152,21 @@ void Renderer::Init()
 		s_Data.QuadVertexArray->AddBuffers(s_Data.QuadVertexBuffer, ibo, layout);
 		s_Data.QuadBufferBase = new QuadVertex[s_Data.MaxVertices];
 		s_Data.QuadShader = std::make_shared<Shader>("resources/shaders/Quad.vert", "resources/shaders/Quad.frag");
+		s_Data.QuadShader->Bind();
+		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
+		{
+			s_Data.QuadShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
+		}
 
 		s_Data.QuadVertices[0] = { -0.5f, -0.5f, 0.0f, 1.0f };
 		s_Data.QuadVertices[1] = {  0.5f, -0.5f, 0.0f, 1.0f };
 		s_Data.QuadVertices[2] = {  0.5f,  0.5f, 0.0f, 1.0f };
 		s_Data.QuadVertices[3] = { -0.5f,  0.5f, 0.0f, 1.0f };
+
+		s_Data.QuadUVs[0] = { 0.0f, 0.0f };
+		s_Data.QuadUVs[1] = { 1.0f, 0.0f };
+		s_Data.QuadUVs[2] = { 1.0f, 1.0f };
+		s_Data.QuadUVs[3] = { 0.0f, 1.0f };
 	}
 	
 	{
@@ -164,20 +176,18 @@ void Renderer::Init()
 		s_Data.LineVertexBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxVertices * sizeof(LineVertex));
 
 		VertexBufferLayout layout;
-
 		layout.Push<float>(3); // Position
 		layout.Push<float>(4); // Color
 
 		s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer, layout);
 		s_Data.LineBufferBase = new LineVertex[s_Data.MaxVertices];
-		s_Data.LineShader = std::make_shared<Shader>("resources/shaders/Quad.vert", "resources/shaders/Quad.frag");
+		s_Data.LineShader = std::make_shared<Shader>("resources/shaders/Line.vert", "resources/shaders/Line.frag");
 	}
 
 	{
 		SCOPE_PROFILE("Cube data init");
 
 		std::vector<CubeVertex> cubeVertices = CubeVertexData();
-
 		s_Data.CubeVertexArray = std::make_shared<VertexArray>();
 		s_Data.CubeVertexBuffer = std::make_shared<VertexBuffer>(cubeVertices.data(), cubeVertices.size() * sizeof(CubeVertex), cubeVertices.size());
 
@@ -193,14 +203,13 @@ void Renderer::Init()
 		layout.Push<float>(4); // 5 Transform
 		layout.Push<float>(4); // 6 Transform
 		layout.Push<float>(4); // 7 Color
-		layout.Push<float>(1); // 8 Texture ID
+		layout.Push<float>(1); // 8 Texture slot
 		s_Data.CubeInstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxVertices * sizeof(CubeInstance));
 		s_Data.CubeVertexArray->AddInstancedVertexBuffer(s_Data.CubeInstanceBuffer, layout, 3);
 
 		s_Data.CubeBufferBase = new CubeInstance[255];
 		s_Data.CubeShader = std::make_shared<Shader>("resources/shaders/Cube.vert", "resources/shaders/Cube.frag");
 		s_Data.CubeShader->Bind();
-		
 		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
 		{
 			s_Data.CubeShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
@@ -258,6 +267,12 @@ void Renderer::SceneEnd()
 
 void Renderer::Flush()
 {
+	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	{
+		GLCall(glActiveTexture(GL_TEXTURE0 + i));
+		GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
+	}
+
 	if (s_Data.QuadIndexCount)
 	{
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.QuadBufferPtr - (uint8_t*)s_Data.QuadBufferBase);
@@ -288,12 +303,6 @@ void Renderer::Flush()
 		s_Data.CubeShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
 		s_Data.CubeShader->SetUniform1i("u_SpotLightsCount", s_Data.SpotLightsCount);
 
-		for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-		{
-			GLCall(glActiveTexture(GL_TEXTURE0 + i));
-			GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
-		}
-
 		DrawArraysInstanced(s_Data.CubeShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
 }
@@ -316,12 +325,58 @@ void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const 
 	}
 
 	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
-
 	for (size_t i = 0; i < s_Data.QuadVertices.size(); ++i)
 	{
 		s_Data.QuadBufferPtr->Position = transform * s_Data.QuadVertices[i];
 		s_Data.QuadBufferPtr->Color = color;
+		s_Data.QuadBufferPtr->TextureUV = s_Data.QuadUVs[i];
+		s_Data.QuadBufferPtr->TextureSlot = -1.0f;
 					   
+		++s_Data.QuadBufferPtr;
+	}
+
+	s_Data.QuadIndexCount += 6;
+}
+
+void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture)
+{
+	if (s_Data.QuadIndexCount + 6 > s_Data.MaxIndices || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
+	{
+		NextBatch();
+	}
+
+	bool duplicateFound = false;
+	int32_t duplicateIdx = -1;
+	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	{
+		if (s_Data.TextureBindings[i] == texture.GetID())
+		{
+			duplicateFound = true;
+			duplicateIdx = i;
+			break;
+		}
+	}
+
+	float slot = -1.0f;
+	if (duplicateFound)
+	{
+		slot = (float)duplicateIdx;
+	}
+	else
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = texture.GetID();
+		slot = (float)s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
+	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
+	for (size_t i = 0; i < s_Data.QuadVertices.size(); ++i)
+	{
+		s_Data.QuadBufferPtr->Position = transform * s_Data.QuadVertices[i];
+		s_Data.QuadBufferPtr->Color = glm::vec4(1.0f);
+		s_Data.QuadBufferPtr->TextureUV = s_Data.QuadUVs[i];
+		s_Data.QuadBufferPtr->TextureSlot = slot;
+
 		++s_Data.QuadBufferPtr;
 	}
 
