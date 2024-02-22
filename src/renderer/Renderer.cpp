@@ -35,6 +35,7 @@ struct QuadVertex
 {
 	glm::vec3 Position;
 	glm::vec4 Color;
+	glm::vec2 TextureUV;
 };
 
 struct LineVertex
@@ -47,6 +48,7 @@ struct CubeInstance
 {
 	glm::mat4 Transform;
 	glm::vec4 Color;
+	int32_t TextureSlot;
 };
 
 struct RendererData
@@ -86,6 +88,9 @@ struct RendererData
 	uint32_t SpotLightsCount  = 0;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
+
+	uint32_t BoundTexturesCount = 0;
+	std::array<int32_t, 24> TextureBindings;
 };
 
 static RendererData s_Data{};
@@ -183,14 +188,16 @@ void Renderer::Init()
 		VertexBufferLayout layout;
 		layout.Push<float>(3); // 0 Position
 		layout.Push<float>(3); // 1 Normal
+		layout.Push<float>(3); // 2 Texture UV
 		s_Data.CubeVertexArray->AddVertexBuffer(s_Data.CubeVertexBuffer, layout);
 
 		layout.Clear();
-		layout.Push<float>(4); // 2 Transform
 		layout.Push<float>(4); // 3 Transform
 		layout.Push<float>(4); // 4 Transform
 		layout.Push<float>(4); // 5 Transform
-		layout.Push<float>(4); // 6 Color
+		layout.Push<float>(4); // 6 Transform
+		layout.Push<float>(4); // 7 Color
+		layout.Push<uint32_t>(1); // 8 Texture ID
 		s_Data.CubeInstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxVertices * sizeof(CubeInstance));
 		s_Data.CubeVertexArray->AddInstancedVertexBuffer(s_Data.CubeInstanceBuffer, layout, 2);
 
@@ -280,6 +287,11 @@ void Renderer::Flush()
 		s_Data.CubeShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
 		s_Data.CubeShader->SetUniform1i("u_SpotLightsCount", s_Data.SpotLightsCount);
 
+		for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+		{
+			s_Data.CubeShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", s_Data.TextureBindings[i]);
+		}
+
 		DrawArraysInstanced(s_Data.CubeShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
 }
@@ -341,9 +353,31 @@ void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const 
 
 	s_Data.CubeBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
 	s_Data.CubeBufferPtr->Color = color;
+	s_Data.CubeBufferPtr->TextureSlot = -1;
 
 	++s_Data.CubeBufferPtr;
 	++s_Data.CubeInstanceCount;
+}
+
+void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture)
+{
+	if (s_Data.CubeInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
+	{
+		NextBatch();
+	}
+
+	s_Data.TextureBindings[s_Data.BoundTexturesCount] = texture.GetID();
+
+	s_Data.CubeShader->Bind();
+	s_Data.CubeShader->SetUniform1i("u_Textures[" + std::to_string(s_Data.BoundTexturesCount) + "]", texture.GetID());
+
+	s_Data.CubeBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
+	s_Data.CubeBufferPtr->Color = glm::vec4(1.0f);
+	s_Data.CubeBufferPtr->TextureSlot = s_Data.BoundTexturesCount;
+
+	++s_Data.CubeBufferPtr;
+	++s_Data.CubeInstanceCount;
+	++s_Data.BoundTexturesCount;
 }
 
 void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t primitiveType)
@@ -422,6 +456,8 @@ void Renderer::StartBatch()
 	s_Data.DirLightsCount = 0;
 	s_Data.PointLightsCount = 0;
 	s_Data.SpotLightsCount = 0;
+
+	s_Data.BoundTexturesCount = 0;
 }
 
 void Renderer::NextBatch()

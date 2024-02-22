@@ -1,9 +1,9 @@
 #pragma once
 
-#include <glm/glm.hpp>
 #include <memory>
 #include <string>
 
+#include "OpenGL.hpp"
 #include "LightCasters.hpp"
 
 class Shader;
@@ -38,6 +38,7 @@ public:
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
 	static void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color);
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
+	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
 
 	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t primitiveType);
 	static void DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType);
