@@ -155,8 +155,6 @@ void Renderer::Init()
 		s_Data.QuadVertices[1] = {  0.5f, -0.5f, 0.0f, 1.0f };
 		s_Data.QuadVertices[2] = {  0.5f,  0.5f, 0.0f, 1.0f };
 		s_Data.QuadVertices[3] = { -0.5f,  0.5f, 0.0f, 1.0f };
-
-		s_Data.QuadVertexArray->Unbind();
 	}
 	
 	{
@@ -173,7 +171,6 @@ void Renderer::Init()
 		s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer, layout);
 		s_Data.LineBufferBase = new LineVertex[s_Data.MaxVertices];
 		s_Data.LineShader = std::make_shared<Shader>("resources/shaders/Quad.vert", "resources/shaders/Quad.frag");
-		s_Data.LineVertexArray->Unbind();
 	}
 
 	{
@@ -208,8 +205,6 @@ void Renderer::Init()
 		{
 			s_Data.CubeShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
 		}
-		
-		s_Data.CubeVertexArray->Unbind();
 	}
 
 	{
@@ -433,7 +428,6 @@ void Renderer::AddDirectionalLight(const DirectionalLight& light)
 	s_Data.CubeShader->Bind();
 	s_Data.CubeShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", light.Direction);
 	s_Data.CubeShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",		light.Color);
-	s_Data.CubeShader->Unbind();
 
 	s_Data.DirLightsCount++;
 }
@@ -445,7 +439,6 @@ void Renderer::AddPointLight(const PointLight& light)
 	s_Data.CubeShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].color",			light.Color);
 	s_Data.CubeShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	light.LinearTerm);
 	s_Data.CubeShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
-	s_Data.CubeShader->Unbind();
 
 	s_Data.PointLightsCount++;
 }
@@ -460,7 +453,6 @@ void Renderer::AddSpotLight(const SpotLight& light)
 	s_Data.CubeShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		   light.Color);
 	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	   light.LinearTerm);
 	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
-	s_Data.CubeShader->Unbind();
 
 	s_Data.SpotLightsCount++;
 }
