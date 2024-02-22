@@ -7,6 +7,10 @@
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
+static std::unique_ptr<Texture> s_PlankTexture;
+static std::unique_ptr<Texture> s_GrassTexture;
+static std::unique_ptr<Texture> s_SandTexture;
+
 EditorLayer::EditorLayer()
 	: m_EditorCamera(90.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
 {
@@ -20,6 +24,10 @@ EditorLayer::EditorLayer()
 
 	m_EditorCamera.OnEvent(dummyEv);
 	m_EditorCamera.Position = { 0.0f, 10.0f, 20.0f };
+
+	s_PlankTexture = std::make_unique<Texture>("resources/textures/plank.png");
+	s_GrassTexture = std::make_unique<Texture>("resources/textures/grass.jpg");
+	s_SandTexture = std::make_unique<Texture>("resources/textures/sand.png");
 }
 
 void EditorLayer::OnAttach()
@@ -82,18 +90,15 @@ void EditorLayer::OnRender()
 		.LinearTerm = s_Linear,
 		.QuadraticTerm = s_Quadratic
 	});*/
-	Renderer::AddSpotLight({
+	Renderer::AddPointLight({
 		.Position = s_LightPos,
-		.CutOff = s_CutOff,
-		.Direction = s_Dir,
-		.OuterCutOff = s_OuterCutOff,
 		.Color = s_LightCol,
 		.LinearTerm = s_Linear,
 		.QuadraticTerm = s_Quadratic
 	});
 	
-	Renderer::DrawCube(s_LightPos, glm::vec3(0.1f), glm::vec4(s_LightCol, 1.0f));
-	Renderer::DrawCube(glm::vec3(0.0f), { 15.0f, 0.2f, 15.0f }, { 1.0f, 1.0f, 0.0f, 1.0f });
+	Renderer::DrawCube(s_LightPos, glm::vec3(1.0f), glm::vec4(s_LightCol, 1.0f));
+	Renderer::DrawCube(glm::vec3(0.0f), { 15.0f, 0.2f, 15.0f }, *s_GrassTexture);
 
 	Renderer::DrawQuad({ 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
 
@@ -105,10 +110,21 @@ void EditorLayer::OnRender()
 	constexpr float radius = 10.0f;
 	constexpr uint32_t count = 20;
 	constexpr float step = 2.0f * glm::pi<float>() / count;
+	bool textured = false;
 	for (uint32_t i = 0; i < count; i++)
 	{
 		glm::vec3 pos = { glm::cos(i * step) * radius, 5.0f, glm::sin(i * step) * radius };
-		Renderer::DrawCube(pos, { 1.0f, 1.0f, 1.0f }, glm::vec4(glm::normalize(pos), 1.0f));
+
+		if (textured)
+		{
+			Renderer::DrawCube(pos, { 1.0f, 1.0f, 1.0f }, *s_PlankTexture);
+		}
+		else
+		{
+			Renderer::DrawCube(pos, { 1.0f, 1.0f, 1.0f }, *s_SandTexture);
+		}
+
+		textured = !textured;
 	}
 
 	Renderer::SceneEnd();
