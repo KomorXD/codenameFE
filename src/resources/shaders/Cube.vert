@@ -5,7 +5,7 @@ layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec2 a_TextureUV;
 layout(location = 3) in mat4 a_Transform;
 layout(location = 7) in vec4 a_Color;
-layout(location = 8) in int  a_TextureSlot;
+layout(location = 8) in float a_TextureSlot;
 
 layout (std140, binding = 0) uniform Matrices
 {
@@ -19,7 +19,7 @@ out VS_OUT
 	vec3 normal;
 	vec4 color;
 	vec2 textureUV;
-	int  textureSlot;
+	flat float textureSlot;
 } vs_out;
 
 void main()
