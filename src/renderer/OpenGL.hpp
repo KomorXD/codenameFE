@@ -255,3 +255,26 @@ private:
 	uint32_t m_TextureID = 0;
 	uint32_t m_RenderbufferID = 0;
 };
+
+class Texture
+{
+public:
+	Texture(const std::string& path);
+	~Texture();
+
+	void Bind(uint32_t slot = 0) const;
+	void Unbind() const;
+
+	inline int32_t GetWidth() const { return m_Width; }
+	inline int32_t GetHeight() const { return m_Height; }
+	inline uint32_t GetID() const { return m_ID; }
+	inline std::string GetPath() { return m_Path; }
+
+private:
+	uint32_t m_ID	  = 0;
+	int32_t	 m_Width  = 0;
+	int32_t	 m_Height = 0;
+	int32_t	 m_BPP	  = 0;
+	
+	std::string	m_Path;
+};

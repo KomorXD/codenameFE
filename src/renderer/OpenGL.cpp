@@ -2,6 +2,7 @@
 #include "../Logger.hpp"
 
 #include <fstream>
+#include "stb/stb_image.h"
 
 void GLClearErrors()
 {
@@ -748,4 +749,47 @@ bool MultisampledFramebuffer::IsComplete() const
 	GLCall(bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
 	return complete;
+}
+
+Texture::Texture(const std::string& path)
+	: m_ID(0), m_Width(0), m_Height(0), m_BPP(0), m_Path(path)
+{
+	stbi_set_flip_vertically_on_load(0);
+	uint8_t* buffer = stbi_load(path.c_str(), &m_Width, &m_Height, &m_BPP, 4);
+
+	GLCall(glGenTextures(1, &m_ID));
+	GLCall(glBindTexture(GL_TEXTURE_2D, m_ID));
+
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_Width, m_Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer));
+	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+
+	if (buffer)
+	{
+		stbi_image_free(buffer);
+	}
+}
+
+Texture::~Texture()
+{
+	if (m_ID != 0)
+	{
+		GLCall(glDeleteTextures(1, &m_ID));
+	}
+}
+
+void Texture::Bind(uint32_t slot) const
+{
+	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
+	GLCall(glBindTexture(GL_TEXTURE_2D, m_ID));
+}
+
+void Texture::Unbind() const
+{
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
 }
