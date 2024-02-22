@@ -33,6 +33,8 @@ in VS_OUT
 	vec3 worldPos;
 	vec3 normal;
 	vec4 color;
+	vec2 textureUV;
+	int  textureSlot;
 } fs_in;
 
 uniform vec3 u_ViewPos = vec3(0.0);
@@ -46,6 +48,8 @@ uniform int u_PointLightsCount = 0;
 
 uniform SpotLight u_SpotLights[8];
 uniform int u_SpotLightsCount;
+
+uniform sampler2D u_Textures[24];
 
 out vec4 fragColor;
 
@@ -96,7 +100,8 @@ void main()
 		}
 	}
 
-	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * fs_in.color.rgb;
+	vec4 color = fs_in.textureSlot == -1 ? fs_in.color : texture(u_Textures[fs_in.textureSlot], fs_in.textureUV);
+	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * color.rgb;
 	fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
-	fragColor.a = fs_in.color.a;
+	fragColor.a = color.a;
 }
