@@ -35,15 +35,16 @@ public:
 	static void ClearColor(const glm::vec4& color);
 	static void Clear();
 
+	static void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color);
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
-	static void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color);
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
 
-	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t primitiveType);
-	static void DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType);
-	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances);
+	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType = GL_TRIANGLES);
+	static void DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
+	static void DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType = GL_TRIANGLES);
+	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 
 	static void AddDirectionalLight(const DirectionalLight& light);
 	static void AddPointLight(const PointLight& light);

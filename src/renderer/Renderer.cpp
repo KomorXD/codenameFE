@@ -31,18 +31,17 @@ glm::mat4 Renderer::s_ViewProjection = glm::mat4(1.0f);
 glm::mat4 Renderer::s_Projection = glm::mat4(1.0f);
 glm::mat4 Renderer::s_View = glm::mat4(1.0f);
 
-struct QuadVertex
-{
-	glm::vec3 Position;
-	glm::vec4 Color;
-	glm::vec2 TextureUV;
-	float	  TextureSlot;
-};
-
 struct LineVertex
 {
 	glm::vec3 Position;
 	glm::vec4 Color;
+};
+
+struct QuadInstance
+{
+	glm::mat4 Transform;
+	glm::vec4 Color;
+	float	  TextureSlot;
 };
 
 struct CubeInstance
@@ -54,33 +53,28 @@ struct CubeInstance
 
 struct RendererData
 {
-	static constexpr uint32_t MaxQuads = 5000;
-	static constexpr uint32_t MaxVertices = MaxQuads * 4;
-	static constexpr uint32_t MaxIndices = MaxQuads * 6;
-
-	std::shared_ptr<VertexArray>  QuadVertexArray;
-	std::shared_ptr<VertexBuffer> QuadVertexBuffer;
-	std::shared_ptr<Shader>		  QuadShader;
+	static constexpr uint32_t MaxQuads	   = 5000;
+	static constexpr uint32_t MaxVertices  = MaxQuads * 4;
+	static constexpr uint32_t MaxIndices   = MaxQuads * 6;
+	static constexpr uint32_t MaxInstances = MaxQuads / 4;
 
 	std::shared_ptr<VertexArray>  LineVertexArray;
 	std::shared_ptr<VertexBuffer> LineVertexBuffer;
 	std::shared_ptr<Shader>		  LineShader;
-
-	std::shared_ptr<VertexArray>  CubeVertexArray;
-	std::shared_ptr<VertexBuffer> CubeVertexBuffer;
-	std::shared_ptr<VertexBuffer> CubeInstanceBuffer;
-	std::shared_ptr<Shader>		  CubeShader;
-
-	uint32_t	QuadIndexCount = 0;
-	QuadVertex* QuadBufferBase = nullptr;
-	QuadVertex* QuadBufferPtr  = nullptr;
-	std::array<glm::vec4, 4> QuadVertices;
-	std::array<glm::vec2, 4> QuadUVs;
-
 	uint32_t	LineVertexCount = 0;
 	LineVertex* LineBufferBase  = nullptr;
 	LineVertex* LineBufferPtr   = nullptr;
 
+	std::shared_ptr<VertexArray>  QuadVertexArray;
+	std::shared_ptr<VertexBuffer> QuadVertexBuffer;
+	std::shared_ptr<VertexBuffer> QuadInstanceBuffer;
+	uint32_t	  QuadInstanceCount = 0;
+	QuadInstance* QuadBufferBase    = nullptr;
+	QuadInstance* QuadBufferPtr     = nullptr;
+
+	std::shared_ptr<VertexArray>  CubeVertexArray;
+	std::shared_ptr<VertexBuffer> CubeVertexBuffer;
+	std::shared_ptr<VertexBuffer> CubeInstanceBuffer;
 	uint32_t	  CubeInstanceCount = 0;
 	CubeInstance* CubeBufferBase	= nullptr;
 	CubeInstance* CubeBufferPtr	    = nullptr;
@@ -88,6 +82,8 @@ struct RendererData
 	uint32_t DirLightsCount   = 0;
 	uint32_t PointLightsCount = 0;
 	uint32_t SpotLightsCount  = 0;
+
+	std::shared_ptr<Shader>	DefaultShader;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
 
@@ -122,54 +118,6 @@ void Renderer::Init()
 	GLCall(glEnable(GL_MULTISAMPLE));
 
 	{
-		SCOPE_PROFILE("Quad data init");
-
-		s_Data.QuadVertexArray = std::make_shared<VertexArray>();
-		s_Data.QuadVertexBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxVertices * sizeof(QuadVertex));
-
-		VertexBufferLayout layout;
-		layout.Push<float>(3); // 0 Position
-		layout.Push<float>(4); // 1 Color
-		layout.Push<float>(2); // 2 Texture UV
-		layout.Push<float>(1); // 3 Texture slot
-
-		std::vector<uint32_t> quadIndices(s_Data.MaxIndices);
-		uint32_t offset = 0;
-		for (uint32_t i = 0; i < s_Data.MaxIndices; i += 6)
-		{
-			quadIndices[i + 0] = offset + 0;
-			quadIndices[i + 1] = offset + 1;
-			quadIndices[i + 2] = offset + 2;
-
-			quadIndices[i + 3] = offset + 2;
-			quadIndices[i + 4] = offset + 3;
-			quadIndices[i + 5] = offset + 0;
-
-			offset += 4;
-		}
-
-		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(quadIndices.data(), (uint32_t)quadIndices.size());
-		s_Data.QuadVertexArray->AddBuffers(s_Data.QuadVertexBuffer, ibo, layout);
-		s_Data.QuadBufferBase = new QuadVertex[s_Data.MaxVertices];
-		s_Data.QuadShader = std::make_shared<Shader>("resources/shaders/Quad.vert", "resources/shaders/Quad.frag");
-		s_Data.QuadShader->Bind();
-		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
-		{
-			s_Data.QuadShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
-		}
-
-		s_Data.QuadVertices[0] = { -0.5f, -0.5f, 0.0f, 1.0f };
-		s_Data.QuadVertices[1] = {  0.5f, -0.5f, 0.0f, 1.0f };
-		s_Data.QuadVertices[2] = {  0.5f,  0.5f, 0.0f, 1.0f };
-		s_Data.QuadVertices[3] = { -0.5f,  0.5f, 0.0f, 1.0f };
-
-		s_Data.QuadUVs[0] = { 0.0f, 0.0f };
-		s_Data.QuadUVs[1] = { 1.0f, 0.0f };
-		s_Data.QuadUVs[2] = { 1.0f, 1.0f };
-		s_Data.QuadUVs[3] = { 0.0f, 1.0f };
-	}
-	
-	{
 		SCOPE_PROFILE("Line data init");
 
 		s_Data.LineVertexArray = std::make_shared<VertexArray>();
@@ -185,17 +133,18 @@ void Renderer::Init()
 	}
 
 	{
-		SCOPE_PROFILE("Cube data init");
+		SCOPE_PROFILE("Quad data init");
 
-		std::vector<CubeVertex> cubeVertices = CubeVertexData();
-		s_Data.CubeVertexArray = std::make_shared<VertexArray>();
-		s_Data.CubeVertexBuffer = std::make_shared<VertexBuffer>(cubeVertices.data(), cubeVertices.size() * sizeof(CubeVertex), cubeVertices.size());
+		auto [vertices, indices] = QuadMeshData();
+		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
+		s_Data.QuadVertexArray = std::make_shared<VertexArray>();
+		s_Data.QuadVertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
 
 		VertexBufferLayout layout;
 		layout.Push<float>(3); // 0 Position
 		layout.Push<float>(3); // 1 Normal
 		layout.Push<float>(2); // 2 Texture UV
-		s_Data.CubeVertexArray->AddVertexBuffer(s_Data.CubeVertexBuffer, layout);
+		s_Data.QuadVertexArray->AddBuffers(s_Data.QuadVertexBuffer, ibo, layout);
 
 		layout.Clear();
 		layout.Push<float>(4); // 3 Transform
@@ -204,16 +153,44 @@ void Renderer::Init()
 		layout.Push<float>(4); // 6 Transform
 		layout.Push<float>(4); // 7 Color
 		layout.Push<float>(1); // 8 Texture slot
-		s_Data.CubeInstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxVertices * sizeof(CubeInstance));
+		s_Data.QuadInstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstances * sizeof(CubeInstance));
+		s_Data.QuadVertexArray->AddInstancedVertexBuffer(s_Data.QuadInstanceBuffer, layout, 3);
+
+		s_Data.QuadBufferBase = new QuadInstance[s_Data.MaxInstances];
+	}
+
+	{
+		SCOPE_PROFILE("Cube data init");
+
+		auto [vertices, indices] = CubeMeshData();
+		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
+		s_Data.CubeVertexArray = std::make_shared<VertexArray>();
+		s_Data.CubeVertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
+
+		VertexBufferLayout layout;
+		layout.Push<float>(3); // 0 Position
+		layout.Push<float>(3); // 1 Normal
+		layout.Push<float>(2); // 2 Texture UV
+		s_Data.CubeVertexArray->AddBuffers(s_Data.CubeVertexBuffer, ibo, layout);
+
+		layout.Clear();
+		layout.Push<float>(4); // 3 Transform
+		layout.Push<float>(4); // 4 Transform
+		layout.Push<float>(4); // 5 Transform
+		layout.Push<float>(4); // 6 Transform
+		layout.Push<float>(4); // 7 Color
+		layout.Push<float>(1); // 8 Texture slot
+		s_Data.CubeInstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstances * sizeof(CubeInstance));
 		s_Data.CubeVertexArray->AddInstancedVertexBuffer(s_Data.CubeInstanceBuffer, layout, 3);
 
-		s_Data.CubeBufferBase = new CubeInstance[255];
-		s_Data.CubeShader = std::make_shared<Shader>("resources/shaders/Cube.vert", "resources/shaders/Cube.frag");
-		s_Data.CubeShader->Bind();
-		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
-		{
-			s_Data.CubeShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
-		}
+		s_Data.CubeBufferBase = new CubeInstance[s_Data.MaxInstances];
+	}
+	
+	s_Data.DefaultShader = std::make_shared<Shader>("resources/shaders/Default.vert", "resources/shaders/Default.frag");
+	s_Data.DefaultShader->Bind();
+	for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
+	{
+		s_Data.DefaultShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
 	}
 
 	{
@@ -233,9 +210,8 @@ void Renderer::Shutdown()
 
 void Renderer::ReloadShaders()
 {
-	s_Data.QuadShader->ReloadShader();
 	s_Data.LineShader->ReloadShader();
-	s_Data.CubeShader->ReloadShader();
+	s_Data.DefaultShader->ReloadShader();
 }
 
 void Renderer::OnWindowResize(const Viewport& newViewport)
@@ -254,8 +230,8 @@ void Renderer::SceneBegin(Camera& camera)
 	s_Data.MatricesBuffer->SetData(glm::value_ptr(s_Projection), sizeof(glm::mat4));
 	s_Data.MatricesBuffer->SetData(glm::value_ptr(s_View), sizeof(glm::mat4), sizeof(glm::mat4));
 
-	s_Data.CubeShader->Bind();
-	s_Data.CubeShader->SetUniform3f("u_ViewPos", camera.Position);
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniform3f("u_ViewPos", camera.Position);
 
 	StartBatch();
 }
@@ -273,16 +249,6 @@ void Renderer::Flush()
 		GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
 	}
 
-	if (s_Data.QuadIndexCount)
-	{
-		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.QuadBufferPtr - (uint8_t*)s_Data.QuadBufferBase);
-		s_Data.QuadVertexBuffer->SetData(s_Data.QuadBufferBase, dataSize);
-
-		GLCall(glDisable(GL_CULL_FACE));
-		DrawIndexed(s_Data.QuadShader, s_Data.QuadVertexArray, s_Data.QuadIndexCount, GL_TRIANGLES);
-		GLCall(glEnable(GL_CULL_FACE));
-	}
-
 	if (s_Data.LineVertexCount)
 	{
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.LineBufferPtr - (uint8_t*)s_Data.LineBufferBase);
@@ -293,17 +259,30 @@ void Renderer::Flush()
 		GLCall(glEnable(GL_CULL_FACE));
 	}
 
+	if (s_Data.QuadInstanceCount)
+	{
+		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.QuadBufferPtr - (uint8_t*)s_Data.QuadBufferBase);
+		s_Data.QuadInstanceBuffer->SetData(s_Data.QuadBufferBase, dataSize);
+
+		s_Data.DefaultShader->Bind();
+		s_Data.DefaultShader->SetUniform1i("u_DirLightsCount",   s_Data.DirLightsCount);
+		s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
+		s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
+
+		DrawIndexedInstanced(s_Data.DefaultShader, s_Data.QuadVertexArray, s_Data.QuadInstanceCount);
+	}
+
 	if (s_Data.CubeInstanceCount)
 	{
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.CubeBufferPtr - (uint8_t*)s_Data.CubeBufferBase);
 		s_Data.CubeInstanceBuffer->SetData(s_Data.CubeBufferBase, dataSize);
 
-		s_Data.CubeShader->Bind();
-		s_Data.CubeShader->SetUniform1i("u_DirLightsCount", s_Data.DirLightsCount);
-		s_Data.CubeShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
-		s_Data.CubeShader->SetUniform1i("u_SpotLightsCount", s_Data.SpotLightsCount);
+		s_Data.DefaultShader->Bind();
+		s_Data.DefaultShader->SetUniform1i("u_DirLightsCount",   s_Data.DirLightsCount);
+		s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
+		s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
 
-		DrawArraysInstanced(s_Data.CubeShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
+		DrawIndexedInstanced(s_Data.DefaultShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
 }
 
@@ -315,72 +294,6 @@ void Renderer::ClearColor(const glm::vec4& color)
 void Renderer::Clear()
 {
 	GLCall(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
-}
-
-void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color)
-{
-	if (s_Data.QuadIndexCount + 6 > s_Data.MaxIndices)
-	{
-		NextBatch();
-	}
-
-	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
-	for (size_t i = 0; i < s_Data.QuadVertices.size(); ++i)
-	{
-		s_Data.QuadBufferPtr->Position = transform * s_Data.QuadVertices[i];
-		s_Data.QuadBufferPtr->Color = color;
-		s_Data.QuadBufferPtr->TextureUV = s_Data.QuadUVs[i];
-		s_Data.QuadBufferPtr->TextureSlot = -1.0f;
-					   
-		++s_Data.QuadBufferPtr;
-	}
-
-	s_Data.QuadIndexCount += 6;
-}
-
-void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture)
-{
-	if (s_Data.QuadIndexCount + 6 > s_Data.MaxIndices || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
-	{
-		NextBatch();
-	}
-
-	bool duplicateFound = false;
-	int32_t duplicateIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == texture.GetID())
-		{
-			duplicateFound = true;
-			duplicateIdx = i;
-			break;
-		}
-	}
-
-	float slot = -1.0f;
-	if (duplicateFound)
-	{
-		slot = (float)duplicateIdx;
-	}
-	else
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = texture.GetID();
-		slot = (float)s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
-	glm::mat4 transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
-	for (size_t i = 0; i < s_Data.QuadVertices.size(); ++i)
-	{
-		s_Data.QuadBufferPtr->Position = transform * s_Data.QuadVertices[i];
-		s_Data.QuadBufferPtr->Color = glm::vec4(1.0f);
-		s_Data.QuadBufferPtr->TextureUV = s_Data.QuadUVs[i];
-		s_Data.QuadBufferPtr->TextureSlot = slot;
-
-		++s_Data.QuadBufferPtr;
-	}
-
-	s_Data.QuadIndexCount += 6;
 }
 
 void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color)
@@ -401,9 +314,61 @@ void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm:
 	s_Data.LineVertexCount += 2;
 }
 
+void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color)
+{
+	if (s_Data.QuadInstanceCount >= s_Data.MaxInstances)
+	{
+		NextBatch();
+	}
+
+	s_Data.QuadBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
+	s_Data.QuadBufferPtr->Color = color;
+	s_Data.QuadBufferPtr->TextureSlot = -1.0f;
+
+	++s_Data.QuadBufferPtr;
+	++s_Data.QuadInstanceCount;
+}
+
+void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture)
+{
+	if (s_Data.QuadInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
+	{
+		NextBatch();
+	}
+
+	s_Data.QuadBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
+	s_Data.QuadBufferPtr->Color = glm::vec4(1.0f);
+
+	bool duplicateFound = false;
+	int32_t duplicateIdx = -1;
+	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	{
+		if (s_Data.TextureBindings[i] == texture.GetID())
+		{
+			duplicateFound = true;
+			duplicateIdx = i;
+			break;
+		}
+	}
+
+	if (duplicateFound)
+	{
+		s_Data.QuadBufferPtr->TextureSlot = (float)duplicateIdx;
+	}
+	else
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = texture.GetID();
+		s_Data.QuadBufferPtr->TextureSlot = (float)s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
+	++s_Data.QuadBufferPtr;
+	++s_Data.QuadInstanceCount;
+}
+
 void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color)
 {
-	if (s_Data.CubeInstanceCount >= 254)
+	if (s_Data.CubeInstanceCount >= s_Data.MaxInstances)
 	{
 		NextBatch();
 	}
@@ -453,13 +418,20 @@ void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const 
 	++s_Data.CubeInstanceCount;
 }
 
-void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t count, uint32_t primitiveType)
+void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType)
 {
-	uint32_t indices = count ? count : vao->GetIndexBuffer()->GetCount();
 	vao->Bind();
 	shader->Bind();
 
-	GLCall(glDrawElements(primitiveType, indices, GL_UNSIGNED_INT, nullptr));
+	GLCall(glDrawElements(primitiveType, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr));
+}
+
+void Renderer::DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType)
+{
+	vao->Bind();
+	shader->Bind();
+
+	GLCall(glDrawElementsInstanced(primitiveType, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr, instances));
 }
 
 void Renderer::DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType)
@@ -470,55 +442,55 @@ void Renderer::DrawArrays(const std::shared_ptr<Shader>& shader, const std::shar
 	GLCall(glDrawArrays(primitiveType, 0, vertexCount));
 }
 
-void Renderer::DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances)
+void Renderer::DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType)
 {
 	vao->Bind();
 	shader->Bind();
 
-	GLCall(glDrawArraysInstanced(GL_TRIANGLES, 0, vao->VertexCount(), instances));
+	GLCall(glDrawArraysInstanced(primitiveType, 0, vao->VertexCount(), instances));
 }
 
 void Renderer::AddDirectionalLight(const DirectionalLight& light)
 {
-	s_Data.CubeShader->Bind();
-	s_Data.CubeShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", light.Direction);
-	s_Data.CubeShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",		light.Color);
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", light.Direction);
+	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",		light.Color);
 
 	s_Data.DirLightsCount++;
 }
 
 void Renderer::AddPointLight(const PointLight& light)
 {
-	s_Data.CubeShader->Bind();
-	s_Data.CubeShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",		light.Position);
-	s_Data.CubeShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].color",			light.Color);
-	s_Data.CubeShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	light.LinearTerm);
-	s_Data.CubeShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",		light.Position);
+	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].color",			light.Color);
+	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	light.LinearTerm);
+	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
 
 	s_Data.PointLightsCount++;
 }
 
 void Renderer::AddSpotLight(const SpotLight& light)
 {
-	s_Data.CubeShader->Bind();
-	s_Data.CubeShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   light.Position);
-	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		   glm::cos(glm::radians(light.CutOff)));
-	s_Data.CubeShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	   light.Direction);
-	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].outerCutOff",   glm::cos(glm::radians(light.OuterCutOff)));
-	s_Data.CubeShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		   light.Color);
-	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	   light.LinearTerm);
-	s_Data.CubeShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   light.Position);
+	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		   glm::cos(glm::radians(light.CutOff)));
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	   light.Direction);
+	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].outerCutOff",   glm::cos(glm::radians(light.OuterCutOff)));
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		   light.Color);
+	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	   light.LinearTerm);
+	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
 
 	s_Data.SpotLightsCount++;
 }
 
 void Renderer::StartBatch()
 {
-	s_Data.QuadIndexCount = 0;
-	s_Data.QuadBufferPtr = s_Data.QuadBufferBase;
-
 	s_Data.LineVertexCount = 0;
 	s_Data.LineBufferPtr = s_Data.LineBufferBase;
+
+	s_Data.QuadInstanceCount = 0;
+	s_Data.QuadBufferPtr = s_Data.QuadBufferBase;
 
 	s_Data.CubeInstanceCount = 0;
 	s_Data.CubeBufferPtr = s_Data.CubeBufferBase;
