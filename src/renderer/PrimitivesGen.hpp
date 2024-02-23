@@ -3,11 +3,18 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-struct CubeVertex
+struct Vertex
 {
 	glm::vec3 Position;
 	glm::vec3 Normal;
 	glm::vec2 TextureUV;
 };
 
-std::vector<CubeVertex> CubeVertexData();
+struct VertexData
+{
+	std::vector<Vertex> Vertices;
+	std::vector<uint32_t> Indices;
+};
+
+VertexData QuadMeshData();
+VertexData CubeMeshData();
