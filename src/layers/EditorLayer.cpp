@@ -25,7 +25,9 @@ EditorLayer::EditorLayer()
 	m_EditorCamera.OnEvent(dummyEv);
 	m_EditorCamera.Position = { 0.0f, 10.0f, 20.0f };
 
-	s_PlankTexture = std::make_unique<Texture>("resources/textures/plank.png");
+	Renderer::OnWindowResize({ 0, 0, spec.Width, spec.Height });
+
+	s_PlankTexture = std::make_unique<Texture>("resources/textures/cbbl.png");
 	s_GrassTexture = std::make_unique<Texture>("resources/textures/grass.jpg");
 	s_SandTexture = std::make_unique<Texture>("resources/textures/sand.png");
 }
@@ -51,8 +53,7 @@ void EditorLayer::OnEvent(Event& ev)
 
 	if(ev.Type == Event::WindowResized)
 	{
-		Viewport viewport{ 0, 0, ev.Size.Width, ev.Size.Height };
-		Renderer::OnWindowResize(viewport);
+		Renderer::OnWindowResize({ 0, 0, ev.Size.Width, ev.Size.Height });
 		m_EditorCamera.OnEvent(ev);
 
 		return;
@@ -80,16 +81,17 @@ static float s_OuterCutOff = 17.5f;
 
 void EditorLayer::OnRender()
 {
+	static bool s_Blur = false;
+	
 	Renderer::Clear();
 	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
+	
+	Renderer::SetBlur(s_Blur);
+	Renderer::RenderStart();
+	Renderer::Clear();
+	Renderer::ClearColor({ 0.0f, 0.0f, 0.0f, 1.0f });
 
 	Renderer::SceneBegin(m_EditorCamera);
-	/*Renderer::AddPointLight({
-		.Position = s_LightPos,
-		.Color = s_LightCol,
-		.LinearTerm = s_Linear,
-		.QuadraticTerm = s_Quadratic
-	});*/
 	Renderer::AddPointLight({
 		.Position = s_LightPos,
 		.Color = s_LightCol,
@@ -130,8 +132,19 @@ void EditorLayer::OnRender()
 	}
 
 	Renderer::SceneEnd();
+	Renderer::RenderEnd();
+
+	ImGui::SetNextWindowPos({ 0.0f, 0.0f });
+	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width, (float)Application::Instance()->Spec().Height });
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
+	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
+	ImGui::Image((ImTextureID)Renderer::RenderTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	ImGui::End();
+	ImGui::PopStyleVar();
 
 	ImGui::Begin("Hiii!!!!!!");
+	ImGui::Checkbox("Blur", &s_Blur);
+
 	if (ImGui::CollapsingHeader("Camera"))
 	{
 		ImGui::DragFloat3("Cam position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
