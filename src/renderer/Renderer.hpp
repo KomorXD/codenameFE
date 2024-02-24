@@ -45,6 +45,7 @@ public:
 	static void DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
+	static void DrawScreenQuad();
 
 	static void AddDirectionalLight(const DirectionalLight& light);
 	static void AddPointLight(const PointLight& light);
@@ -52,9 +53,7 @@ public:
 
 	static void SetBlur(bool enabled);
 
-	static void RenderStart();
-	static void RenderEnd();
-	static uint32_t RenderTextureID();
+	static Viewport CurrentViewport();
 
 private:
 	static void StartBatch();
@@ -64,7 +63,5 @@ private:
 	static glm::mat4 s_Projection;
 	static glm::mat4 s_View;
 
-	static std::unique_ptr<Framebuffer> s_ScreenFB;
-	static std::unique_ptr<Framebuffer> s_TargetFB;
-	static std::unique_ptr<MultisampledFramebuffer> s_MainFB;
+	static Viewport s_Viewport;
 };

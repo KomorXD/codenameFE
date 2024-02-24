@@ -31,9 +31,7 @@ glm::mat4 Renderer::s_ViewProjection = glm::mat4(1.0f);
 glm::mat4 Renderer::s_Projection = glm::mat4(1.0f);
 glm::mat4 Renderer::s_View = glm::mat4(1.0f);
 
-std::unique_ptr<Framebuffer> Renderer::s_ScreenFB;
-std::unique_ptr<Framebuffer> Renderer::s_TargetFB;
-std::unique_ptr<MultisampledFramebuffer> Renderer::s_MainFB;
+Viewport Renderer::s_Viewport;
 
 struct ScreenQuadVertex
 {
@@ -104,6 +102,9 @@ struct RendererData
 	uint32_t BoundTexturesCount = 1;
 	std::array<int32_t, 24> TextureBindings;
 	std::shared_ptr<Texture> DefaultAlbedo;
+
+	std::shared_ptr<Framebuffer> DepthFramebuffer;
+	std::shared_ptr<Shader> DepthShader;
 };
 
 static RendererData s_Data{};
@@ -245,20 +246,8 @@ void Renderer::Init()
 	{
 		SCOPE_PROFILE("Framebuffers init");
 
-		s_ScreenFB = std::make_unique<Framebuffer>();
-		s_ScreenFB->AttachTexture(1920, 1080);
-		s_ScreenFB->AttachRenderBuffer(1920, 1080);
-		s_ScreenFB->UnbindBuffer();
-
-		s_TargetFB = std::make_unique<Framebuffer>();
-		s_TargetFB->AttachTexture(1920, 1080);
-		s_TargetFB->AttachRenderBuffer(1920, 1080);
-		s_TargetFB->UnbindBuffer();
-
-		s_MainFB = std::make_unique<MultisampledFramebuffer>(16);
-		s_MainFB->AttachTexture(1920, 1080);
-		s_MainFB->AttachRenderBuffer(1920, 1080);
-		s_MainFB->UnbindBuffer();
+		s_Data.DepthFramebuffer = std::make_unique<Framebuffer>();
+		s_Data.DepthFramebuffer->AttachDepthBuffer(1024, 1024);
 	}
 
 	{
@@ -266,6 +255,8 @@ void Renderer::Init()
 
 		uint8_t whitePixel[] = { 255.0f, 255.0f, 255.0f, 255.0f };
 		s_Data.DefaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1);
+
+		s_Data.DepthShader = std::make_shared<Shader>("resources/shaders/DefaultDepth.vert", "resources/shaders/DefaultDepth.frag");
 	}
 }
 
@@ -284,23 +275,10 @@ void Renderer::ReloadShaders()
 
 void Renderer::OnWindowResize(const Viewport& newViewport)
 {
+	s_Viewport = newViewport;
+	
 	auto& [x, y, width, height] = newViewport;
 	GLCall(glViewport(x, y, width, height));
-
-	s_ScreenFB->BindBuffer();
-	s_ScreenFB->ResizeTexture((uint32_t)width, (uint32_t)height);
-	s_ScreenFB->ResizeRenderBuffer((uint32_t)width, (uint32_t)height);
-	s_ScreenFB->UnbindBuffer();
-
-	s_TargetFB->BindBuffer();
-	s_TargetFB->ResizeTexture((uint32_t)width, (uint32_t)height);
-	s_TargetFB->ResizeRenderBuffer((uint32_t)width, (uint32_t)height);
-	s_TargetFB->UnbindBuffer();
-
-	s_MainFB->BindBuffer();
-	s_MainFB->ResizeTexture((uint32_t)width, (uint32_t)height);
-	s_MainFB->ResizeRenderBuffer((uint32_t)width, (uint32_t)height);
-	s_MainFB->UnbindBuffer();
 }
 
 void Renderer::SceneBegin(Camera& camera)
@@ -534,8 +512,21 @@ void Renderer::DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const 
 	GLCall(glDrawArraysInstanced(primitiveType, 0, vao->VertexCount(), instances));
 }
 
+void Renderer::DrawScreenQuad()
+{
+	GLCall(glDisable(GL_DEPTH_TEST));
+	DrawArrays(s_Data.ScreenQuadShader, s_Data.ScreenQuadVertexArray, 6);
+	GLCall(glEnable(GL_DEPTH_TEST));
+}
+
 void Renderer::AddDirectionalLight(const DirectionalLight& light)
 {
+	glm::mat4 lightMV = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 7.5f);
+	lightMV *= glm::lookAt(-light.Direction, glm::vec3(0.0f), { 0.0f, 1.0f, 0.0f });
+	
+	s_Data.DepthShader->Bind();
+	s_Data.DepthShader->SetUniformMat4("u_LightMV", lightMV);
+
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", light.Direction);
 	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",		light.Color);
@@ -574,34 +565,9 @@ void Renderer::SetBlur(bool enabled)
 	s_Data.ScreenQuadShader->SetUniform1i("u_BlurEnabled", enabled ? 1 : 0);
 }
 
-void Renderer::RenderStart()
+Viewport Renderer::CurrentViewport()
 {
-	s_MainFB->BindBuffer();
-	s_MainFB->BindRenderBuffer();
-}
-
-void Renderer::RenderEnd()
-{
-	glm::uvec2 dim = s_MainFB->RenderDimensions();
-	s_MainFB->BlitBuffers(dim.x, dim.y, s_ScreenFB->GetFramebufferID());
-	s_MainFB->UnbindRenderBuffer();
-	s_MainFB->UnbindBuffer();
-
-	s_TargetFB->BindBuffer();
-	s_TargetFB->BindRenderBuffer();
-	s_ScreenFB->BindTexture();
-
-	GLCall(glDisable(GL_DEPTH_TEST));
-	DrawArrays(s_Data.ScreenQuadShader, s_Data.ScreenQuadVertexArray, 6);
-	GLCall(glEnable(GL_DEPTH_TEST));
-
-	s_TargetFB->UnbindRenderBuffer();
-	s_TargetFB->UnbindBuffer();
-}
-
-uint32_t Renderer::RenderTextureID()
-{
-	return s_TargetFB->GetTextureID();
+	return s_Viewport;
 }
 
 void Renderer::StartBatch()

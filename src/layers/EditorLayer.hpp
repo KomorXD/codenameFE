@@ -3,6 +3,11 @@
 #include "Layer.hpp"
 #include "../renderer/Camera.hpp"
 
+#include <memory>
+
+class Framebuffer;
+class MultisampledFramebuffer;
+
 class EditorLayer : public Layer
 {
 public:
@@ -16,4 +21,8 @@ public:
 
 private:
 	Camera m_EditorCamera;
+
+	std::unique_ptr<Framebuffer> m_ScreenFB;
+	std::unique_ptr<Framebuffer> m_TargetFB;
+	std::unique_ptr<MultisampledFramebuffer> m_MainFB;
 };

@@ -546,14 +546,10 @@ void Framebuffer::AttachTexture(uint32_t width, uint32_t height)
 {
 	GLCall(glGenTextures(1, &m_TextureID));
 	GLCall(glBindTexture(GL_TEXTURE_2D, m_TextureID));
-
 	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr));
-
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_TextureID, 0));
-
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
 }
 
@@ -561,13 +557,26 @@ void Framebuffer::AttachRenderBuffer(uint32_t width, uint32_t height)
 {
 	GLCall(glGenRenderbuffers(1, &m_RenderbufferID));
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-
 	GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height));
 	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
-
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 
 	m_RenderDimensions = { width, height };
+}
+
+void Framebuffer::AttachDepthBuffer(uint32_t width, uint32_t height)
+{
+	GLCall(glGenTextures(1, &m_TextureID));
+	GLCall(glBindTexture(GL_TEXTURE_2D, m_TextureID));
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_TextureID, 0));
+	GLCall(glDrawBuffer(GL_NONE));
+	GLCall(glReadBuffer(GL_NONE));
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+
+	m_ShadowMapSize = { width, height };
 }
 
 void Framebuffer::ResizeTexture(uint32_t width, uint32_t height)
@@ -613,6 +622,10 @@ void Framebuffer::BindRenderBuffer() const
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
 }
 
+void Framebuffer::BindDepthBuffer() const
+{
+}
+
 void Framebuffer::UnbindBuffer() const
 {
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
@@ -626,6 +639,10 @@ void Framebuffer::UnbindTexture() const
 void Framebuffer::UnbindRenderBuffer() const
 {
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+}
+
+void Framebuffer::UnbindDepthBuffer() const
+{
 }
 
 bool Framebuffer::IsComplete() const

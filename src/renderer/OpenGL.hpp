@@ -197,6 +197,7 @@ public:
 
 	void AttachTexture(uint32_t width, uint32_t height);
 	void AttachRenderBuffer(uint32_t width, uint32_t height);
+	void AttachDepthBuffer(uint32_t width, uint32_t height);
 
 	void ResizeTexture(uint32_t width, uint32_t height);
 	void ResizeRenderBuffer(uint32_t width, uint32_t height);
@@ -206,13 +207,16 @@ public:
 	void BindBuffer()					const;
 	void BindTexture(uint32_t slot = 0)	const;
 	void BindRenderBuffer()				const;
+	void BindDepthBuffer()				const;
 	void UnbindBuffer()					const;
 	void UnbindTexture()				const;
 	void UnbindRenderBuffer()			const;
+	void UnbindDepthBuffer()			const;
 
-	inline uint32_t GetFramebufferID() const { return m_ID; }
-	inline uint32_t GetTextureID() const { return m_TextureID; }
+	inline uint32_t GetFramebufferID()	 const { return m_ID; }
+	inline uint32_t GetTextureID()		 const { return m_TextureID; }
 	inline glm::uvec2 RenderDimensions() const { return m_RenderDimensions; }
+	inline glm::uvec2 ShadowMapSize()	 const { return m_ShadowMapSize; }
 
 	bool IsComplete() const;
 
@@ -222,6 +226,7 @@ private:
 	uint32_t m_RenderbufferID = 0;
 
 	glm::uvec2 m_RenderDimensions{};
+	glm::uvec2 m_ShadowMapSize{};
 };
 
 class MultisampledFramebuffer
