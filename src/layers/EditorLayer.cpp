@@ -146,7 +146,7 @@ void EditorLayer::OnRender()
 	Renderer::SceneEnd();
 
 	// MSAA stuff
-	glm::uvec2 dim = m_MainMFB->RenderDimensions();
+	glm::uvec2 dim = m_ScreenFB->RenderDimensions();
 	m_MainMFB->BlitBuffers(dim.x, dim.y, m_ScreenFB->GetFramebufferID());
 	m_MainMFB->UnbindRenderBuffer();
 	m_MainMFB->UnbindBuffer();
