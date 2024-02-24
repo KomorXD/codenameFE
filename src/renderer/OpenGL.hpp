@@ -266,6 +266,7 @@ class Texture
 {
 public:
 	Texture(const std::string& path);
+	Texture(const uint8_t* data, int32_t width, int32_t height);
 	~Texture();
 
 	void Bind(uint32_t slot = 0) const;

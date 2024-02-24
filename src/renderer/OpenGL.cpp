@@ -783,6 +783,22 @@ Texture::Texture(const std::string& path)
 	}
 }
 
+Texture::Texture(const uint8_t* data, int32_t width, int32_t height)
+	: m_ID(0), m_Width(width), m_Height(height), m_BPP(0), m_Path("")
+{
+	GLCall(glGenTextures(1, &m_ID));
+	GLCall(glBindTexture(GL_TEXTURE_2D, m_ID));
+
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_Width, m_Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data));
+	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+}
+
 Texture::~Texture()
 {
 	if (m_ID != 0)
