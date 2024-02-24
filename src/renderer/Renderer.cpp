@@ -101,8 +101,9 @@ struct RendererData
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
 
-	uint32_t BoundTexturesCount = 0;
+	uint32_t BoundTexturesCount = 1;
 	std::array<int32_t, 24> TextureBindings;
+	std::shared_ptr<Texture> DefaultAlbedo;
 };
 
 static RendererData s_Data{};
@@ -259,6 +260,13 @@ void Renderer::Init()
 		s_MainFB->AttachRenderBuffer(1920, 1080);
 		s_MainFB->UnbindBuffer();
 	}
+
+	{
+		SCOPE_PROFILE("Other setup");
+
+		uint8_t whitePixel[] = { 255.0f, 255.0f, 255.0f, 255.0f };
+		s_Data.DefaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1);
+	}
 }
 
 void Renderer::Shutdown()
@@ -318,7 +326,8 @@ void Renderer::SceneEnd()
 
 void Renderer::Flush()
 {
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	s_Data.DefaultAlbedo->Bind();
+	for (int32_t i = 1; i < s_Data.BoundTexturesCount; i++)
 	{
 		GLCall(glActiveTexture(GL_TEXTURE0 + i));
 		GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
@@ -398,7 +407,7 @@ void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const 
 
 	s_Data.QuadBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
 	s_Data.QuadBufferPtr->Color = color;
-	s_Data.QuadBufferPtr->TextureSlot = -1.0f;
+	s_Data.QuadBufferPtr->TextureSlot = 0.0f;
 
 	++s_Data.QuadBufferPtr;
 	++s_Data.QuadInstanceCount;
@@ -450,7 +459,7 @@ void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const 
 
 	s_Data.CubeBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
 	s_Data.CubeBufferPtr->Color = color;
-	s_Data.CubeBufferPtr->TextureSlot = -1.0f;
+	s_Data.CubeBufferPtr->TextureSlot = 0.0f;
 
 	++s_Data.CubeBufferPtr;
 	++s_Data.CubeInstanceCount;
@@ -610,7 +619,7 @@ void Renderer::StartBatch()
 	s_Data.PointLightsCount = 0;
 	s_Data.SpotLightsCount = 0;
 
-	s_Data.BoundTexturesCount = 0;
+	s_Data.BoundTexturesCount = 1;
 }
 
 void Renderer::NextBatch()

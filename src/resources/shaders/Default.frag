@@ -129,7 +129,7 @@ void main()
 		case 23: slot = 23; break;
 	}
 
-	vec4 color = (slot < 0 ? fs_in.color : texture(u_Textures[slot], fs_in.textureUV));
+	vec4 color = texture(u_Textures[slot], fs_in.textureUV) * fs_in.color;
 	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * color.rgb;
 	fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
 	fragColor.a = color.a;
