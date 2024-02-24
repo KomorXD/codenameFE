@@ -566,6 +566,8 @@ void Framebuffer::AttachRenderBuffer(uint32_t width, uint32_t height)
 	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
 
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+
+	m_RenderDimensions = { width, height };
 }
 
 void Framebuffer::ResizeTexture(uint32_t width, uint32_t height)
@@ -578,6 +580,8 @@ void Framebuffer::ResizeRenderBuffer(uint32_t width, uint32_t height)
 {
 	GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
 	AttachRenderBuffer(width, height);
+
+	m_RenderDimensions = { width, height };
 }
 
 glm::uvec4 Framebuffer::GetPixelAt(const glm::vec2& coords)
@@ -679,6 +683,8 @@ void MultisampledFramebuffer::AttachRenderBuffer(uint32_t width, uint32_t height
 	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
 
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+
+	m_RenderDimensions = { width, height };
 }
 
 void MultisampledFramebuffer::ResizeTexture(uint32_t width, uint32_t height)
@@ -691,6 +697,8 @@ void MultisampledFramebuffer::ResizeRenderBuffer(uint32_t width, uint32_t height
 {
 	GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
 	AttachRenderBuffer(width, height);
+
+	m_RenderDimensions = { width, height };
 }
 
 void MultisampledFramebuffer::BlitBuffers(uint32_t width, uint32_t height, uint32_t targetFramebufferID)

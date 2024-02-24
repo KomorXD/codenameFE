@@ -212,6 +212,7 @@ public:
 
 	inline uint32_t GetFramebufferID() const { return m_ID; }
 	inline uint32_t GetTextureID() const { return m_TextureID; }
+	inline glm::uvec2 RenderDimensions() const { return m_RenderDimensions; }
 
 	bool IsComplete() const;
 
@@ -219,6 +220,8 @@ private:
 	uint32_t m_ID = 0;
 	uint32_t m_TextureID = 0;
 	uint32_t m_RenderbufferID = 0;
+
+	glm::uvec2 m_RenderDimensions{};
 };
 
 class MultisampledFramebuffer
@@ -245,6 +248,7 @@ public:
 	void UnbindRenderBuffer()			const;
 
 	inline uint32_t GetTextureID() const { return m_TextureID; }
+	inline glm::uvec2 RenderDimensions() const { return m_RenderDimensions; }
 
 	bool IsComplete() const;
 
@@ -254,6 +258,8 @@ private:
 	uint32_t m_ID = 0;
 	uint32_t m_TextureID = 0;
 	uint32_t m_RenderbufferID = 0;
+
+	glm::uvec2 m_RenderDimensions{};
 };
 
 class Texture
