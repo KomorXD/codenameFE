@@ -59,16 +59,15 @@ out vec4 fragColor;
 float shadowFactor(DirectionalLight light, vec4 lightSpacePos)
 {
 	float shadow = 0.0;
+	float bias = mix(0.005, 0.0, dot(fs_in.normal, -light.direction));
 	vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
 	projCoords = projCoords * 0.5 + 0.5;
 
-	if(projCoords.z > 1.0)
+	if(projCoords.z - bias > 1.0)
 	{
 		return 0.0;
 	}
 	
-	// float bias = max(0.05 * (1.0 - dot(fs_in.normal, light.direction)), 0.005);
-	float bias = 0.005;
 	vec2 texelSize = 1.0 / textureSize(u_Textures[u_ShadowMapIdx], 0);
 	int sampleVal = 1;
 	for(int x = -sampleVal; x <= sampleVal; x++)
@@ -80,7 +79,7 @@ float shadowFactor(DirectionalLight light, vec4 lightSpacePos)
 		}
 	}
 
-	return shadow / 9;
+	return shadow / 9.0;
 }
 
 void main()

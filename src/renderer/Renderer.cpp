@@ -119,15 +119,11 @@ void Renderer::Init()
 
 	GLCall(glEnable(GL_DEPTH_TEST));
 	GLCall(glDepthFunc(GL_LESS));
-
 	GLCall(glEnable(GL_BLEND));
 	GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-
 	GLCall(glEnable(GL_CULL_FACE));
 	GLCall(glCullFace(GL_BACK));
-
 	GLCall(glEnable(GL_LINE_SMOOTH));
-
 	GLCall(glEnable(GL_MULTISAMPLE));
 
 	{
@@ -511,8 +507,8 @@ void Renderer::DrawScreenQuad()
 
 void Renderer::AddDirectionalLight(const DirectionalLight& light)
 {
-	glm::mat4 lightMV = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 300.0f);
-	lightMV *= glm::lookAt(-light.Direction * 100.0f, glm::vec3(0.0f), { 0.0f, 1.0f, 0.0f });
+	glm::mat4 lightMV = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, -20.0f, 300.0f);
+	lightMV *= glm::lookAt(-light.Direction, glm::vec3(0.0f), { 0.0f, 1.0f, 0.0f });
 	// lightMV *= glm::lookAt(s_ActiveCamera->Position - light.Direction * 100.0f, s_ActiveCamera->Position, { 0.0f, 1.0f, 0.0f });
 	
 	s_Data.DepthShader->Bind();
