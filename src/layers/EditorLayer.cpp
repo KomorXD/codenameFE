@@ -41,10 +41,14 @@ EditorLayer::EditorLayer()
 	m_TargetFB->AttachRenderBuffer((uint32_t)spec.Width, (uint32_t)spec.Height);
 	m_TargetFB->UnbindBuffer();
 
-	m_MainFB = std::make_unique<MultisampledFramebuffer>(16);
-	m_MainFB->AttachTexture((uint32_t)spec.Width, (uint32_t)spec.Height);
-	m_MainFB->AttachRenderBuffer((uint32_t)spec.Width, (uint32_t)spec.Height);
-	m_MainFB->UnbindBuffer();
+	m_MainMFB = std::make_unique<MultisampledFramebuffer>(16);
+	m_MainMFB->AttachTexture((uint32_t)spec.Width, (uint32_t)spec.Height);
+	m_MainMFB->AttachRenderBuffer((uint32_t)spec.Width, (uint32_t)spec.Height);
+	m_MainMFB->UnbindBuffer();
+
+	m_DepthFB = std::make_unique<Framebuffer>();
+	m_DepthFB->AttachDepthBuffer(1024, 1024);
+	m_DepthFB->UnbindBuffer();
 }
 
 void EditorLayer::OnAttach()
@@ -84,10 +88,10 @@ void EditorLayer::OnEvent(Event& ev)
 		m_TargetFB->ResizeRenderBuffer(width, height);
 		m_TargetFB->UnbindBuffer();
 
-		m_MainFB->BindBuffer();
-		m_MainFB->ResizeTexture(width, height);
-		m_MainFB->ResizeRenderBuffer(width, height);
-		m_MainFB->UnbindBuffer();
+		m_MainMFB->BindBuffer();
+		m_MainMFB->ResizeTexture(width, height);
+		m_MainMFB->ResizeRenderBuffer(width, height);
+		m_MainMFB->UnbindBuffer();
 
 		return;
 	}
@@ -115,81 +119,56 @@ static float s_OuterCutOff = 17.5f;
 void EditorLayer::OnRender()
 {
 	static bool s_Blur = false;
-	
-	m_MainFB->BindBuffer();
-	m_MainFB->BindRenderBuffer();
 
+	// Depth pass - shadow map
+	glm::ivec2 bufferSize = m_DepthFB->ShadowMapSize();
+	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
+	m_DepthFB->BindBuffer();
+	Renderer::Clear(GL_DEPTH_BUFFER_BIT);
+	Renderer::RenderDepth();
+	Renderer::SceneBegin(m_EditorCamera);
+	RenderScene();
+	Renderer::SceneEnd();
+	m_DepthFB->UnbindBuffer();
+	
+	// Normal pass
+	bufferSize = m_MainMFB->RenderDimensions();
+	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
+	m_MainMFB->BindBuffer();
+	m_MainMFB->BindRenderBuffer();
 	Renderer::Clear();
 	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
-
+	Renderer::RenderDefault();
 	Renderer::SceneBegin(m_EditorCamera);
+	Renderer::AddShadowMap(m_DepthFB);
 	Renderer::SetBlur(s_Blur);
-	Renderer::AddDirectionalLight({
-		.Direction = s_Dir,
-		.Color = s_LightCol
-	});
-	/*Renderer::AddPointLight({
-		.Position = s_LightPos,
-		.Color = s_LightCol,
-		.LinearTerm = s_Linear,
-		.QuadraticTerm = s_Quadratic
-	});*/
-	
-	// Renderer::DrawCube(s_LightPos, glm::vec3(1.0f), glm::vec4(s_LightCol, 1.0f));
-	Renderer::DrawCube(glm::vec3(0.0f), { 20.0f, 0.2f, 20.0f }, *s_GrassTexture);
-
-	Renderer::DrawQuad({ 0.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, *s_PlankTexture);
-	Renderer::DrawQuad({ 3.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
-	Renderer::DrawQuad({ -3.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, *s_PlankTexture);
-
-	Renderer::DrawLine({  10.0f, 0.0f,  10.0f }, { -10.0f, 0.0f,  10.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
-	Renderer::DrawLine({ -10.0f, 0.0f,  10.0f }, { -10.0f, 0.0f, -10.0f }, { 0.0f, 1.0f, 0.0f, 1.0f });
-	Renderer::DrawLine({ -10.0f, 0.0f, -10.0f }, {  10.0f, 0.0f, -10.0f }, { 0.0f, 0.0f, 1.0f, 1.0f });
-	Renderer::DrawLine({  10.0f, 0.0f, -10.0f }, {  10.0f, 0.0f,  10.0f }, { 0.0f, 1.0f, 1.0f, 1.0f });
-	
-	constexpr float radius = 3.0f;
-	constexpr uint32_t count = 10;
-	constexpr float step = 2.0f * glm::pi<float>() / count;
-	bool textured = false;
-	for (uint32_t i = 0; i < count; i++)
-	{
-		glm::vec3 pos = { glm::cos(i * step) * radius, 5.0f, glm::sin(i * step) * radius };
-
-		if (textured)
-		{
-			Renderer::DrawCube(pos, glm::vec3(0.5f), *s_PlankTexture);
-		}
-		else
-		{
-			Renderer::DrawCube(pos, glm::vec3(0.5f), *s_SandTexture);
-		}
-
-		textured = !textured;
-	}
-
+	RenderScene();
 	Renderer::SceneEnd();
-	
-	glm::uvec2 dim = m_MainFB->RenderDimensions();
-	m_MainFB->BlitBuffers(dim.x, dim.y, m_ScreenFB->GetFramebufferID());
-	m_MainFB->UnbindRenderBuffer();
-	m_MainFB->UnbindBuffer();
 
+	// MSAA stuff
+	glm::uvec2 dim = m_MainMFB->RenderDimensions();
+	m_MainMFB->BlitBuffers(dim.x, dim.y, m_ScreenFB->GetFramebufferID());
+	m_MainMFB->UnbindRenderBuffer();
+	m_MainMFB->UnbindBuffer();
 	m_TargetFB->BindBuffer();
 	m_TargetFB->BindRenderBuffer();
 	m_ScreenFB->BindTexture();
-
 	Renderer::DrawScreenQuad();
-
 	m_TargetFB->UnbindRenderBuffer();
 	m_TargetFB->UnbindBuffer();
 
+	// GUI
 	ImGui::SetNextWindowPos({ 0.0f, 0.0f });
 	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
-	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), {0.0f, 1.0f}, {1.0f, 0.0f});
+	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
 	ImGui::End();
 	ImGui::PopStyleVar();
+
+	ImGui::Begin("Depth map");
+	ImGui::Image((ImTextureID)m_DepthFB->GetTextureID(), { 512.0f, 512.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	ImGui::End();
 
 	ImGui::Begin("Hiii!!!!!!");
 	ImGui::Checkbox("Blur", &s_Blur);
@@ -212,4 +191,50 @@ void EditorLayer::OnRender()
 		ImGui::DragFloat("Outer cut off", &s_OuterCutOff, 0.1f, 0.0f, 100.0f);
 	}
 	ImGui::End();
+}
+
+void EditorLayer::RenderScene()
+{
+	Renderer::AddDirectionalLight({
+		   .Direction = s_Dir,
+		   .Color = s_LightCol
+		});
+	/*Renderer::AddPointLight({
+		.Position = s_LightPos,
+		.Color = s_LightCol,
+		.LinearTerm = s_Linear,
+		.QuadraticTerm = s_Quadratic
+	});*/
+
+	// Renderer::DrawCube(s_LightPos, glm::vec3(1.0f), glm::vec4(s_LightCol, 1.0f));
+	Renderer::DrawCube(glm::vec3(0.0f), { 50.0f, 0.2f, 50.0f }, *s_GrassTexture);
+
+	Renderer::DrawQuad({ 0.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, *s_PlankTexture);
+	Renderer::DrawQuad({ 3.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
+	Renderer::DrawQuad({ -3.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, *s_PlankTexture);
+
+	Renderer::DrawLine({ 10.0f, 0.0f,  10.0f }, { -10.0f, 0.0f,  10.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
+	Renderer::DrawLine({ -10.0f, 0.0f,  10.0f }, { -10.0f, 0.0f, -10.0f }, { 0.0f, 1.0f, 0.0f, 1.0f });
+	Renderer::DrawLine({ -10.0f, 0.0f, -10.0f }, { 10.0f, 0.0f, -10.0f }, { 0.0f, 0.0f, 1.0f, 1.0f });
+	Renderer::DrawLine({ 10.0f, 0.0f, -10.0f }, { 10.0f, 0.0f,  10.0f }, { 0.0f, 1.0f, 1.0f, 1.0f });
+
+	constexpr float radius = 10.0f;
+	constexpr uint32_t count = 10;
+	constexpr float step = 2.0f * glm::pi<float>() / count;
+	bool textured = false;
+	for (uint32_t i = 0; i < count; i++)
+	{
+		glm::vec3 pos = { glm::cos(i * step) * radius, 2.0f, glm::sin(i * step) * radius };
+
+		if (textured)
+		{
+			Renderer::DrawCube(pos, glm::vec3(2.0f), *s_PlankTexture);
+		}
+		else
+		{
+			Renderer::DrawCube(pos, glm::vec3(1.0f), *s_SandTexture);
+		}
+
+		textured = !textured;
+	}
 }

@@ -20,9 +20,12 @@ public:
 	virtual void OnRender()			override;
 
 private:
+	void RenderScene();
+
 	Camera m_EditorCamera;
 
 	std::unique_ptr<Framebuffer> m_ScreenFB;
 	std::unique_ptr<Framebuffer> m_TargetFB;
-	std::unique_ptr<MultisampledFramebuffer> m_MainFB;
+	std::unique_ptr<MultisampledFramebuffer> m_MainMFB;
+	std::unique_ptr<Framebuffer> m_DepthFB;
 };
