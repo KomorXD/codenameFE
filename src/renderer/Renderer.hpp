@@ -33,7 +33,7 @@ public:
 	static void Flush();
 
 	static void ClearColor(const glm::vec4& color);
-	static void Clear();
+	static void Clear(uint32_t bitfield = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	static void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color);
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
@@ -51,7 +51,11 @@ public:
 	static void AddPointLight(const PointLight& light);
 	static void AddSpotLight(const SpotLight& light);
 
+	static void AddShadowMap(const std::unique_ptr<Framebuffer>& depthFB);
+
 	static void SetBlur(bool enabled);
+	static void RenderDefault();
+	static void RenderDepth();
 
 	static Viewport CurrentViewport();
 
@@ -59,9 +63,6 @@ private:
 	static void StartBatch();
 	static void NextBatch();
 
-	static glm::mat4 s_ViewProjection;
-	static glm::mat4 s_Projection;
-	static glm::mat4 s_View;
-
+	static Camera* s_ActiveCamera;
 	static Viewport s_Viewport;
 };

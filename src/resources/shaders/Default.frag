@@ -31,11 +31,14 @@ struct SpotLight
 in VS_OUT
 {
 	vec3 worldPos;
+	vec4 lightSpacePos;
 	vec3 normal;
 	vec4 color;
 	vec2 textureUV;
 	flat float textureSlot;
 } fs_in;
+
+uniform int u_ShadowMapIdx;
 
 uniform vec3 u_ViewPos = vec3(0.0);
 uniform float u_AmbientStrength = 0.1;
@@ -53,12 +56,40 @@ uniform sampler2D u_Textures[24];
 
 out vec4 fragColor;
 
+float shadowFactor(DirectionalLight light, vec4 lightSpacePos)
+{
+	float shadow = 0.0;
+	vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+	projCoords = projCoords * 0.5 + 0.5;
+
+	if(projCoords.z > 1.0)
+	{
+		return 0.0;
+	}
+	
+	// float bias = max(0.05 * (1.0 - dot(fs_in.normal, light.direction)), 0.005);
+	float bias = 0.005;
+	vec2 texelSize = 1.0 / textureSize(u_Textures[u_ShadowMapIdx], 0);
+	int sampleVal = 1;
+	for(int x = -sampleVal; x <= sampleVal; x++)
+	{
+		for(int y = -sampleVal; y <= sampleVal; y++)
+		{
+			float depth = texture(u_Textures[u_ShadowMapIdx], projCoords.xy + vec2(x, y) * texelSize).r;
+			shadow += (projCoords.z - bias) > depth ? 1.0 : 0.0;
+		}
+	}
+
+	return shadow / 9;
+}
+
 void main()
 {
 	vec3 totalDirectional = vec3(0.0);
 	for(int i = 0; i < u_DirLightsCount; i++)
 	{
-		totalDirectional += max(dot(fs_in.normal, -u_DirLights[i].direction), 0.0) * u_DirLights[i].color;
+		float shadow = shadowFactor(u_DirLights[i], fs_in.lightSpacePos);
+		totalDirectional += (1.0 - shadow) * max(dot(fs_in.normal, -u_DirLights[i].direction), 0.0) * u_DirLights[i].color;
 	}
 
 	vec3 totalDiffuse = vec3(0.0);

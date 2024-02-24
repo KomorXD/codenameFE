@@ -27,10 +27,7 @@ static void OpenGLMessageCallback(
 	}
 }
 
-glm::mat4 Renderer::s_ViewProjection = glm::mat4(1.0f);
-glm::mat4 Renderer::s_Projection = glm::mat4(1.0f);
-glm::mat4 Renderer::s_View = glm::mat4(1.0f);
-
+Camera* Renderer::s_ActiveCamera = nullptr;
 Viewport Renderer::s_Viewport;
 
 struct ScreenQuadVertex
@@ -92,6 +89,8 @@ struct RendererData
 	CubeInstance* CubeBufferPtr	    = nullptr;
 
 	std::shared_ptr<Shader>	DefaultShader;
+	std::shared_ptr<Shader> DepthShader;
+	std::shared_ptr<Shader> CurrentShader;
 	
 	uint32_t DirLightsCount   = 0;
 	uint32_t PointLightsCount = 0;
@@ -102,9 +101,7 @@ struct RendererData
 	uint32_t BoundTexturesCount = 1;
 	std::array<int32_t, 24> TextureBindings;
 	std::shared_ptr<Texture> DefaultAlbedo;
-
-	std::shared_ptr<Framebuffer> DepthFramebuffer;
-	std::shared_ptr<Shader> DepthShader;
+	
 };
 
 static RendererData s_Data{};
@@ -244,13 +241,6 @@ void Renderer::Init()
 	}
 
 	{
-		SCOPE_PROFILE("Framebuffers init");
-
-		s_Data.DepthFramebuffer = std::make_unique<Framebuffer>();
-		s_Data.DepthFramebuffer->AttachDepthBuffer(1024, 1024);
-	}
-
-	{
 		SCOPE_PROFILE("Other setup");
 
 		uint8_t whitePixel[] = { 255.0f, 255.0f, 255.0f, 255.0f };
@@ -283,13 +273,13 @@ void Renderer::OnWindowResize(const Viewport& newViewport)
 
 void Renderer::SceneBegin(Camera& camera)
 {
-	s_ViewProjection = camera.GetViewProjection();
-	s_Projection	 = camera.GetProjection();
-	s_View			 = camera.GetViewMatrix();
+	s_ActiveCamera = &camera;
+	glm::mat4 projection = camera.GetProjection();
+	glm::mat4 view = camera.GetViewMatrix();
 
 	s_Data.MatricesBuffer->Bind();
-	s_Data.MatricesBuffer->SetData(glm::value_ptr(s_Projection), sizeof(glm::mat4));
-	s_Data.MatricesBuffer->SetData(glm::value_ptr(s_View), sizeof(glm::mat4), sizeof(glm::mat4));
+	s_Data.MatricesBuffer->SetData(glm::value_ptr(projection), sizeof(glm::mat4));
+	s_Data.MatricesBuffer->SetData(glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4));
 
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform3f("u_ViewPos", camera.Position);
@@ -316,9 +306,9 @@ void Renderer::Flush()
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.LineBufferPtr - (uint8_t*)s_Data.LineBufferBase);
 		s_Data.LineVertexBuffer->SetData(s_Data.LineBufferBase, dataSize);
 
-		GLCall(glDisable(GL_CULL_FACE));
+		// GLCall(glDisable(GL_CULL_FACE));
 		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
-		GLCall(glEnable(GL_CULL_FACE));
+		// GLCall(glEnable(GL_CULL_FACE));
 	}
 
 	if (s_Data.QuadInstanceCount)
@@ -331,7 +321,7 @@ void Renderer::Flush()
 		s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
 		s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
 
-		DrawIndexedInstanced(s_Data.DefaultShader, s_Data.QuadVertexArray, s_Data.QuadInstanceCount);
+		DrawIndexedInstanced(s_Data.CurrentShader, s_Data.QuadVertexArray, s_Data.QuadInstanceCount);
 	}
 
 	if (s_Data.CubeInstanceCount)
@@ -344,7 +334,7 @@ void Renderer::Flush()
 		s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
 		s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
 
-		DrawIndexedInstanced(s_Data.DefaultShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
+		DrawIndexedInstanced(s_Data.CurrentShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
 }
 
@@ -353,9 +343,9 @@ void Renderer::ClearColor(const glm::vec4& color)
 	GLCall(glClearColor(color.r, color.g, color.b, color.a));
 }
 
-void Renderer::Clear()
+void Renderer::Clear(uint32_t bitfield)
 {
-	GLCall(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
+	GLCall(glClear(bitfield));
 }
 
 void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color)
@@ -521,15 +511,17 @@ void Renderer::DrawScreenQuad()
 
 void Renderer::AddDirectionalLight(const DirectionalLight& light)
 {
-	glm::mat4 lightMV = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 7.5f);
-	lightMV *= glm::lookAt(-light.Direction, glm::vec3(0.0f), { 0.0f, 1.0f, 0.0f });
+	glm::mat4 lightMV = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 300.0f);
+	lightMV *= glm::lookAt(-light.Direction * 100.0f, glm::vec3(0.0f), { 0.0f, 1.0f, 0.0f });
+	// lightMV *= glm::lookAt(s_ActiveCamera->Position - light.Direction * 100.0f, s_ActiveCamera->Position, { 0.0f, 1.0f, 0.0f });
 	
 	s_Data.DepthShader->Bind();
 	s_Data.DepthShader->SetUniformMat4("u_LightMV", lightMV);
 
 	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", light.Direction);
-	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",		light.Color);
+	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", glm::normalize(light.Direction));
+	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",	   light.Color);
+	s_Data.DefaultShader->SetUniformMat4("u_LightMV", lightMV);
 
 	s_Data.DirLightsCount++;
 }
@@ -537,9 +529,9 @@ void Renderer::AddDirectionalLight(const DirectionalLight& light)
 void Renderer::AddPointLight(const PointLight& light)
 {
 	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",		light.Position);
-	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].color",			light.Color);
-	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	light.LinearTerm);
+	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   light.Position);
+	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		   light.Color);
+	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	   light.LinearTerm);
 	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
 
 	s_Data.PointLightsCount++;
@@ -548,21 +540,48 @@ void Renderer::AddPointLight(const PointLight& light)
 void Renderer::AddSpotLight(const SpotLight& light)
 {
 	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   light.Position);
-	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		   glm::cos(glm::radians(light.CutOff)));
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	   light.Direction);
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	  light.Position);
+	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		  glm::cos(glm::radians(light.CutOff)));
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	  light.Direction);
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].outerCutOff",   glm::cos(glm::radians(light.OuterCutOff)));
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		   light.Color);
-	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	   light.LinearTerm);
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		  light.Color);
+	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	  light.LinearTerm);
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
 
 	s_Data.SpotLightsCount++;
+}
+
+void Renderer::AddShadowMap(const std::unique_ptr<Framebuffer>& depthFB)
+{
+	if (s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
+	{
+		return;
+	}
+	
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniform1i("u_ShadowMapIdx", s_Data.BoundTexturesCount);
+	s_Data.TextureBindings[s_Data.BoundTexturesCount] = depthFB->GetTextureID();
+	s_Data.BoundTexturesCount++;
 }
 
 void Renderer::SetBlur(bool enabled)
 {
 	s_Data.ScreenQuadShader->Bind();
 	s_Data.ScreenQuadShader->SetUniform1i("u_BlurEnabled", enabled ? 1 : 0);
+}
+
+void Renderer::RenderDefault()
+{
+	GLCall(glCullFace(GL_BACK));
+	GLCall(glEnable(GL_CULL_FACE));
+	s_Data.CurrentShader = s_Data.DefaultShader;
+}
+
+void Renderer::RenderDepth()
+{
+	GLCall(glCullFace(GL_FRONT));
+	GLCall(glDisable(GL_CULL_FACE));
+	s_Data.CurrentShader = s_Data.DepthShader;
 }
 
 Viewport Renderer::CurrentViewport()
