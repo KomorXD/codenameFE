@@ -50,6 +50,12 @@ public:
 	static void AddPointLight(const PointLight& light);
 	static void AddSpotLight(const SpotLight& light);
 
+	static void SetBlur(bool enabled);
+
+	static void RenderStart();
+	static void RenderEnd();
+	static uint32_t RenderTextureID();
+
 private:
 	static void StartBatch();
 	static void NextBatch();
@@ -57,4 +63,8 @@ private:
 	static glm::mat4 s_ViewProjection;
 	static glm::mat4 s_Projection;
 	static glm::mat4 s_View;
+
+	static std::unique_ptr<Framebuffer> s_ScreenFB;
+	static std::unique_ptr<Framebuffer> s_TargetFB;
+	static std::unique_ptr<MultisampledFramebuffer> s_MainFB;
 };

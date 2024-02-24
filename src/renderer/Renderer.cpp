@@ -31,6 +31,16 @@ glm::mat4 Renderer::s_ViewProjection = glm::mat4(1.0f);
 glm::mat4 Renderer::s_Projection = glm::mat4(1.0f);
 glm::mat4 Renderer::s_View = glm::mat4(1.0f);
 
+std::unique_ptr<Framebuffer> Renderer::s_ScreenFB;
+std::unique_ptr<Framebuffer> Renderer::s_TargetFB;
+std::unique_ptr<MultisampledFramebuffer> Renderer::s_MainFB;
+
+struct ScreenQuadVertex
+{
+	glm::vec2 Position;
+	glm::vec2 TextureUV;
+};
+
 struct LineVertex
 {
 	glm::vec3 Position;
@@ -58,6 +68,10 @@ struct RendererData
 	static constexpr uint32_t MaxIndices   = MaxQuads * 6;
 	static constexpr uint32_t MaxInstances = MaxQuads / 4;
 
+	std::shared_ptr<VertexArray>  ScreenQuadVertexArray;
+	std::shared_ptr<VertexBuffer> ScreenQuadVertexBuffer;
+	std::shared_ptr<Shader>		  ScreenQuadShader;
+
 	std::shared_ptr<VertexArray>  LineVertexArray;
 	std::shared_ptr<VertexBuffer> LineVertexBuffer;
 	std::shared_ptr<Shader>		  LineShader;
@@ -78,12 +92,12 @@ struct RendererData
 	uint32_t	  CubeInstanceCount = 0;
 	CubeInstance* CubeBufferBase	= nullptr;
 	CubeInstance* CubeBufferPtr	    = nullptr;
+
+	std::shared_ptr<Shader>	DefaultShader;
 	
 	uint32_t DirLightsCount   = 0;
 	uint32_t PointLightsCount = 0;
 	uint32_t SpotLightsCount  = 0;
-
-	std::shared_ptr<Shader>	DefaultShader;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
 
@@ -116,6 +130,33 @@ void Renderer::Init()
 	GLCall(glEnable(GL_LINE_SMOOTH));
 
 	GLCall(glEnable(GL_MULTISAMPLE));
+
+	{
+		SCOPE_PROFILE("Screen quad init");
+
+		std::array<ScreenQuadVertex, 6> vertices =
+		{
+			ScreenQuadVertex{ glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f) },
+			ScreenQuadVertex{ glm::vec2( 1.0f, -1.0f), glm::vec2(1.0f, 0.0f) },
+			ScreenQuadVertex{ glm::vec2( 1.0f,  1.0f), glm::vec2(1.0f, 1.0f) },
+
+			ScreenQuadVertex{ glm::vec2( 1.0f,  1.0f), glm::vec2(1.0f, 1.0f) },
+			ScreenQuadVertex{ glm::vec2(-1.0f,  1.0f), glm::vec2(0.0f, 1.0f) },
+			ScreenQuadVertex{ glm::vec2(-1.0f, -1.0f), glm::vec2(0.0f, 0.0f) }
+		};
+
+		s_Data.ScreenQuadVertexArray = std::make_shared<VertexArray>();
+		s_Data.ScreenQuadVertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(ScreenQuadVertex));
+
+		VertexBufferLayout layout;
+		layout.Push<float>(2); // Position
+		layout.Push<float>(2); // Texture UV
+
+		s_Data.ScreenQuadVertexArray->AddVertexBuffer(s_Data.ScreenQuadVertexBuffer, layout);
+		s_Data.ScreenQuadShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/ScreenQuad.frag");
+		s_Data.ScreenQuadShader->Bind();
+		s_Data.ScreenQuadShader->SetUniform1i("u_ScreenTexture", 0);
+	}
 
 	{
 		SCOPE_PROFILE("Line data init");
@@ -199,6 +240,25 @@ void Renderer::Init()
 		s_Data.MatricesBuffer = std::make_shared<UniformBuffer>(nullptr, 2 * sizeof(glm::mat4));
 		s_Data.MatricesBuffer->BindBufferRange(0, 0, 2 * sizeof(glm::mat4));
 	}
+
+	{
+		SCOPE_PROFILE("Framebuffers init");
+
+		s_ScreenFB = std::make_unique<Framebuffer>();
+		s_ScreenFB->AttachTexture(1920, 1080);
+		s_ScreenFB->AttachRenderBuffer(1920, 1080);
+		s_ScreenFB->UnbindBuffer();
+
+		s_TargetFB = std::make_unique<Framebuffer>();
+		s_TargetFB->AttachTexture(1920, 1080);
+		s_TargetFB->AttachRenderBuffer(1920, 1080);
+		s_TargetFB->UnbindBuffer();
+
+		s_MainFB = std::make_unique<MultisampledFramebuffer>(16);
+		s_MainFB->AttachTexture(1920, 1080);
+		s_MainFB->AttachRenderBuffer(1920, 1080);
+		s_MainFB->UnbindBuffer();
+	}
 }
 
 void Renderer::Shutdown()
@@ -218,6 +278,21 @@ void Renderer::OnWindowResize(const Viewport& newViewport)
 {
 	auto& [x, y, width, height] = newViewport;
 	GLCall(glViewport(x, y, width, height));
+
+	s_ScreenFB->BindBuffer();
+	s_ScreenFB->ResizeTexture((uint32_t)width, (uint32_t)height);
+	s_ScreenFB->ResizeRenderBuffer((uint32_t)width, (uint32_t)height);
+	s_ScreenFB->UnbindBuffer();
+
+	s_TargetFB->BindBuffer();
+	s_TargetFB->ResizeTexture((uint32_t)width, (uint32_t)height);
+	s_TargetFB->ResizeRenderBuffer((uint32_t)width, (uint32_t)height);
+	s_TargetFB->UnbindBuffer();
+
+	s_MainFB->BindBuffer();
+	s_MainFB->ResizeTexture((uint32_t)width, (uint32_t)height);
+	s_MainFB->ResizeRenderBuffer((uint32_t)width, (uint32_t)height);
+	s_MainFB->UnbindBuffer();
 }
 
 void Renderer::SceneBegin(Camera& camera)
@@ -482,6 +557,42 @@ void Renderer::AddSpotLight(const SpotLight& light)
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
 
 	s_Data.SpotLightsCount++;
+}
+
+void Renderer::SetBlur(bool enabled)
+{
+	s_Data.ScreenQuadShader->Bind();
+	s_Data.ScreenQuadShader->SetUniform1i("u_BlurEnabled", enabled ? 1 : 0);
+}
+
+void Renderer::RenderStart()
+{
+	s_MainFB->BindBuffer();
+	s_MainFB->BindRenderBuffer();
+}
+
+void Renderer::RenderEnd()
+{
+	glm::uvec2 dim = s_MainFB->RenderDimensions();
+	s_MainFB->BlitBuffers(dim.x, dim.y, s_ScreenFB->GetFramebufferID());
+	s_MainFB->UnbindRenderBuffer();
+	s_MainFB->UnbindBuffer();
+
+	s_TargetFB->BindBuffer();
+	s_TargetFB->BindRenderBuffer();
+	s_ScreenFB->BindTexture();
+
+	GLCall(glDisable(GL_DEPTH_TEST));
+	DrawArrays(s_Data.ScreenQuadShader, s_Data.ScreenQuadVertexArray, 6);
+	GLCall(glEnable(GL_DEPTH_TEST));
+
+	s_TargetFB->UnbindRenderBuffer();
+	s_TargetFB->UnbindBuffer();
+}
+
+uint32_t Renderer::RenderTextureID()
+{
+	return s_TargetFB->GetTextureID();
 }
 
 void Renderer::StartBatch()
