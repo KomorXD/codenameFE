@@ -68,7 +68,7 @@ float shadowFactor(DirectionalLight light, vec4 lightSpacePos)
 		return 0.0;
 	}
 	
-	vec2 texelSize = 1.0 / textureSize(u_Textures[u_ShadowMapIdx], 0);
+	vec2 texelSize = 0.5 / textureSize(u_Textures[u_ShadowMapIdx], 0);
 	int sampleVal = 1;
 	for(int x = -sampleVal; x <= sampleVal; x++)
 	{

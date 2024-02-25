@@ -507,8 +507,13 @@ void Renderer::DrawScreenQuad()
 
 void Renderer::AddDirectionalLight(const DirectionalLight& light)
 {
-	glm::mat4 lightMV = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, -20.0f, 300.0f);
-	lightMV *= glm::lookAt(-light.Direction, glm::vec3(0.0f), { 0.0f, 1.0f, 0.0f });
+	float thing = 30.0f;
+	glm::mat4 lightMV = glm::ortho(-thing, thing, -thing, thing, -thing, thing);
+	lightMV *= glm::lookAt(
+		s_ActiveCamera->Position + s_ActiveCamera->GetForwardDirection() - light.Direction,
+		s_ActiveCamera->Position + s_ActiveCamera->GetForwardDirection() + light.Direction,
+		{ 0.0f, 1.0f, 0.0f }
+	);
 	// lightMV *= glm::lookAt(s_ActiveCamera->Position - light.Direction * 100.0f, s_ActiveCamera->Position, { 0.0f, 1.0f, 0.0f });
 	
 	s_Data.DepthShader->Bind();
