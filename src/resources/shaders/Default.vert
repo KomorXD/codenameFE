@@ -13,12 +13,9 @@ layout (std140, binding = 0) uniform Matrices
 	mat4 u_View;
 };
 
-uniform mat4 u_LightMV;
-
 out VS_OUT
 {
 	vec3 worldPos;
-	vec4 lightSpacePos;
 	vec3 normal;
 	vec4 color;
 	vec2 textureUV;
@@ -28,7 +25,6 @@ out VS_OUT
 void main()
 {
 	vs_out.worldPos	     = (a_Transform * vec4(a_Pos, 1.0)).xyz;
-	vs_out.lightSpacePos = u_LightMV * vec4(vs_out.worldPos, 1.0);
 	vs_out.normal		 = a_Normal;
 	vs_out.color		 = a_Color;
 	vs_out.textureUV	 = a_TextureUV;

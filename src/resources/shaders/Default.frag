@@ -31,14 +31,11 @@ struct SpotLight
 in VS_OUT
 {
 	vec3 worldPos;
-	vec4 lightSpacePos;
 	vec3 normal;
 	vec4 color;
 	vec2 textureUV;
 	flat float textureSlot;
 } fs_in;
-
-uniform int u_ShadowMapIdx;
 
 uniform vec3 u_ViewPos = vec3(0.0);
 uniform float u_AmbientStrength = 0.1;
@@ -56,39 +53,48 @@ uniform sampler2D u_Textures[24];
 
 out vec4 fragColor;
 
-float shadowFactor(DirectionalLight light, vec4 lightSpacePos)
-{
-	float shadow = 0.0;
-	float bias = mix(0.005, 0.0, dot(fs_in.normal, -light.direction));
-	vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
-	projCoords = projCoords * 0.5 + 0.5;
-
-	if(projCoords.z - bias > 1.0)
-	{
-		return 0.0;
-	}
-	
-	vec2 texelSize = 0.5 / textureSize(u_Textures[u_ShadowMapIdx], 0);
-	int sampleVal = 1;
-	for(int x = -sampleVal; x <= sampleVal; x++)
-	{
-		for(int y = -sampleVal; y <= sampleVal; y++)
-		{
-			float depth = texture(u_Textures[u_ShadowMapIdx], projCoords.xy + vec2(x, y) * texelSize).r;
-			shadow += (projCoords.z - bias) > depth ? 1.0 : 0.0;
-		}
-	}
-
-	return shadow / 9.0;
-}
-
 void main()
 {
+	int slot = -1;
+	switch(int(fs_in.textureSlot))
+	{
+		case  0: slot = 0;  break;
+		case  1: slot = 1;  break;
+		case  2: slot = 2;  break;
+		case  3: slot = 3;  break;
+		case  4: slot = 4;  break;
+		case  5: slot = 5;  break;
+		case  6: slot = 6;  break;
+		case  7: slot = 7;  break;
+		case  8: slot = 8;  break;
+		case  9: slot = 9;  break;
+		case 10: slot = 10; break;
+		case 11: slot = 11; break;
+		case 12: slot = 12; break;
+		case 13: slot = 13; break;
+		case 14: slot = 14; break;
+		case 15: slot = 15; break;
+		case 16: slot = 16; break;
+		case 17: slot = 17; break;
+		case 18: slot = 18; break;
+		case 19: slot = 19; break;
+		case 20: slot = 20; break;
+		case 21: slot = 21; break;
+		case 22: slot = 22; break;
+		case 23: slot = 23; break;
+	}
+
+	vec4 color = texture(u_Textures[slot], fs_in.textureUV) * fs_in.color;
+	if(color.a == 0.0)
+	{
+		discard;
+		return;
+	}
+
 	vec3 totalDirectional = vec3(0.0);
 	for(int i = 0; i < u_DirLightsCount; i++)
 	{
-		float shadow = shadowFactor(u_DirLights[i], fs_in.lightSpacePos);
-		totalDirectional += (1.0 - shadow) * max(dot(fs_in.normal, -u_DirLights[i].direction), 0.0) * u_DirLights[i].color;
+		totalDirectional += max(dot(fs_in.normal, -u_DirLights[i].direction), 0.0) * u_DirLights[i].color;
 	}
 
 	vec3 totalDiffuse = vec3(0.0);
@@ -130,36 +136,6 @@ void main()
 		}
 	}
 
-	int slot = -1;
-	switch(int(fs_in.textureSlot))
-	{
-		case  0: slot = 0;  break;
-		case  1: slot = 1;  break;
-		case  2: slot = 2;  break;
-		case  3: slot = 3;  break;
-		case  4: slot = 4;  break;
-		case  5: slot = 5;  break;
-		case  6: slot = 6;  break;
-		case  7: slot = 7;  break;
-		case  8: slot = 8;  break;
-		case  9: slot = 9;  break;
-		case 10: slot = 10; break;
-		case 11: slot = 11; break;
-		case 12: slot = 12; break;
-		case 13: slot = 13; break;
-		case 14: slot = 14; break;
-		case 15: slot = 15; break;
-		case 16: slot = 16; break;
-		case 17: slot = 17; break;
-		case 18: slot = 18; break;
-		case 19: slot = 19; break;
-		case 20: slot = 20; break;
-		case 21: slot = 21; break;
-		case 22: slot = 22; break;
-		case 23: slot = 23; break;
-	}
-
-	vec4 color = texture(u_Textures[slot], fs_in.textureUV) * fs_in.color;
 	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * color.rgb;
 	fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
 	fragColor.a = color.a;

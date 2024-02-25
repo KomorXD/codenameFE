@@ -20,6 +20,7 @@ public:
 	virtual void OnRender()			override;
 
 private:
+	void RenderViewport();
 	void RenderScene();
 
 	Camera m_EditorCamera;

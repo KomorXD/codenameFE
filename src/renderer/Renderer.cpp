@@ -221,13 +221,6 @@ void Renderer::Init()
 
 		s_Data.CubeBufferBase = new CubeInstance[s_Data.MaxInstances];
 	}
-	
-	s_Data.DefaultShader = std::make_shared<Shader>("resources/shaders/Default.vert", "resources/shaders/Default.frag");
-	s_Data.DefaultShader->Bind();
-	for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
-	{
-		s_Data.DefaultShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
-	}
 
 	{
 		SCOPE_PROFILE("Uniform buffers init");
@@ -238,6 +231,13 @@ void Renderer::Init()
 
 	{
 		SCOPE_PROFILE("Other setup");
+
+		s_Data.DefaultShader = std::make_shared<Shader>("resources/shaders/Default.vert", "resources/shaders/Default.frag");
+		s_Data.DefaultShader->Bind();
+		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
+		{
+			s_Data.DefaultShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
+		}
 
 		uint8_t whitePixel[] = { 255.0f, 255.0f, 255.0f, 255.0f };
 		s_Data.DefaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1);
@@ -302,9 +302,9 @@ void Renderer::Flush()
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.LineBufferPtr - (uint8_t*)s_Data.LineBufferBase);
 		s_Data.LineVertexBuffer->SetData(s_Data.LineBufferBase, dataSize);
 
-		// GLCall(glDisable(GL_CULL_FACE));
+		GLCall(glDisable(GL_CULL_FACE));
 		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
-		// GLCall(glEnable(GL_CULL_FACE));
+		GLCall(glEnable(GL_CULL_FACE));
 	}
 
 	if (s_Data.QuadInstanceCount)
@@ -507,22 +507,9 @@ void Renderer::DrawScreenQuad()
 
 void Renderer::AddDirectionalLight(const DirectionalLight& light)
 {
-	float thing = 30.0f;
-	glm::mat4 lightMV = glm::ortho(-thing, thing, -thing, thing, -thing, thing);
-	lightMV *= glm::lookAt(
-		s_ActiveCamera->Position + s_ActiveCamera->GetForwardDirection() - light.Direction,
-		s_ActiveCamera->Position + s_ActiveCamera->GetForwardDirection() + light.Direction,
-		{ 0.0f, 1.0f, 0.0f }
-	);
-	// lightMV *= glm::lookAt(s_ActiveCamera->Position - light.Direction * 100.0f, s_ActiveCamera->Position, { 0.0f, 1.0f, 0.0f });
-	
-	s_Data.DepthShader->Bind();
-	s_Data.DepthShader->SetUniformMat4("u_LightMV", lightMV);
-
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", glm::normalize(light.Direction));
 	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",	   light.Color);
-	s_Data.DefaultShader->SetUniformMat4("u_LightMV", lightMV);
 
 	s_Data.DirLightsCount++;
 }
@@ -550,19 +537,6 @@ void Renderer::AddSpotLight(const SpotLight& light)
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
 
 	s_Data.SpotLightsCount++;
-}
-
-void Renderer::AddShadowMap(const std::unique_ptr<Framebuffer>& depthFB)
-{
-	if (s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
-	{
-		return;
-	}
-	
-	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform1i("u_ShadowMapIdx", s_Data.BoundTexturesCount);
-	s_Data.TextureBindings[s_Data.BoundTexturesCount] = depthFB->GetTextureID();
-	s_Data.BoundTexturesCount++;
 }
 
 void Renderer::SetBlur(bool enabled)

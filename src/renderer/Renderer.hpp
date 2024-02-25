@@ -51,8 +51,6 @@ public:
 	static void AddPointLight(const PointLight& light);
 	static void AddSpotLight(const SpotLight& light);
 
-	static void AddShadowMap(const std::unique_ptr<Framebuffer>& depthFB);
-
 	static void SetBlur(bool enabled);
 	static void RenderDefault();
 	static void RenderDepth();
