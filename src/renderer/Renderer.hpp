@@ -4,7 +4,7 @@
 #include <string>
 
 #include "OpenGL.hpp"
-#include "LightCasters.hpp"
+#include "../scenes/Components.hpp"
 
 class Shader;
 class VertexArray;
@@ -36,10 +36,14 @@ public:
 	static void Clear(uint32_t bitfield = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	static void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color);
+
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
+	static void DrawQuad(const glm::mat4& transform, const Material& material);
+
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
+	static void DrawCube(const glm::mat4& transform, const Material& material);
 
 	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
@@ -48,10 +52,11 @@ public:
 	static void DrawScreenQuad();
 
 	static void AddDirectionalLight(const DirectionalLight& light);
-	static void AddPointLight(const PointLight& light);
-	static void AddSpotLight(const SpotLight& light);
+	static void AddPointLight(const glm::vec3& position, const PointLight& light);
+	static void AddSpotLight(const glm::vec3& position, const SpotLight& light);
 
 	static void SetBlur(bool enabled);
+	static void SetLight(bool enabled);
 	static void RenderDefault();
 	static void RenderDepth();
 

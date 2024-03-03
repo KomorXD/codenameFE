@@ -7,9 +7,9 @@
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
-static std::unique_ptr<Texture> s_PlankTexture;
-static std::unique_ptr<Texture> s_GrassTexture;
-static std::unique_ptr<Texture> s_SandTexture;
+static std::shared_ptr<Texture> s_PlankTexture;
+static std::shared_ptr<Texture> s_GrassTexture;
+static std::shared_ptr<Texture> s_SandTexture;
 
 EditorLayer::EditorLayer()
 	: m_EditorCamera(90.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
@@ -27,12 +27,7 @@ EditorLayer::EditorLayer()
 
 	Renderer::OnWindowResize({ 0, 0, (int32_t)(spec.Width * 0.8f), spec.Height });
 
-	s_PlankTexture = std::make_unique<Texture>("resources/textures/cbbl.png");
-	s_GrassTexture = std::make_unique<Texture>("resources/textures/grass.jpg");
-	s_SandTexture = std::make_unique<Texture>("resources/textures/sand.png");
-
 	uint32_t width = (uint32_t)(spec.Width * 0.8f);
-
 	m_ScreenFB = std::make_unique<Framebuffer>();
 	m_ScreenFB->AttachTexture(width, (uint32_t)spec.Height);
 	m_ScreenFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
@@ -51,6 +46,24 @@ EditorLayer::EditorLayer()
 	m_DepthFB = std::make_unique<Framebuffer>();
 	m_DepthFB->AttachDepthBuffer(1024, 1024);
 	m_DepthFB->UnbindBuffer();
+
+	s_PlankTexture = std::make_shared<Texture>("resources/textures/cbbl.png");
+	s_GrassTexture = std::make_shared<Texture>("resources/textures/grass.jpg");
+	s_SandTexture  = std::make_shared<Texture>("resources/textures/sand.png");
+	
+	constexpr float radius = 10.0f;
+	constexpr uint32_t count = 20;
+	constexpr float step = 2.0f * glm::pi<float>() / count;
+	for (uint32_t i = 0; i < count; i++)
+	{
+		Cube& cube = m_Scene.Cubes.emplace_back();
+		glm::vec3 pos = { glm::cos(i * step) * radius, 2.0f, glm::sin(i * step) * radius };
+		cube.Transform.Position = pos;
+		cube.Material.Color = glm::vec4(pos / radius, 1.0f);
+	}
+
+	LightCube& light = m_Scene.Lights.emplace_back();
+	light.Transform.Position = { 0.0f, 7.0f, 0.0f };
 }
 
 void EditorLayer::OnAttach()
@@ -124,7 +137,6 @@ void EditorLayer::OnRender()
 	RenderViewport();
 
 	glm::vec2 windowSize = { Application::Instance()->Spec().Width, Application::Instance()->Spec().Height };
-
 	ImGui::SetNextWindowPos({ 0.0f, 0.0f });
 	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width / 5.0f, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
@@ -156,7 +168,6 @@ void EditorLayer::OnRender()
 	ImGui::End();
 	ImGui::PopStyleVar();
 
-	// GUI
 	ImGui::SetNextWindowPos({ ((float)Application::Instance()->Spec().Width / 5.0f), 0.0f});
 	ImGui::SetNextWindowSize({ 0.8f * (float)Application::Instance()->Spec().Width, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
@@ -196,46 +207,28 @@ void EditorLayer::RenderViewport()
 
 void EditorLayer::RenderScene()
 {
-	Renderer::AddDirectionalLight({
-		   .Direction = s_Dir,
-		   .Color = s_LightCol
-		});
-	/*Renderer::AddPointLight({
-		.Position = s_LightPos,
-		.Color = s_LightCol,
-		.LinearTerm = s_Linear,
-		.QuadraticTerm = s_Quadratic
-	});*/
-
-	// Renderer::DrawCube(s_LightPos, glm::vec3(1.0f), glm::vec4(s_LightCol, 1.0f));
-	Renderer::DrawCube(glm::vec3(0.0f), { 50.0f, 0.2f, 50.0f }, *s_GrassTexture);
-
-	Renderer::DrawQuad({ 0.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, *s_PlankTexture);
-	Renderer::DrawQuad({ 3.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
-	Renderer::DrawQuad({ -3.0f, 3.0f, 0.0f }, { 1.0f, 1.0f, 1.0f }, *s_PlankTexture);
-
-	Renderer::DrawLine({ 10.0f, 0.0f,  10.0f }, { -10.0f, 0.0f,  10.0f }, { 1.0f, 0.0f, 0.0f, 1.0f });
-	Renderer::DrawLine({ -10.0f, 0.0f,  10.0f }, { -10.0f, 0.0f, -10.0f }, { 0.0f, 1.0f, 0.0f, 1.0f });
-	Renderer::DrawLine({ -10.0f, 0.0f, -10.0f }, { 10.0f, 0.0f, -10.0f }, { 0.0f, 0.0f, 1.0f, 1.0f });
-	Renderer::DrawLine({ 10.0f, 0.0f, -10.0f }, { 10.0f, 0.0f,  10.0f }, { 0.0f, 1.0f, 1.0f, 1.0f });
-
-	constexpr float radius = 10.0f;
-	constexpr uint32_t count = 10;
-	constexpr float step = 2.0f * glm::pi<float>() / count;
-	bool textured = false;
-	for (uint32_t i = 0; i < count; i++)
+	for (Plane& plane : m_Scene.Planes)
 	{
-		glm::vec3 pos = { glm::cos(i * step) * radius, 2.0f, glm::sin(i * step) * radius };
-
-		if (textured)
-		{
-			Renderer::DrawCube(pos, glm::vec3(2.0f), *s_PlankTexture);
-		}
-		else
-		{
-			Renderer::DrawCube(pos, glm::vec3(1.0f), *s_SandTexture);
-		}
-
-		textured = !textured;
+		Renderer::DrawQuad(plane.Transform.ToMat4(), plane.Material);
 	}
+
+	for (Cube& cube : m_Scene.Cubes)
+	{
+		Renderer::DrawCube(cube.Transform.ToMat4(), cube.Material);
+	}
+
+	for (LightCube& light : m_Scene.Lights)
+	{
+		Renderer::AddPointLight(light.Transform.Position, light.Light);
+	}
+
+	Renderer::SceneEnd();
+	Renderer::SceneBegin(m_EditorCamera);
+	Renderer::SetLight(true);
+	for (LightCube& light : m_Scene.Lights)
+	{
+		Renderer::DrawCube(light.Transform.ToMat4(), light.Material);
+	}
+	Renderer::SceneEnd();
+	Renderer::SetLight(false);
 }

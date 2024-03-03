@@ -414,6 +414,50 @@ void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const 
 	++s_Data.QuadInstanceCount;
 }
 
+void Renderer::DrawQuad(const glm::mat4& transform, const Material& material)
+{
+	if (s_Data.QuadInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
+	{
+		NextBatch();
+	}
+
+	s_Data.QuadBufferPtr->Transform = transform;
+	s_Data.QuadBufferPtr->Color = material.Color;
+
+	if (!material.AlbedoTexture)
+	{
+		s_Data.QuadBufferPtr->TextureSlot = 0.0f;
+		++s_Data.QuadBufferPtr;
+		++s_Data.QuadInstanceCount;
+
+		return;
+	}
+
+	int32_t duplicateIdx = -1;
+	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	{
+		if (s_Data.TextureBindings[i] == material.AlbedoTexture->GetID())
+		{
+			duplicateIdx = i;
+			break;
+		}
+	}
+
+	if (duplicateIdx == -1)
+	{
+		s_Data.QuadBufferPtr->TextureSlot = (float)duplicateIdx;
+	}
+	else
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = material.AlbedoTexture->GetID();
+		s_Data.QuadBufferPtr->TextureSlot = (float)s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
+	++s_Data.QuadBufferPtr;
+	++s_Data.QuadInstanceCount;
+}
+
 void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color)
 {
 	if (s_Data.CubeInstanceCount >= s_Data.MaxInstances)
@@ -458,6 +502,50 @@ void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const 
 	else
 	{
 		s_Data.TextureBindings[s_Data.BoundTexturesCount] = texture.GetID();
+		s_Data.CubeBufferPtr->TextureSlot = (float)s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
+	++s_Data.CubeBufferPtr;
+	++s_Data.CubeInstanceCount;
+}
+
+void Renderer::DrawCube(const glm::mat4& transform, const Material& material)
+{
+	if (s_Data.CubeInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
+	{
+		NextBatch();
+	}
+
+	s_Data.CubeBufferPtr->Transform = transform;
+	s_Data.CubeBufferPtr->Color = material.Color;
+
+	if (!material.AlbedoTexture)
+	{
+		s_Data.CubeBufferPtr->TextureSlot = 0.0f;
+		++s_Data.CubeBufferPtr;
+		++s_Data.CubeInstanceCount;
+
+		return;
+	}
+	
+	int32_t duplicateIdx = -1;
+	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	{
+		if (s_Data.TextureBindings[i] == material.AlbedoTexture->GetID())
+		{
+			duplicateIdx = i;
+			break;
+		}
+	}
+
+	if (duplicateIdx == -1)
+	{
+		s_Data.CubeBufferPtr->TextureSlot = (float)duplicateIdx;
+	}
+	else
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = material.AlbedoTexture->GetID();
 		s_Data.CubeBufferPtr->TextureSlot = (float)s_Data.BoundTexturesCount;
 		++s_Data.BoundTexturesCount;
 	}
@@ -514,10 +602,10 @@ void Renderer::AddDirectionalLight(const DirectionalLight& light)
 	s_Data.DirLightsCount++;
 }
 
-void Renderer::AddPointLight(const PointLight& light)
+void Renderer::AddPointLight(const glm::vec3& position, const PointLight& light)
 {
 	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   light.Position);
+	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   position);
 	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		   light.Color);
 	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	   light.LinearTerm);
 	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
@@ -525,13 +613,13 @@ void Renderer::AddPointLight(const PointLight& light)
 	s_Data.PointLightsCount++;
 }
 
-void Renderer::AddSpotLight(const SpotLight& light)
+void Renderer::AddSpotLight(const glm::vec3& position, const SpotLight& light)
 {
 	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	  light.Position);
-	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		  glm::cos(glm::radians(light.CutOff)));
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	  position);
+	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		  glm::cos(glm::radians(light.Cutoff)));
 	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	  light.Direction);
-	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].outerCutOff",   glm::cos(glm::radians(light.OuterCutOff)));
+	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].outerCutOff",   glm::cos(glm::radians(light.OuterCutoff)));
 	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		  light.Color);
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	  light.LinearTerm);
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
@@ -543,6 +631,12 @@ void Renderer::SetBlur(bool enabled)
 {
 	s_Data.ScreenQuadShader->Bind();
 	s_Data.ScreenQuadShader->SetUniform1i("u_BlurEnabled", enabled ? 1 : 0);
+}
+
+void Renderer::SetLight(bool enabled)
+{
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniformBool("u_IsLightSource", enabled);
 }
 
 void Renderer::RenderDefault()
