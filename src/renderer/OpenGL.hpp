@@ -170,6 +170,7 @@ public:
 	void SetUniform3f(const std::string& name, const glm::vec3& vec);
 	void SetUniform4f(const std::string& name, const glm::vec4& vec);
 	void SetUniformMat4(const std::string& name, const glm::mat4& vec);
+	void SetUniformBool(const std::string& name, bool flag);
 
 	bool ReloadShader();
 

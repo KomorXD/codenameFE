@@ -320,6 +320,11 @@ void Shader::SetUniformMat4(const std::string& name, const glm::mat4& vec)
 	GLCall(glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, &vec[0][0]));
 }
 
+void Shader::SetUniformBool(const std::string& name, bool flag)
+{
+	GLCall(glUniform1i(GetUniformLocation(name), flag ? 1 : 0));
+}
+
 bool Shader::ReloadShader()
 {
 	Unbind();

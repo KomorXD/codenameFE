@@ -38,6 +38,7 @@ in VS_OUT
 } fs_in;
 
 uniform vec3 u_ViewPos = vec3(0.0);
+uniform bool u_IsLightSource = false;
 uniform float u_AmbientStrength = 0.1;
 
 uniform DirectionalLight u_DirLights[4];
@@ -88,6 +89,12 @@ void main()
 	if(color.a == 0.0)
 	{
 		discard;
+		return;
+	}
+
+	if(u_IsLightSource)
+	{
+		fragColor = vec4(pow(color.rgb, vec3(1.0 / 2.2)), color.a);
 		return;
 	}
 
