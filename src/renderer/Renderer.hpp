@@ -39,11 +39,11 @@ public:
 
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
 	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
-	static void DrawQuad(const glm::mat4& transform, const Material& material);
+	static void DrawQuad(const glm::mat4& transform, const MaterialComponent& material);
 
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
-	static void DrawCube(const glm::mat4& transform, const Material& material);
+	static void DrawCube(const glm::mat4& transform, const MaterialComponent& material);
 
 	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
@@ -51,9 +51,9 @@ public:
 	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawScreenQuad();
 
-	static void AddDirectionalLight(const DirectionalLight& light);
-	static void AddPointLight(const glm::vec3& position, const PointLight& light);
-	static void AddSpotLight(const glm::vec3& position, const SpotLight& light);
+	static void AddDirectionalLight(const DirectionalLightComponent& light);
+	static void AddPointLight(const glm::vec3& position, const PointLightComponent& light);
+	static void AddSpotLight(const glm::vec3& position, const SpotLightComponent& light);
 
 	static void SetBlur(bool enabled);
 	static void SetLight(bool enabled);

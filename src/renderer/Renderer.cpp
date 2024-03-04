@@ -387,19 +387,17 @@ void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const 
 	s_Data.QuadBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
 	s_Data.QuadBufferPtr->Color = glm::vec4(1.0f);
 
-	bool duplicateFound = false;
 	int32_t duplicateIdx = -1;
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
 		if (s_Data.TextureBindings[i] == texture.GetID())
 		{
-			duplicateFound = true;
 			duplicateIdx = i;
 			break;
 		}
 	}
 
-	if (duplicateFound)
+	if (duplicateIdx != -1)
 	{
 		s_Data.QuadBufferPtr->TextureSlot = (float)duplicateIdx;
 	}
@@ -414,7 +412,7 @@ void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const 
 	++s_Data.QuadInstanceCount;
 }
 
-void Renderer::DrawQuad(const glm::mat4& transform, const Material& material)
+void Renderer::DrawQuad(const glm::mat4& transform, const MaterialComponent& material)
 {
 	if (s_Data.QuadInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
 	{
@@ -443,7 +441,7 @@ void Renderer::DrawQuad(const glm::mat4& transform, const Material& material)
 		}
 	}
 
-	if (duplicateIdx == -1)
+	if (duplicateIdx != -1)
 	{
 		s_Data.QuadBufferPtr->TextureSlot = (float)duplicateIdx;
 	}
@@ -483,19 +481,17 @@ void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const 
 	s_Data.CubeBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
 	s_Data.CubeBufferPtr->Color = glm::vec4(1.0f);
 
-	bool duplicateFound = false;
 	int32_t duplicateIdx = -1;
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
 		if (s_Data.TextureBindings[i] == texture.GetID())
 		{
-			duplicateFound = true;
 			duplicateIdx = i;
 			break;
 		}
 	}
 
-	if (duplicateFound)
+	if (duplicateIdx != -1)
 	{
 		s_Data.CubeBufferPtr->TextureSlot = (float)duplicateIdx;
 	}
@@ -510,7 +506,7 @@ void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const 
 	++s_Data.CubeInstanceCount;
 }
 
-void Renderer::DrawCube(const glm::mat4& transform, const Material& material)
+void Renderer::DrawCube(const glm::mat4& transform, const MaterialComponent& material)
 {
 	if (s_Data.CubeInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
 	{
@@ -539,7 +535,7 @@ void Renderer::DrawCube(const glm::mat4& transform, const Material& material)
 		}
 	}
 
-	if (duplicateIdx == -1)
+	if (duplicateIdx != -1)
 	{
 		s_Data.CubeBufferPtr->TextureSlot = (float)duplicateIdx;
 	}
@@ -593,7 +589,7 @@ void Renderer::DrawScreenQuad()
 	GLCall(glEnable(GL_DEPTH_TEST));
 }
 
-void Renderer::AddDirectionalLight(const DirectionalLight& light)
+void Renderer::AddDirectionalLight(const DirectionalLightComponent& light)
 {
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", glm::normalize(light.Direction));
@@ -602,7 +598,7 @@ void Renderer::AddDirectionalLight(const DirectionalLight& light)
 	s_Data.DirLightsCount++;
 }
 
-void Renderer::AddPointLight(const glm::vec3& position, const PointLight& light)
+void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)
 {
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   position);
@@ -613,7 +609,7 @@ void Renderer::AddPointLight(const glm::vec3& position, const PointLight& light)
 	s_Data.PointLightsCount++;
 }
 
-void Renderer::AddSpotLight(const glm::vec3& position, const SpotLight& light)
+void Renderer::AddSpotLight(const glm::vec3& position, const SpotLightComponent& light)
 {
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	  position);
