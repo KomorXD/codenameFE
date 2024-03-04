@@ -3,6 +3,8 @@
 #include "../Application.hpp"
 #include "../Timer.hpp"
 #include "../renderer/Renderer.hpp"
+#include "../Logger.hpp"
+#include "../scenes/Entity.hpp"
 
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -49,21 +51,31 @@ EditorLayer::EditorLayer()
 
 	s_PlankTexture = std::make_shared<Texture>("resources/textures/cbbl.png");
 	s_GrassTexture = std::make_shared<Texture>("resources/textures/grass.jpg");
-	s_SandTexture  = std::make_shared<Texture>("resources/textures/sand.png");
+	s_SandTexture  = std::make_shared<Texture>("resources/textures/sand.png"); 
 	
 	constexpr float radius = 10.0f;
 	constexpr uint32_t count = 20;
 	constexpr float step = 2.0f * glm::pi<float>() / count;
 	for (uint32_t i = 0; i < count; i++)
 	{
-		Cube& cube = m_Scene.Cubes.emplace_back();
 		glm::vec3 pos = { glm::cos(i * step) * radius, 2.0f, glm::sin(i * step) * radius };
-		cube.Transform.Position = pos;
-		cube.Material.Color = glm::vec4(pos / radius, 1.0f);
+		
+		Entity cube = m_Scene.SpawnEntity("Cuboid");
+		cube.GetComponent<TransformComponent>().Position = pos;
+		cube.AddComponent<MeshComponent>().Type = MeshComponent::MeshType::CUBE;
+		cube.AddComponent<MaterialComponent>().Color = glm::vec4(pos / radius, 1.0f);
 	}
 
-	LightCube& light = m_Scene.Lights.emplace_back();
-	light.Transform.Position = { 0.0f, 7.0f, 0.0f };
+	Entity light = m_Scene.SpawnEntity("Light");
+	light.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
+	light.AddComponent<MeshComponent>().Type = MeshComponent::MeshType::CUBE;
+	light.AddComponent<MaterialComponent>().Color = glm::vec4(1.0f);
+	light.AddComponent<PointLightComponent>();
+
+	Entity ground = m_Scene.SpawnEntity("Ground");
+	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
+	ground.AddComponent<MeshComponent>().Type = MeshComponent::MeshType::CUBE;
+	ground.AddComponent<MaterialComponent>().AlbedoTexture = s_GrassTexture;
 }
 
 void EditorLayer::OnAttach()
@@ -187,10 +199,8 @@ void EditorLayer::RenderViewport()
 	Renderer::Clear();
 	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
 	Renderer::RenderDefault();
-	Renderer::SceneBegin(m_EditorCamera);
 	Renderer::SetBlur(s_Blur);
-	RenderScene();
-	Renderer::SceneEnd();
+	m_Scene.Render(m_EditorCamera);
 
 	// MSAA stuff
 	glm::uvec2 screenBufferSize = m_ScreenFB->RenderDimensions();
@@ -203,32 +213,4 @@ void EditorLayer::RenderViewport()
 	Renderer::DrawScreenQuad();
 	m_TargetFB->UnbindRenderBuffer();
 	m_TargetFB->UnbindBuffer();
-}
-
-void EditorLayer::RenderScene()
-{
-	for (Plane& plane : m_Scene.Planes)
-	{
-		Renderer::DrawQuad(plane.Transform.ToMat4(), plane.Material);
-	}
-
-	for (Cube& cube : m_Scene.Cubes)
-	{
-		Renderer::DrawCube(cube.Transform.ToMat4(), cube.Material);
-	}
-
-	for (LightCube& light : m_Scene.Lights)
-	{
-		Renderer::AddPointLight(light.Transform.Position, light.Light);
-	}
-
-	Renderer::SceneEnd();
-	Renderer::SceneBegin(m_EditorCamera);
-	Renderer::SetLight(true);
-	for (LightCube& light : m_Scene.Lights)
-	{
-		Renderer::DrawCube(light.Transform.ToMat4(), light.Material);
-	}
-	Renderer::SceneEnd();
-	Renderer::SetLight(false);
 }

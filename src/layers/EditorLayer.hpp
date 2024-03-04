@@ -22,7 +22,6 @@ public:
 
 private:
 	void RenderViewport();
-	void RenderScene();
 
 	Camera m_EditorCamera;
 	Scene m_Scene;
