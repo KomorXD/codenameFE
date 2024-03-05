@@ -1,8 +1,4 @@
 #include "Timer.hpp"
-#include "Timer.hpp"
-#include "Timer.hpp"
-#include "Timer.hpp"
-#include "Timer.hpp"
 #include "Logger.hpp"
 
 Timer::Timer(const std::string& taskName)

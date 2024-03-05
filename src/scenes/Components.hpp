@@ -39,14 +39,7 @@ struct MaterialComponent
 
 struct MeshComponent
 {
-	enum class MeshType
-	{
-		PLANE,
-		CUBE,
-		LINE
-	};
-
-	MeshType Type;
+	int32_t MeshID = 1;
 
 	MeshComponent() = default;
 	MeshComponent(const MeshComponent& other) = default;

@@ -45,6 +45,8 @@ public:
 	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
 	static void DrawCube(const glm::mat4& transform, const MaterialComponent& material);
 
+	static void SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material);
+
 	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType = GL_TRIANGLES);

@@ -30,20 +30,7 @@ void Scene::Render(Camera& editorCamera)
 		for (entt::entity entity : view)
 		{
 			auto[transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			switch (mesh.Type)
-			{
-			case MeshComponent::MeshType::PLANE:
-				Renderer::DrawQuad(transform.ToMat4(), material);
-				break;
-
-			case MeshComponent::MeshType::CUBE:
-				Renderer::DrawCube(transform.ToMat4(), material);
-				break;
-
-			default:
-				LOG_ERROR("Unsupported mesh type: {}", (int32_t)mesh.Type);
-				break;
-			}
+			Renderer::SubmitMesh(transform.ToMat4(), mesh, material);
 		}
 	}
 
@@ -67,20 +54,7 @@ void Scene::Render(Camera& editorCamera)
 		for (entt::entity entity : view)
 		{
 			auto [transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			switch (mesh.Type)
-			{
-			case MeshComponent::MeshType::PLANE:
-				Renderer::DrawQuad(transform.ToMat4(), material);
-				break;
-
-			case MeshComponent::MeshType::CUBE:
-				Renderer::DrawCube(transform.ToMat4(), material);
-				break;
-
-			default:
-				LOG_ERROR("Unsupported mesh type: {}", (int32_t)mesh.Type);
-				break;
-			}
+			Renderer::SubmitMesh(transform.ToMat4(), mesh, material);
 		}
 	}
 

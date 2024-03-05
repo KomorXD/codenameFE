@@ -1,9 +1,9 @@
 #include "Renderer.hpp"
-#include "OpenGL.hpp"
 #include "../Logger.hpp"
 #include "../Timer.hpp"
 #include "Camera.hpp"
 #include "PrimitivesGen.hpp"
+#include "AssetManager.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -62,6 +62,8 @@ struct RendererData
 	static constexpr uint32_t MaxVertices  = MaxQuads * 4;
 	static constexpr uint32_t MaxIndices   = MaxQuads * 6;
 	static constexpr uint32_t MaxInstances = MaxQuads / 4;
+
+	std::unordered_map<int32_t, std::vector<CubeInstance>> MeshesData;
 
 	std::shared_ptr<VertexArray>  ScreenQuadVertexArray;
 	std::shared_ptr<VertexBuffer> ScreenQuadVertexBuffer;
@@ -125,6 +127,70 @@ void Renderer::Init()
 	GLCall(glCullFace(GL_BACK));
 	GLCall(glEnable(GL_LINE_SMOOTH));
 	GLCall(glEnable(GL_MULTISAMPLE));
+
+	{
+		SCOPE_PROFILE("Quad mesh init");
+
+		Mesh mesh;
+		mesh.MeshName = "Cube mesh";
+
+		auto [vertices, indices] = QuadMeshData();
+		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
+		mesh.VAO = std::make_shared<VertexArray>();
+		mesh.VBO = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
+
+		VertexBufferLayout layout;
+		layout.Push<float>(3); // 0 Position
+		layout.Push<float>(3); // 1 Normal
+		layout.Push<float>(2); // 2 Texture UV
+		mesh.VAO->AddBuffers(mesh.VBO, ibo, layout);
+
+		layout.Clear();
+		layout.Push<float>(4); // 3 Transform
+		layout.Push<float>(4); // 4 Transform
+		layout.Push<float>(4); // 5 Transform
+		layout.Push<float>(4); // 6 Transform
+		layout.Push<float>(4); // 7 Color
+		layout.Push<float>(1); // 8 Texture slot
+		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, 256 * sizeof(CubeInstance));
+		mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
+
+		int32_t meshID = AssetManager::AddMesh(mesh);
+		s_Data.MeshesData[meshID] = std::vector<CubeInstance>();
+		s_Data.MeshesData[meshID].reserve(256);
+	}
+
+	{
+		SCOPE_PROFILE("Cube mesh init");
+
+		Mesh mesh;
+		mesh.MeshName = "Cube mesh";
+
+		auto [vertices, indices] = CubeMeshData();
+		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
+		mesh.VAO = std::make_shared<VertexArray>();
+		mesh.VBO = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
+
+		VertexBufferLayout layout;
+		layout.Push<float>(3); // 0 Position
+		layout.Push<float>(3); // 1 Normal
+		layout.Push<float>(2); // 2 Texture UV
+		mesh.VAO->AddBuffers(mesh.VBO, ibo, layout);
+
+		layout.Clear();
+		layout.Push<float>(4); // 3 Transform
+		layout.Push<float>(4); // 4 Transform
+		layout.Push<float>(4); // 5 Transform
+		layout.Push<float>(4); // 6 Transform
+		layout.Push<float>(4); // 7 Color
+		layout.Push<float>(1); // 8 Texture slot
+		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, 256 * sizeof(CubeInstance));
+		mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
+
+		int32_t meshID = AssetManager::AddMesh(mesh);
+		s_Data.MeshesData[meshID] = std::vector<CubeInstance>();
+		s_Data.MeshesData[meshID].reserve(256);
+	}
 
 	{
 		SCOPE_PROFILE("Screen quad init");
@@ -290,11 +356,29 @@ void Renderer::SceneEnd()
 
 void Renderer::Flush()
 {
-	s_Data.DefaultAlbedo->Bind();
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniform1i("u_DirLightsCount",   s_Data.DirLightsCount);
+	s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
+	s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
+
+	GLCall(glActiveTexture(GL_TEXTURE0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.DefaultAlbedo->GetID()));
 	for (int32_t i = 1; i < s_Data.BoundTexturesCount; i++)
 	{
 		GLCall(glActiveTexture(GL_TEXTURE0 + i));
 		GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
+	}
+
+	for (auto& [meshID, meshData] : s_Data.MeshesData)
+	{
+		if (meshData.empty())
+		{
+			continue;
+		}
+
+		Mesh& mesh = AssetManager::GetMesh(meshID);
+		mesh.InstanceBuffer->SetData(meshData.data(), meshData.size() * sizeof(CubeInstance));
+		DrawIndexedInstanced(s_Data.CurrentShader, mesh.VAO, meshData.size());
 	}
 
 	if (s_Data.LineVertexCount)
@@ -312,11 +396,6 @@ void Renderer::Flush()
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.QuadBufferPtr - (uint8_t*)s_Data.QuadBufferBase);
 		s_Data.QuadInstanceBuffer->SetData(s_Data.QuadBufferBase, dataSize);
 
-		s_Data.DefaultShader->Bind();
-		s_Data.DefaultShader->SetUniform1i("u_DirLightsCount",   s_Data.DirLightsCount);
-		s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
-		s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
-
 		DrawIndexedInstanced(s_Data.CurrentShader, s_Data.QuadVertexArray, s_Data.QuadInstanceCount);
 	}
 
@@ -324,11 +403,6 @@ void Renderer::Flush()
 	{
 		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.CubeBufferPtr - (uint8_t*)s_Data.CubeBufferBase);
 		s_Data.CubeInstanceBuffer->SetData(s_Data.CubeBufferBase, dataSize);
-
-		s_Data.DefaultShader->Bind();
-		s_Data.DefaultShader->SetUniform1i("u_DirLightsCount",   s_Data.DirLightsCount);
-		s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
-		s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
 
 		DrawIndexedInstanced(s_Data.CurrentShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
@@ -550,6 +624,42 @@ void Renderer::DrawCube(const glm::mat4& transform, const MaterialComponent& mat
 	++s_Data.CubeInstanceCount;
 }
 
+void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material)
+{
+	std::vector<CubeInstance>& instances = s_Data.MeshesData[mesh.MeshID];
+	CubeInstance& instance = instances.emplace_back();
+	instance.Transform = transform;
+	instance.Color = material.Color;
+
+	if (!material.AlbedoTexture)
+	{
+		instance.TextureSlot = 0.0f;
+
+		return;
+	}
+
+	int32_t duplicateIdx = -1;
+	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	{
+		if (s_Data.TextureBindings[i] == material.AlbedoTexture->GetID())
+		{
+			duplicateIdx = i;
+			break;
+		}
+	}
+
+	if (duplicateIdx != -1)
+	{
+		instance.TextureSlot = (float)duplicateIdx;
+	}
+	else
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = material.AlbedoTexture->GetID();
+		instance.TextureSlot = (float)s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+}
+
 void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType)
 {
 	vao->Bind();
@@ -656,6 +766,12 @@ Viewport Renderer::CurrentViewport()
 
 void Renderer::StartBatch()
 {
+	for (auto& [meshID, data] : s_Data.MeshesData)
+	{
+		data.clear();
+		data.reserve(256);
+	}
+
 	s_Data.LineVertexCount = 0;
 	s_Data.LineBufferPtr = s_Data.LineBufferBase;
 

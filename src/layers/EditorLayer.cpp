@@ -62,19 +62,19 @@ EditorLayer::EditorLayer()
 		
 		Entity cube = m_Scene.SpawnEntity("Cuboid");
 		cube.GetComponent<TransformComponent>().Position = pos;
-		cube.AddComponent<MeshComponent>().Type = MeshComponent::MeshType::CUBE;
+		cube.AddComponent<MeshComponent>().MeshID = 2;
 		cube.AddComponent<MaterialComponent>().Color = glm::vec4(pos / radius, 1.0f);
 	}
 
 	Entity light = m_Scene.SpawnEntity("Light");
 	light.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
-	light.AddComponent<MeshComponent>().Type = MeshComponent::MeshType::CUBE;
+	light.AddComponent<MeshComponent>().MeshID = 1;
 	light.AddComponent<MaterialComponent>().Color = glm::vec4(1.0f);
 	light.AddComponent<PointLightComponent>();
 
 	Entity ground = m_Scene.SpawnEntity("Ground");
 	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
-	ground.AddComponent<MeshComponent>().Type = MeshComponent::MeshType::CUBE;
+	ground.AddComponent<MeshComponent>().MeshID = 2;
 	ground.AddComponent<MaterialComponent>().AlbedoTexture = s_GrassTexture;
 }
 
