@@ -95,6 +95,33 @@ struct RendererData
 
 static RendererData s_Data{};
 
+static Mesh GenerateMeshData(VertexData vertexData)
+{
+	Mesh mesh{};
+	auto& [vertices, indices] = vertexData;
+	std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
+	mesh.VAO = std::make_shared<VertexArray>();
+	mesh.VBO = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
+
+	VertexBufferLayout layout;
+	layout.Push<float>(3); // 0 Position
+	layout.Push<float>(3); // 1 Normal
+	layout.Push<float>(2); // 2 Texture UV
+	mesh.VAO->AddBuffers(mesh.VBO, ibo, layout);
+
+	layout.Clear();
+	layout.Push<float>(4); // 3 Transform
+	layout.Push<float>(4); // 4 Transform
+	layout.Push<float>(4); // 5 Transform
+	layout.Push<float>(4); // 6 Transform
+	layout.Push<float>(4); // 7 Color
+	layout.Push<float>(1); // 8 Texture slot
+	mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
+	mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
+
+	return mesh;
+}
+
 void Renderer::Init()
 {
 	FUNC_PROFILE();
@@ -118,62 +145,20 @@ void Renderer::Init()
 	{
 		SCOPE_PROFILE("Quad mesh init");
 
-		Mesh mesh;
-		mesh.MeshName = "Cube mesh";
+		Mesh quadMesh = GenerateMeshData(QuadMeshData());
+		quadMesh.MeshName = "Quad mesh";
 
-		auto [vertices, indices] = QuadMeshData();
-		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
-		mesh.VAO = std::make_shared<VertexArray>();
-		mesh.VBO = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
-
-		VertexBufferLayout layout;
-		layout.Push<float>(3); // 0 Position
-		layout.Push<float>(3); // 1 Normal
-		layout.Push<float>(2); // 2 Texture UV
-		mesh.VAO->AddBuffers(mesh.VBO, ibo, layout);
-
-		layout.Clear();
-		layout.Push<float>(4); // 3 Transform
-		layout.Push<float>(4); // 4 Transform
-		layout.Push<float>(4); // 5 Transform
-		layout.Push<float>(4); // 6 Transform
-		layout.Push<float>(4); // 7 Color
-		layout.Push<float>(1); // 8 Texture slot
-		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
-		mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
-
-		int32_t meshID = AssetManager::AddMesh(mesh, AssetManager::PRIMITIVE_PLANE);
+		int32_t meshID = AssetManager::AddMesh(quadMesh, AssetManager::PRIMITIVE_PLANE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
 	{
 		SCOPE_PROFILE("Cube mesh init");
 
-		Mesh mesh;
-		mesh.MeshName = "Cube mesh";
+		Mesh cubeMesh = GenerateMeshData(CubeMeshData());
+		cubeMesh.MeshName = "Cube mesh";
 
-		auto [vertices, indices] = CubeMeshData();
-		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
-		mesh.VAO = std::make_shared<VertexArray>();
-		mesh.VBO = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
-
-		VertexBufferLayout layout;
-		layout.Push<float>(3); // 0 Position
-		layout.Push<float>(3); // 1 Normal
-		layout.Push<float>(2); // 2 Texture UV
-		mesh.VAO->AddBuffers(mesh.VBO, ibo, layout);
-
-		layout.Clear();
-		layout.Push<float>(4); // 3 Transform
-		layout.Push<float>(4); // 4 Transform
-		layout.Push<float>(4); // 5 Transform
-		layout.Push<float>(4); // 6 Transform
-		layout.Push<float>(4); // 7 Color
-		layout.Push<float>(1); // 8 Texture slot
-		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
-		mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
-
-		int32_t meshID = AssetManager::AddMesh(mesh, AssetManager::PRIMITIVE_CUBE);
+		int32_t meshID = AssetManager::AddMesh(cubeMesh, AssetManager::PRIMITIVE_CUBE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
