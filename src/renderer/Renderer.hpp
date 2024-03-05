@@ -37,14 +37,6 @@ public:
 
 	static void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color);
 
-	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
-	static void DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
-	static void DrawQuad(const glm::mat4& transform, const MaterialComponent& material);
-
-	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color);
-	static void DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture);
-	static void DrawCube(const glm::mat4& transform, const MaterialComponent& material);
-
 	static void SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material);
 
 	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType = GL_TRIANGLES);

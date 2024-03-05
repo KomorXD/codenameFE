@@ -56,14 +56,22 @@ struct CubeInstance
 	float	  TextureSlot;
 };
 
+struct MeshBufferData
+{
+	int32_t CurrentInstancesCount = 0;
+	std::vector<CubeInstance> Instances;
+};
+
 struct RendererData
 {
 	static constexpr uint32_t MaxQuads	   = 5000;
 	static constexpr uint32_t MaxVertices  = MaxQuads * 4;
 	static constexpr uint32_t MaxIndices   = MaxQuads * 6;
 	static constexpr uint32_t MaxInstances = MaxQuads / 4;
+	static constexpr uint32_t MaxInstancesOfType = MaxInstances / 5;
 
-	std::unordered_map<int32_t, std::vector<CubeInstance>> MeshesData;
+	uint32_t InstancesCount = 0;
+	std::unordered_map<int32_t, MeshBufferData> MeshesData;
 
 	std::shared_ptr<VertexArray>  ScreenQuadVertexArray;
 	std::shared_ptr<VertexBuffer> ScreenQuadVertexBuffer;
@@ -75,20 +83,6 @@ struct RendererData
 	uint32_t	LineVertexCount = 0;
 	LineVertex* LineBufferBase  = nullptr;
 	LineVertex* LineBufferPtr   = nullptr;
-
-	std::shared_ptr<VertexArray>  QuadVertexArray;
-	std::shared_ptr<VertexBuffer> QuadVertexBuffer;
-	std::shared_ptr<VertexBuffer> QuadInstanceBuffer;
-	uint32_t	  QuadInstanceCount = 0;
-	QuadInstance* QuadBufferBase    = nullptr;
-	QuadInstance* QuadBufferPtr     = nullptr;
-
-	std::shared_ptr<VertexArray>  CubeVertexArray;
-	std::shared_ptr<VertexBuffer> CubeVertexBuffer;
-	std::shared_ptr<VertexBuffer> CubeInstanceBuffer;
-	uint32_t	  CubeInstanceCount = 0;
-	CubeInstance* CubeBufferBase	= nullptr;
-	CubeInstance* CubeBufferPtr	    = nullptr;
 
 	std::shared_ptr<Shader>	DefaultShader;
 	std::shared_ptr<Shader> DepthShader;
@@ -152,12 +146,11 @@ void Renderer::Init()
 		layout.Push<float>(4); // 6 Transform
 		layout.Push<float>(4); // 7 Color
 		layout.Push<float>(1); // 8 Texture slot
-		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, 256 * sizeof(CubeInstance));
+		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(CubeInstance));
 		mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
 
 		int32_t meshID = AssetManager::AddMesh(mesh);
-		s_Data.MeshesData[meshID] = std::vector<CubeInstance>();
-		s_Data.MeshesData[meshID].reserve(256);
+		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
 	{
@@ -184,12 +177,11 @@ void Renderer::Init()
 		layout.Push<float>(4); // 6 Transform
 		layout.Push<float>(4); // 7 Color
 		layout.Push<float>(1); // 8 Texture slot
-		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, 256 * sizeof(CubeInstance));
+		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(CubeInstance));
 		mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
 
 		int32_t meshID = AssetManager::AddMesh(mesh);
-		s_Data.MeshesData[meshID] = std::vector<CubeInstance>();
-		s_Data.MeshesData[meshID].reserve(256);
+		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
 	{
@@ -235,60 +227,6 @@ void Renderer::Init()
 	}
 
 	{
-		SCOPE_PROFILE("Quad data init");
-
-		auto [vertices, indices] = QuadMeshData();
-		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
-		s_Data.QuadVertexArray = std::make_shared<VertexArray>();
-		s_Data.QuadVertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
-
-		VertexBufferLayout layout;
-		layout.Push<float>(3); // 0 Position
-		layout.Push<float>(3); // 1 Normal
-		layout.Push<float>(2); // 2 Texture UV
-		s_Data.QuadVertexArray->AddBuffers(s_Data.QuadVertexBuffer, ibo, layout);
-
-		layout.Clear();
-		layout.Push<float>(4); // 3 Transform
-		layout.Push<float>(4); // 4 Transform
-		layout.Push<float>(4); // 5 Transform
-		layout.Push<float>(4); // 6 Transform
-		layout.Push<float>(4); // 7 Color
-		layout.Push<float>(1); // 8 Texture slot
-		s_Data.QuadInstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstances * sizeof(CubeInstance));
-		s_Data.QuadVertexArray->AddInstancedVertexBuffer(s_Data.QuadInstanceBuffer, layout, 3);
-
-		s_Data.QuadBufferBase = new QuadInstance[s_Data.MaxInstances];
-	}
-
-	{
-		SCOPE_PROFILE("Cube data init");
-
-		auto [vertices, indices] = CubeMeshData();
-		std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
-		s_Data.CubeVertexArray = std::make_shared<VertexArray>();
-		s_Data.CubeVertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
-
-		VertexBufferLayout layout;
-		layout.Push<float>(3); // 0 Position
-		layout.Push<float>(3); // 1 Normal
-		layout.Push<float>(2); // 2 Texture UV
-		s_Data.CubeVertexArray->AddBuffers(s_Data.CubeVertexBuffer, ibo, layout);
-
-		layout.Clear();
-		layout.Push<float>(4); // 3 Transform
-		layout.Push<float>(4); // 4 Transform
-		layout.Push<float>(4); // 5 Transform
-		layout.Push<float>(4); // 6 Transform
-		layout.Push<float>(4); // 7 Color
-		layout.Push<float>(1); // 8 Texture slot
-		s_Data.CubeInstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstances * sizeof(CubeInstance));
-		s_Data.CubeVertexArray->AddInstancedVertexBuffer(s_Data.CubeInstanceBuffer, layout, 3);
-
-		s_Data.CubeBufferBase = new CubeInstance[s_Data.MaxInstances];
-	}
-
-	{
 		SCOPE_PROFILE("Uniform buffers init");
 
 		s_Data.MatricesBuffer = std::make_shared<UniformBuffer>(nullptr, 2 * sizeof(glm::mat4));
@@ -314,9 +252,7 @@ void Renderer::Init()
 
 void Renderer::Shutdown()
 {
-	delete[] s_Data.QuadBufferBase;
 	delete[] s_Data.LineBufferBase;
-	delete[] s_Data.CubeBufferBase;
 }
 
 void Renderer::ReloadShaders()
@@ -371,14 +307,14 @@ void Renderer::Flush()
 
 	for (auto& [meshID, meshData] : s_Data.MeshesData)
 	{
-		if (meshData.empty())
+		if (meshData.CurrentInstancesCount == 0)
 		{
 			continue;
 		}
 
 		Mesh& mesh = AssetManager::GetMesh(meshID);
-		mesh.InstanceBuffer->SetData(meshData.data(), meshData.size() * sizeof(CubeInstance));
-		DrawIndexedInstanced(s_Data.CurrentShader, mesh.VAO, meshData.size());
+		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(CubeInstance));
+		DrawIndexedInstanced(s_Data.CurrentShader, mesh.VAO, meshData.CurrentInstancesCount);
 	}
 
 	if (s_Data.LineVertexCount)
@@ -389,22 +325,6 @@ void Renderer::Flush()
 		GLCall(glDisable(GL_CULL_FACE));
 		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
 		GLCall(glEnable(GL_CULL_FACE));
-	}
-
-	if (s_Data.QuadInstanceCount)
-	{
-		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.QuadBufferPtr - (uint8_t*)s_Data.QuadBufferBase);
-		s_Data.QuadInstanceBuffer->SetData(s_Data.QuadBufferBase, dataSize);
-
-		DrawIndexedInstanced(s_Data.CurrentShader, s_Data.QuadVertexArray, s_Data.QuadInstanceCount);
-	}
-
-	if (s_Data.CubeInstanceCount)
-	{
-		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.CubeBufferPtr - (uint8_t*)s_Data.CubeBufferBase);
-		s_Data.CubeInstanceBuffer->SetData(s_Data.CubeBufferBase, dataSize);
-
-		DrawIndexedInstanced(s_Data.CurrentShader, s_Data.CubeVertexArray, s_Data.CubeInstanceCount);
 	}
 }
 
@@ -436,200 +356,22 @@ void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm:
 	s_Data.LineVertexCount += 2;
 }
 
-void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color)
-{
-	if (s_Data.QuadInstanceCount >= s_Data.MaxInstances)
-	{
-		NextBatch();
-	}
-
-	s_Data.QuadBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
-	s_Data.QuadBufferPtr->Color = color;
-	s_Data.QuadBufferPtr->TextureSlot = 0.0f;
-
-	++s_Data.QuadBufferPtr;
-	++s_Data.QuadInstanceCount;
-}
-
-void Renderer::DrawQuad(const glm::vec3& position, const glm::vec3& size, const Texture& texture)
-{
-	if (s_Data.QuadInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
-	{
-		NextBatch();
-	}
-
-	s_Data.QuadBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
-	s_Data.QuadBufferPtr->Color = glm::vec4(1.0f);
-
-	int32_t duplicateIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == texture.GetID())
-		{
-			duplicateIdx = i;
-			break;
-		}
-	}
-
-	if (duplicateIdx != -1)
-	{
-		s_Data.QuadBufferPtr->TextureSlot = (float)duplicateIdx;
-	}
-	else
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = texture.GetID();
-		s_Data.QuadBufferPtr->TextureSlot = (float)s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
-	++s_Data.QuadBufferPtr;
-	++s_Data.QuadInstanceCount;
-}
-
-void Renderer::DrawQuad(const glm::mat4& transform, const MaterialComponent& material)
-{
-	if (s_Data.QuadInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
-	{
-		NextBatch();
-	}
-
-	s_Data.QuadBufferPtr->Transform = transform;
-	s_Data.QuadBufferPtr->Color = material.Color;
-
-	if (!material.AlbedoTexture)
-	{
-		s_Data.QuadBufferPtr->TextureSlot = 0.0f;
-		++s_Data.QuadBufferPtr;
-		++s_Data.QuadInstanceCount;
-
-		return;
-	}
-
-	int32_t duplicateIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == material.AlbedoTexture->GetID())
-		{
-			duplicateIdx = i;
-			break;
-		}
-	}
-
-	if (duplicateIdx != -1)
-	{
-		s_Data.QuadBufferPtr->TextureSlot = (float)duplicateIdx;
-	}
-	else
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = material.AlbedoTexture->GetID();
-		s_Data.QuadBufferPtr->TextureSlot = (float)s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
-	++s_Data.QuadBufferPtr;
-	++s_Data.QuadInstanceCount;
-}
-
-void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const glm::vec4& color)
-{
-	if (s_Data.CubeInstanceCount >= s_Data.MaxInstances)
-	{
-		NextBatch();
-	}
-
-	s_Data.CubeBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
-	s_Data.CubeBufferPtr->Color = color;
-	s_Data.CubeBufferPtr->TextureSlot = 0.0f;
-
-	++s_Data.CubeBufferPtr;
-	++s_Data.CubeInstanceCount;
-}
-
-void Renderer::DrawCube(const glm::vec3& position, const glm::vec3& size, const Texture& texture)
-{
-	if (s_Data.CubeInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
-	{
-		NextBatch();
-	}
-
-	s_Data.CubeBufferPtr->Transform = glm::translate(glm::mat4(1.0f), position) * glm::scale(glm::mat4(1.0f), size);
-	s_Data.CubeBufferPtr->Color = glm::vec4(1.0f);
-
-	int32_t duplicateIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == texture.GetID())
-		{
-			duplicateIdx = i;
-			break;
-		}
-	}
-
-	if (duplicateIdx != -1)
-	{
-		s_Data.CubeBufferPtr->TextureSlot = (float)duplicateIdx;
-	}
-	else
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = texture.GetID();
-		s_Data.CubeBufferPtr->TextureSlot = (float)s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
-	++s_Data.CubeBufferPtr;
-	++s_Data.CubeInstanceCount;
-}
-
-void Renderer::DrawCube(const glm::mat4& transform, const MaterialComponent& material)
-{
-	if (s_Data.CubeInstanceCount >= 254 || s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
-	{
-		NextBatch();
-	}
-
-	s_Data.CubeBufferPtr->Transform = transform;
-	s_Data.CubeBufferPtr->Color = material.Color;
-
-	if (!material.AlbedoTexture)
-	{
-		s_Data.CubeBufferPtr->TextureSlot = 0.0f;
-		++s_Data.CubeBufferPtr;
-		++s_Data.CubeInstanceCount;
-
-		return;
-	}
-	
-	int32_t duplicateIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == material.AlbedoTexture->GetID())
-		{
-			duplicateIdx = i;
-			break;
-		}
-	}
-
-	if (duplicateIdx != -1)
-	{
-		s_Data.CubeBufferPtr->TextureSlot = (float)duplicateIdx;
-	}
-	else
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = material.AlbedoTexture->GetID();
-		s_Data.CubeBufferPtr->TextureSlot = (float)s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
-	++s_Data.CubeBufferPtr;
-	++s_Data.CubeInstanceCount;
-}
-
 void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material)
 {
-	std::vector<CubeInstance>& instances = s_Data.MeshesData[mesh.MeshID];
+	if (s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount >= s_Data.MaxInstancesOfType
+		|| s_Data.InstancesCount >= s_Data.MaxInstances
+		|| s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
+	{
+		NextBatch();
+	}
+
+	std::vector<CubeInstance>& instances = s_Data.MeshesData[mesh.MeshID].Instances;
 	CubeInstance& instance = instances.emplace_back();
 	instance.Transform = transform;
 	instance.Color = material.Color;
+	
+	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;
+	s_Data.InstancesCount++;
 
 	if (!material.AlbedoTexture)
 	{
@@ -766,20 +508,16 @@ Viewport Renderer::CurrentViewport()
 
 void Renderer::StartBatch()
 {
+	s_Data.InstancesCount = 0;
 	for (auto& [meshID, data] : s_Data.MeshesData)
 	{
-		data.clear();
-		data.reserve(256);
+		data.CurrentInstancesCount = 0;
+		data.Instances.clear();
+		data.Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
 	s_Data.LineVertexCount = 0;
 	s_Data.LineBufferPtr = s_Data.LineBufferBase;
-
-	s_Data.QuadInstanceCount = 0;
-	s_Data.QuadBufferPtr = s_Data.QuadBufferBase;
-
-	s_Data.CubeInstanceCount = 0;
-	s_Data.CubeBufferPtr = s_Data.CubeBufferBase;
 
 	s_Data.DirLightsCount = 0;
 	s_Data.PointLightsCount = 0;
