@@ -5,6 +5,7 @@
 #include "../renderer/Renderer.hpp"
 #include "../Logger.hpp"
 #include "../scenes/Entity.hpp"
+#include "../renderer/AssetManager.hpp"
 
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -62,19 +63,19 @@ EditorLayer::EditorLayer()
 		
 		Entity cube = m_Scene.SpawnEntity("Cuboid");
 		cube.GetComponent<TransformComponent>().Position = pos;
-		cube.AddComponent<MeshComponent>().MeshID = 2;
+		cube.AddComponent<MeshComponent>().MeshID = AssetManager::PRIMITIVE_CUBE;
 		cube.AddComponent<MaterialComponent>().Color = glm::vec4(pos / radius, 1.0f);
 	}
 
 	Entity light = m_Scene.SpawnEntity("Light");
 	light.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
-	light.AddComponent<MeshComponent>().MeshID = 1;
+	light.AddComponent<MeshComponent>().MeshID = AssetManager::PRIMITIVE_PLANE;
 	light.AddComponent<MaterialComponent>().Color = glm::vec4(1.0f);
 	light.AddComponent<PointLightComponent>();
 
 	Entity ground = m_Scene.SpawnEntity("Ground");
 	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
-	ground.AddComponent<MeshComponent>().MeshID = 2;
+	ground.AddComponent<MeshComponent>().MeshID = AssetManager::PRIMITIVE_CUBE;
 	ground.AddComponent<MaterialComponent>().AlbedoTexture = s_GrassTexture;
 }
 
