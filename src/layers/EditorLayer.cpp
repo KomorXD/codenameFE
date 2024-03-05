@@ -10,10 +10,6 @@
 #include <imgui/imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 
-static std::shared_ptr<Texture> s_PlankTexture;
-static std::shared_ptr<Texture> s_GrassTexture;
-static std::shared_ptr<Texture> s_SandTexture;
-
 EditorLayer::EditorLayer()
 	: m_EditorCamera(90.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
 {
@@ -50,9 +46,7 @@ EditorLayer::EditorLayer()
 	m_DepthFB->AttachDepthBuffer(1024, 1024);
 	m_DepthFB->UnbindBuffer();
 
-	s_PlankTexture = std::make_shared<Texture>("resources/textures/cbbl.png");
-	s_GrassTexture = std::make_shared<Texture>("resources/textures/grass.jpg");
-	s_SandTexture  = std::make_shared<Texture>("resources/textures/sand.png"); 
+	int32_t grassID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
 	
 	constexpr float radius = 10.0f;
 	constexpr uint32_t count = 20;
@@ -63,20 +57,21 @@ EditorLayer::EditorLayer()
 		
 		Entity cube = m_Scene.SpawnEntity("Cuboid");
 		cube.GetComponent<TransformComponent>().Position = pos;
-		cube.AddComponent<MeshComponent>().MeshID = AssetManager::PRIMITIVE_CUBE;
+		cube.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
 		cube.AddComponent<MaterialComponent>().Color = glm::vec4(pos / radius, 1.0f);
 	}
 
 	Entity light = m_Scene.SpawnEntity("Light");
 	light.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
-	light.AddComponent<MeshComponent>().MeshID = AssetManager::PRIMITIVE_PLANE;
+	light.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_PLANE;
 	light.AddComponent<MaterialComponent>().Color = glm::vec4(1.0f);
 	light.AddComponent<PointLightComponent>();
 
 	Entity ground = m_Scene.SpawnEntity("Ground");
 	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
-	ground.AddComponent<MeshComponent>().MeshID = AssetManager::PRIMITIVE_CUBE;
-	ground.AddComponent<MaterialComponent>().AlbedoTexture = s_GrassTexture;
+	ground.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
+	ground.AddComponent<MaterialComponent>().AlbedoTextureID = grassID;
+	ground.AddComponent<TransformComponent>();
 }
 
 void EditorLayer::OnAttach()

@@ -5,6 +5,8 @@
 #include <memory>
 #include <string>
 
+#include "../renderer/AssetManager.hpp"
+
 class Texture;
 
 struct TagComponent
@@ -31,7 +33,7 @@ struct MaterialComponent
 {
 	glm::vec4 Color = glm::vec4(1.0f);
 	float Shininess = 0.5f;
-	std::shared_ptr<Texture> AlbedoTexture;
+	int32_t AlbedoTextureID = AssetManager::TEXTURE_WHITE;
 
 	MaterialComponent() = default;
 	MaterialComponent(const MaterialComponent& other) = default;
@@ -39,7 +41,7 @@ struct MaterialComponent
 
 struct MeshComponent
 {
-	int32_t MeshID = 1;
+	int32_t MeshID = AssetManager::MESH_CUBE;
 
 	MeshComponent() = default;
 	MeshComponent(const MeshComponent& other) = default;

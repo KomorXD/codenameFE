@@ -1,7 +1,11 @@
 #include "AssetManager.hpp"
+#include <cassert>
 
 std::unordered_map<int32_t, Mesh> AssetManager::s_Meshes;
 int32_t AssetManager::s_LastMeshID = 0;
+
+std::unordered_map<int32_t, std::shared_ptr<Texture>> AssetManager::s_Textures;
+int32_t AssetManager::s_LastTextureID = 0;
 
 int32_t AssetManager::AddMesh(Mesh& mesh)
 {
@@ -37,7 +41,7 @@ int32_t AssetManager::AddMesh(Mesh& mesh, int32_t id)
 
 Mesh& AssetManager::GetMesh(int32_t id)
 {
-	ASSERT(s_Meshes.contains(id) && "Trying to access non-existing mesh");
+	assert(s_Meshes.contains(id) && "Trying to access non-existing mesh");
 	return s_Meshes[id];
 }
 
@@ -51,7 +55,7 @@ int32_t AssetManager::MeshID(Mesh& mesh)
 		}
 	}
 
-	ASSERT(false && "Mesh doesn't exist");
+	assert(false && "Mesh doesn't exist");
 }
 
 bool AssetManager::RemoveMesh(int32_t id)
@@ -69,4 +73,70 @@ bool AssetManager::RemoveMesh(Mesh& mesh)
 {
 	int32_t id = MeshID(mesh);
 	return RemoveMesh(id);
+}
+
+int32_t AssetManager::AddTexture(std::shared_ptr<Texture> texture)
+{
+	for (const auto& [key, val] : s_Textures)
+	{
+		if (val->GetID() == texture->GetID())
+		{
+			return key;
+		}
+	}
+
+	s_LastTextureID++;
+	s_Textures.insert({ s_LastTextureID, texture });
+	return s_LastTextureID;
+}
+
+int32_t AssetManager::AddTexture(std::shared_ptr<Texture> texture, int32_t id)
+{
+	for (const auto& [key, val] : s_Textures)
+	{
+		if (val->GetID() == texture->GetID())
+		{
+			return key;
+		}
+	}
+
+	s_LastTextureID = id;
+	s_Textures.insert({ id, texture });
+	return s_LastTextureID;
+}
+
+std::shared_ptr<Texture> AssetManager::GetTexture(int32_t id)
+{
+	assert(s_Textures.contains(id) && "Trying to access non-existing texture");
+	return s_Textures[id];
+}
+
+int32_t AssetManager::TextureID(std::shared_ptr<Texture> texture)
+{
+	for (const auto& [key, val] : s_Textures)
+	{
+		if (val->GetID() == texture->GetID())
+		{
+			return key;
+		}
+	}
+
+	assert(false && "Texture doesn't exist");
+}
+
+bool AssetManager::RemoveTexture(int32_t id)
+{
+	if (!s_Textures.contains(id))
+	{
+		return false;
+	}
+
+	s_Textures.erase(id);
+	return true;
+}
+
+bool AssetManager::RemoveTexture(std::shared_ptr<Texture> texture)
+{
+	int32_t id = TextureID(texture);
+	return RemoveTexture(id);
 }

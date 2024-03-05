@@ -89,7 +89,6 @@ struct RendererData
 
 	uint32_t BoundTexturesCount = 1;
 	std::array<int32_t, 24> TextureBindings;
-	std::shared_ptr<Texture> DefaultAlbedo;
 	
 };
 
@@ -148,7 +147,7 @@ void Renderer::Init()
 		Mesh quadMesh = GenerateMeshData(QuadMeshData());
 		quadMesh.MeshName = "Quad mesh";
 
-		int32_t meshID = AssetManager::AddMesh(quadMesh, AssetManager::PRIMITIVE_PLANE);
+		int32_t meshID = AssetManager::AddMesh(quadMesh, AssetManager::MESH_PLANE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
@@ -158,7 +157,7 @@ void Renderer::Init()
 		Mesh cubeMesh = GenerateMeshData(CubeMeshData());
 		cubeMesh.MeshName = "Cube mesh";
 
-		int32_t meshID = AssetManager::AddMesh(cubeMesh, AssetManager::PRIMITIVE_CUBE);
+		int32_t meshID = AssetManager::AddMesh(cubeMesh, AssetManager::MESH_CUBE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
@@ -222,7 +221,8 @@ void Renderer::Init()
 		}
 
 		uint8_t whitePixel[] = { 255.0f, 255.0f, 255.0f, 255.0f };
-		s_Data.DefaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1);
+		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1);
+		AssetManager::AddTexture(defaultAlbedo, AssetManager::TEXTURE_WHITE);
 
 		s_Data.DepthShader = std::make_shared<Shader>("resources/shaders/DefaultDepth.vert", "resources/shaders/DefaultDepth.frag");
 	}
@@ -276,7 +276,7 @@ void Renderer::Flush()
 	s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
 
 	GLCall(glActiveTexture(GL_TEXTURE0));
-	GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.DefaultAlbedo->GetID()));
+	GLCall(glBindTexture(GL_TEXTURE_2D, AssetManager::GetTexture(AssetManager::TEXTURE_WHITE)->GetID()));
 	for (int32_t i = 1; i < s_Data.BoundTexturesCount; i++)
 	{
 		GLCall(glActiveTexture(GL_TEXTURE0 + i));
@@ -351,17 +351,11 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;
 	s_Data.InstancesCount++;
 
-	if (!material.AlbedoTexture)
-	{
-		instance.TextureSlot = 0.0f;
-
-		return;
-	}
-
+	std::shared_ptr<Texture> albedo = AssetManager::GetTexture(material.AlbedoTextureID);
 	int32_t duplicateIdx = -1;
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
-		if (s_Data.TextureBindings[i] == material.AlbedoTexture->GetID())
+		if (s_Data.TextureBindings[i] == albedo->GetID())
 		{
 			duplicateIdx = i;
 			break;
@@ -374,7 +368,7 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	}
 	else
 	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = material.AlbedoTexture->GetID();
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = albedo->GetID();
 		instance.TextureSlot = (float)s_Data.BoundTexturesCount;
 		++s_Data.BoundTexturesCount;
 	}
