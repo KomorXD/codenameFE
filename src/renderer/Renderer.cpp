@@ -42,14 +42,7 @@ struct LineVertex
 	glm::vec4 Color;
 };
 
-struct QuadInstance
-{
-	glm::mat4 Transform;
-	glm::vec4 Color;
-	float	  TextureSlot;
-};
-
-struct CubeInstance
+struct MeshInstance
 {
 	glm::mat4 Transform;
 	glm::vec4 Color;
@@ -59,7 +52,7 @@ struct CubeInstance
 struct MeshBufferData
 {
 	int32_t CurrentInstancesCount = 0;
-	std::vector<CubeInstance> Instances;
+	std::vector<MeshInstance> Instances;
 };
 
 struct RendererData
@@ -146,10 +139,10 @@ void Renderer::Init()
 		layout.Push<float>(4); // 6 Transform
 		layout.Push<float>(4); // 7 Color
 		layout.Push<float>(1); // 8 Texture slot
-		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(CubeInstance));
+		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
 		mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
 
-		int32_t meshID = AssetManager::AddMesh(mesh);
+		int32_t meshID = AssetManager::AddMesh(mesh, AssetManager::PRIMITIVE_PLANE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
@@ -177,10 +170,10 @@ void Renderer::Init()
 		layout.Push<float>(4); // 6 Transform
 		layout.Push<float>(4); // 7 Color
 		layout.Push<float>(1); // 8 Texture slot
-		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(CubeInstance));
+		mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
 		mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
 
-		int32_t meshID = AssetManager::AddMesh(mesh);
+		int32_t meshID = AssetManager::AddMesh(mesh, AssetManager::PRIMITIVE_CUBE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
@@ -313,7 +306,7 @@ void Renderer::Flush()
 		}
 
 		Mesh& mesh = AssetManager::GetMesh(meshID);
-		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(CubeInstance));
+		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
 		DrawIndexedInstanced(s_Data.CurrentShader, mesh.VAO, meshData.CurrentInstancesCount);
 	}
 
@@ -365,8 +358,8 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 		NextBatch();
 	}
 
-	std::vector<CubeInstance>& instances = s_Data.MeshesData[mesh.MeshID].Instances;
-	CubeInstance& instance = instances.emplace_back();
+	std::vector<MeshInstance>& instances = s_Data.MeshesData[mesh.MeshID].Instances;
+	MeshInstance& instance = instances.emplace_back();
 	instance.Transform = transform;
 	instance.Color = material.Color;
 	

@@ -1,7 +1,7 @@
 #include "AssetManager.hpp"
 
 std::unordered_map<int32_t, Mesh> AssetManager::s_Meshes;
-int32_t AssetManager::s_MeshesCount = 0;
+int32_t AssetManager::s_LastMeshID = 0;
 
 int32_t AssetManager::AddMesh(Mesh& mesh)
 {
@@ -13,9 +13,26 @@ int32_t AssetManager::AddMesh(Mesh& mesh)
 		}
 	}
 
-	s_MeshesCount++;
-	s_Meshes.insert({ s_MeshesCount, mesh });
-	return s_MeshesCount;
+	s_LastMeshID++;
+	s_Meshes.insert({ s_LastMeshID, mesh });
+	return s_LastMeshID;
+}
+
+int32_t AssetManager::AddMesh(Mesh& mesh, int32_t id)
+{
+	ASSERT(!s_Meshes.contains(id) && "Cannot override existing mesh");
+
+	for (const auto& [key, val] : s_Meshes)
+	{
+		if (val == mesh)
+		{
+			return key;
+		}
+	}
+
+	s_LastMeshID = id;
+	s_Meshes.insert({ id, mesh });
+	return s_LastMeshID;
 }
 
 Mesh& AssetManager::GetMesh(int32_t id)
