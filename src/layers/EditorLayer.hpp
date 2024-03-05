@@ -3,6 +3,7 @@
 #include "Layer.hpp"
 #include "../renderer/Camera.hpp"
 #include "../scenes/Scene.hpp"
+#include "../scenes/Entity.hpp"
 
 #include <memory>
 
@@ -25,9 +26,12 @@ private:
 
 	Camera m_EditorCamera;
 	Scene m_Scene;
+	Entity m_SelectedEntity;
+
+	bool m_ViewportHovered = false;
 
 	std::unique_ptr<Framebuffer> m_ScreenFB;
 	std::unique_ptr<Framebuffer> m_TargetFB;
 	std::unique_ptr<MultisampledFramebuffer> m_MainMFB;
-	std::unique_ptr<Framebuffer> m_DepthFB;
+	std::unique_ptr<Framebuffer> m_PickerFB;
 };

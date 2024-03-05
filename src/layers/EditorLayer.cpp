@@ -42,9 +42,10 @@ EditorLayer::EditorLayer()
 	m_MainMFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
 	m_MainMFB->UnbindBuffer();
 
-	m_DepthFB = std::make_unique<Framebuffer>();
-	m_DepthFB->AttachDepthBuffer(1024, 1024);
-	m_DepthFB->UnbindBuffer();
+	m_PickerFB = std::make_unique<Framebuffer>();
+	m_PickerFB->AttachTexture(width, (uint32_t)spec.Height);
+	m_PickerFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
+	m_PickerFB->UnbindBuffer();
 
 	int32_t grassID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
 	
@@ -63,7 +64,7 @@ EditorLayer::EditorLayer()
 
 	Entity light = m_Scene.SpawnEntity("Light");
 	light.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
-	light.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_PLANE;
+	light.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
 	light.AddComponent<MaterialComponent>().Color = glm::vec4(1.0f);
 	light.AddComponent<PointLightComponent>();
 
@@ -71,7 +72,6 @@ EditorLayer::EditorLayer()
 	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
 	ground.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
 	ground.AddComponent<MaterialComponent>().AlbedoTextureID = grassID;
-	ground.AddComponent<TransformComponent>();
 }
 
 void EditorLayer::OnAttach()
@@ -89,6 +89,15 @@ void EditorLayer::OnEvent(Event& ev)
 		}
 
 		m_EditorCamera.OnEvent(ev);
+
+		return;
+	}
+
+	if (ev.Type == Event::MouseButtonPressed && ev.MouseButton.Button == MouseButton::Left && m_ViewportHovered)
+	{
+		glm::vec2 mousePos = Input::GetMousePosition() - glm::vec2(((float)Application::Instance()->Spec().Width / 5.0f), 0.0f);
+		int8_t pixelColor = m_PickerFB->GetPixelAt(mousePos).r;
+		m_SelectedEntity = pixelColor != -1 ? Entity((entt::entity)(uint32_t)(pixelColor - 1), &m_Scene) : Entity();
 
 		return;
 	}
@@ -115,6 +124,11 @@ void EditorLayer::OnEvent(Event& ev)
 		m_MainMFB->ResizeTexture(width, height);
 		m_MainMFB->ResizeRenderBuffer(width, height);
 		m_MainMFB->UnbindBuffer();
+
+		m_PickerFB->BindBuffer();
+		m_PickerFB->ResizeTexture(width, height);
+		m_PickerFB->ResizeRenderBuffer(width, height);
+		m_PickerFB->UnbindBuffer();
 
 		return;
 	}
@@ -173,6 +187,11 @@ void EditorLayer::OnRender()
 		ImGui::Unindent(16.0f);
 	}
 
+	ImGui::Separator();
+	ImGui::BeginChild("Picker framebuffer view");
+	ImGui::Image((ImTextureID)m_PickerFB->GetTextureID(), { ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().x }, { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	ImGui::EndChild();
+
 	ImGui::End();
 	ImGui::PopStyleVar();
 
@@ -181,26 +200,76 @@ void EditorLayer::OnRender()
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
 	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	m_ViewportHovered = ImGui::IsWindowHovered();
 	ImGui::End();
 	ImGui::PopStyleVar();
 }
 
 void EditorLayer::RenderViewport()
 {
-	// Normal pass
-	glm::ivec2 mainBufferSize = m_MainMFB->RenderDimensions();
-	Renderer::OnWindowResize({ 0, 0, mainBufferSize.x, mainBufferSize.y });
+	// Color picker stuff
+	glm::ivec2 bufferSize = m_PickerFB->RenderDimensions();
+	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
+	m_PickerFB->BindBuffer();
+	m_PickerFB->BindRenderBuffer();
+	Renderer::Clear();
+	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
+	Renderer::PickerRender();
+	m_Scene.Render(m_EditorCamera);
+	Renderer::DefaultRender();
+
+	bufferSize = m_MainMFB->RenderDimensions();
+	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
 	m_MainMFB->BindBuffer();
 	m_MainMFB->BindRenderBuffer();
 	Renderer::Clear();
-	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
-	Renderer::RenderDefault();
+	Renderer::ClearColor(glm::vec4(1.0f));
+
+	// Render selected entity to stencil buffer
+	if (m_SelectedEntity.Handle() != entt::null)
+	{
+		TransformComponent& transform = m_SelectedEntity.GetComponent<TransformComponent>();
+		
+		Renderer::SetStencilFunc(GL_ALWAYS, 1, 0xFF);
+		Renderer::SetStencilMask(0xFF);
+		Renderer::DisableDepthTest();
+		Renderer::SetLight(true);
+		Renderer::SceneBegin(m_EditorCamera);
+		Renderer::DrawCube(transform.ToMat4(), glm::vec4(1.0f));
+		Renderer::SceneEnd();
+		Renderer::EnableDepthTest();
+		Renderer::SetLight(false);
+	}
+
+	// Normal pass
+	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
+	Renderer::SetStencilMask(0x00);
 	Renderer::SetBlur(s_Blur);
 	m_Scene.Render(m_EditorCamera);
 
+	// Render selected entity outline
+	if (m_SelectedEntity.Handle() != entt::null)
+	{
+		TransformComponent transform = m_SelectedEntity.GetComponent<TransformComponent>();
+		transform.Scale += 0.2f;
+
+		Renderer::SetStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+		Renderer::SetStencilMask(0x00);
+		Renderer::DisableDepthTest();
+		Renderer::SetLight(true);
+		Renderer::SceneBegin(m_EditorCamera);
+		Renderer::DrawCube(transform.ToMat4(), { 0.98f, 0.24f, 0.0f, 1.0f });
+		Renderer::SceneEnd();
+		Renderer::EnableDepthTest();
+		Renderer::SetLight(false);
+	}
+
+	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
+	Renderer::SetStencilMask(0xFF);
+
 	// MSAA stuff
-	glm::uvec2 screenBufferSize = m_ScreenFB->RenderDimensions();
-	m_MainMFB->BlitBuffers(screenBufferSize.x, screenBufferSize.y, m_ScreenFB->GetFramebufferID());
+	bufferSize = m_ScreenFB->RenderDimensions();
+	m_MainMFB->BlitBuffers(bufferSize.x, bufferSize.y, m_ScreenFB->GetFramebufferID());
 	m_MainMFB->UnbindRenderBuffer();
 	m_MainMFB->UnbindBuffer();
 	m_TargetFB->BindBuffer();
