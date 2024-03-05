@@ -46,7 +46,9 @@ struct MeshInstance
 {
 	glm::mat4 Transform;
 	glm::vec4 Color;
-	float	  TextureSlot;
+
+	float TextureSlot;
+	float EntityID;
 };
 
 struct MeshBufferData
@@ -78,7 +80,7 @@ struct RendererData
 	LineVertex* LineBufferPtr   = nullptr;
 
 	std::shared_ptr<Shader>	DefaultShader;
-	std::shared_ptr<Shader> DepthShader;
+	std::shared_ptr<Shader> PickerShader;
 	std::shared_ptr<Shader> CurrentShader;
 	
 	uint32_t DirLightsCount   = 0;
@@ -115,6 +117,7 @@ static Mesh GenerateMeshData(VertexData vertexData)
 	layout.Push<float>(4); // 6 Transform
 	layout.Push<float>(4); // 7 Color
 	layout.Push<float>(1); // 8 Texture slot
+	layout.Push<float>(1); // 9 Entity ID
 	mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
 	mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
 
@@ -140,6 +143,10 @@ void Renderer::Init()
 	GLCall(glCullFace(GL_BACK));
 	GLCall(glEnable(GL_LINE_SMOOTH));
 	GLCall(glEnable(GL_MULTISAMPLE));
+	GLCall(glEnable(GL_STENCIL_TEST));
+	GLCall(glStencilFunc(GL_NOTEQUAL, 1, 0xFF));
+	GLCall(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
+	GLCall(glStencilMask(0x00));
 
 	{
 		SCOPE_PROFILE("Quad mesh init");
@@ -224,7 +231,8 @@ void Renderer::Init()
 		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1);
 		AssetManager::AddTexture(defaultAlbedo, AssetManager::TEXTURE_WHITE);
 
-		s_Data.DepthShader = std::make_shared<Shader>("resources/shaders/DefaultDepth.vert", "resources/shaders/DefaultDepth.frag");
+		s_Data.PickerShader = std::make_shared<Shader>("resources/shaders/Picker.vert", "resources/shaders/Picker.frag");
+		s_Data.CurrentShader = s_Data.DefaultShader;
 	}
 }
 
@@ -334,7 +342,18 @@ void Renderer::DrawLine(const glm::vec3& start, const glm::vec3& end, const glm:
 	s_Data.LineVertexCount += 2;
 }
 
-void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material)
+void Renderer::DrawCube(const glm::mat4& transform, const glm::vec4& color)
+{
+	MeshComponent mesh;
+	mesh.MeshID = AssetManager::MESH_CUBE;
+
+	MaterialComponent material;
+	material.Color = color;
+
+	SubmitMesh(transform, mesh, material, 0);
+}
+
+void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material, int32_t entityID)
 {
 	if (s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount >= s_Data.MaxInstancesOfType
 		|| s_Data.InstancesCount >= s_Data.MaxInstances
@@ -347,6 +366,7 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	MeshInstance& instance = instances.emplace_back();
 	instance.Transform = transform;
 	instance.Color = material.Color;
+	instance.EntityID = ((float)entityID + 1.0f) / 255.0f;
 	
 	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;
 	s_Data.InstancesCount++;
@@ -459,18 +479,44 @@ void Renderer::SetLight(bool enabled)
 	s_Data.DefaultShader->SetUniformBool("u_IsLightSource", enabled);
 }
 
-void Renderer::RenderDefault()
+void Renderer::EnableStencil()
 {
-	GLCall(glCullFace(GL_BACK));
-	GLCall(glEnable(GL_CULL_FACE));
+	GLCall(glEnable(GL_STENCIL_TEST));
+}
+
+void Renderer::DisableStencil()
+{
+	GLCall(glDisable(GL_STENCIL_TEST));
+}
+
+void Renderer::SetStencilFunc(uint32_t func, int32_t ref, uint32_t mask)
+{
+	GLCall(glStencilFunc(func, ref, mask));
+}
+
+void Renderer::SetStencilMask(uint32_t mask)
+{
+	GLCall(glStencilMask(mask));
+}
+
+void Renderer::EnableDepthTest()
+{
+	GLCall(glEnable(GL_DEPTH_TEST));
+}
+
+void Renderer::DisableDepthTest()
+{
+	GLCall(glDisable(GL_DEPTH_TEST));
+}
+
+void Renderer::DefaultRender()
+{
 	s_Data.CurrentShader = s_Data.DefaultShader;
 }
 
-void Renderer::RenderDepth()
+void Renderer::PickerRender()
 {
-	GLCall(glCullFace(GL_FRONT));
-	GLCall(glDisable(GL_CULL_FACE));
-	s_Data.CurrentShader = s_Data.DepthShader;
+	s_Data.CurrentShader = s_Data.PickerShader;
 }
 
 Viewport Renderer::CurrentViewport()

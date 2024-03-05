@@ -36,8 +36,9 @@ public:
 	static void Clear(uint32_t bitfield = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	static void DrawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec4& color);
+	static void DrawCube(const glm::mat4& transform, const glm::vec4& color);
 
-	static void SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material);
+	static void SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material, int32_t entityID);
 
 	static void DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
@@ -51,8 +52,17 @@ public:
 
 	static void SetBlur(bool enabled);
 	static void SetLight(bool enabled);
-	static void RenderDefault();
-	static void RenderDepth();
+
+	static void EnableStencil();
+	static void DisableStencil();
+	static void SetStencilFunc(uint32_t func, int32_t ref, uint32_t mask);
+	static void SetStencilMask(uint32_t mask);
+
+	static void EnableDepthTest();
+	static void DisableDepthTest();
+
+	static void DefaultRender();
+	static void PickerRender();
 
 	static Viewport CurrentViewport();
 

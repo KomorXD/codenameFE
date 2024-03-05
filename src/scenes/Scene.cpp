@@ -40,7 +40,7 @@ void Scene::Render(Camera& editorCamera)
 		for (entt::entity entity : view)
 		{
 			auto[transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			Renderer::SubmitMesh(transform.ToMat4(), mesh, material);
+			Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)entity);
 		}
 	}
 
@@ -54,7 +54,7 @@ void Scene::Render(Camera& editorCamera)
 		for (entt::entity entity : view)
 		{
 			auto [transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			Renderer::SubmitMesh(transform.ToMat4(), mesh, material);
+			Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)entity);
 		}
 	}
 
