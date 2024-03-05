@@ -24,16 +24,6 @@ void Scene::Render(Camera& editorCamera)
 {
 	Renderer::SceneBegin(editorCamera);
 
-	// Render meshes without point light component
-	{
-		auto view = m_Registry.view<TransformComponent, MeshComponent, MaterialComponent>(entt::exclude<PointLightComponent>);
-		for (entt::entity entity : view)
-		{
-			auto[transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			Renderer::SubmitMesh(transform.ToMat4(), mesh, material);
-		}
-	}
-
 	// Add point lights
 	{
 		auto view = m_Registry.view<TransformComponent, PointLightComponent>();
@@ -41,6 +31,16 @@ void Scene::Render(Camera& editorCamera)
 		{
 			auto [transform, light] = view.get<TransformComponent, PointLightComponent>(entity);
 			Renderer::AddPointLight(transform.Position, light);
+		}
+	}
+
+	// Render meshes without point light component
+	{
+		auto view = m_Registry.view<TransformComponent, MeshComponent, MaterialComponent>(entt::exclude<PointLightComponent>);
+		for (entt::entity entity : view)
+		{
+			auto[transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
+			Renderer::SubmitMesh(transform.ToMat4(), mesh, material);
 		}
 	}
 
