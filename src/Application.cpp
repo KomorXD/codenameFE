@@ -91,6 +91,11 @@ void Application::Run()
 	ImGui::CreateContext();
 	ImGui::StyleColorsDark();
 
+	ImGuiIO& io = ImGui::GetIO();
+	io.Fonts->AddFontDefault();
+	ImFont* font = io.Fonts->AddFontFromFileTTF("resources/fonts/bahnschrift.ttf", 16.0f);
+	IM_ASSERT(font != nullptr);
+
 	ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
 	ImGui_ImplOpenGL3_Init();
 	ApplyImGuiStyles();
@@ -108,6 +113,7 @@ void Application::Run()
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+		ImGui::PushFont(font);
 
 		Event ev{};
 		while (m_EventQueue.PollEvents(ev))
@@ -118,6 +124,7 @@ void Application::Run()
 		m_Layers.top()->OnUpdate((float)timestep);
 		m_Layers.top()->OnRender();
 
+		ImGui::PopFont();
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
