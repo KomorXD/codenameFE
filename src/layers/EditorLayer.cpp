@@ -20,15 +20,15 @@ EditorLayer::EditorLayer()
 	const WindowSpec& spec = Application::Instance()->Spec();
 	Event dummyEv{};
 	dummyEv.Type = Event::WindowResized;
-	dummyEv.Size.Width = spec.Width * 0.8f;
+	dummyEv.Size.Width = spec.Width * 0.6f;
 	dummyEv.Size.Height = spec.Height;
 
 	m_EditorCamera.OnEvent(dummyEv);
 	m_EditorCamera.Position = { 0.0f, 10.0f, 20.0f };
 
-	Renderer::OnWindowResize({ 0, 0, (int32_t)(spec.Width * 0.8f), spec.Height });
+	Renderer::OnWindowResize({ 0, 0, (int32_t)(spec.Width * 0.6f), spec.Height });
 
-	uint32_t width = (uint32_t)(spec.Width * 0.8f);
+	uint32_t width = (uint32_t)(spec.Width * 0.6f);
 	m_ScreenFB = std::make_unique<Framebuffer>();
 	m_ScreenFB->AttachTexture(width, (uint32_t)spec.Height);
 	m_ScreenFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
@@ -103,7 +103,6 @@ void EditorLayer::OnEvent(Event& ev)
 		}
 
 		m_EditorCamera.OnEvent(ev);
-
 		return;
 	}
 
@@ -165,7 +164,7 @@ void EditorLayer::OnRender()
 
 	glm::vec2 windowSize = { Application::Instance()->Spec().Width, Application::Instance()->Spec().Height };
 	ImGui::SetNextWindowPos({ 0.0f, 0.0f });
-	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width / 5.0f, (float)Application::Instance()->Spec().Height });
+	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.2f, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Scene panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
@@ -187,7 +186,7 @@ void EditorLayer::OnRender()
 	ImGui::PopStyleVar();
 
 	ImGui::SetNextWindowPos({ ((float)Application::Instance()->Spec().Width * 0.2f), 0.0f});
-	ImGui::SetNextWindowSize({ 0.8f * (float)Application::Instance()->Spec().Width, (float)Application::Instance()->Spec().Height });
+	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.6f, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
 	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
@@ -195,9 +194,9 @@ void EditorLayer::OnRender()
 	m_ViewportFocused = ImGui::IsWindowFocused();
 	RenderGuizmo();
 	ImGui::End();
-	ImGui::PopStyleVar();
 
-	
+	RenderEntityData();
+	ImGui::PopStyleVar();
 }
 
 void EditorLayer::RenderViewport()
@@ -224,13 +223,15 @@ void EditorLayer::RenderViewport()
 	if (m_SelectedEntity.Handle() != entt::null)
 	{
 		TransformComponent& transform = m_SelectedEntity.GetComponent<TransformComponent>();
+		MeshComponent& mesh			  = m_SelectedEntity.GetComponent<MeshComponent>();
+		MaterialComponent& material   = m_SelectedEntity.GetComponent<MaterialComponent>();
 		
 		Renderer::SetStencilFunc(GL_ALWAYS, 1, 0xFF);
 		Renderer::SetStencilMask(0xFF);
 		Renderer::DisableDepthTest();
 		Renderer::SetLight(true);
 		Renderer::SceneBegin(m_EditorCamera);
-		Renderer::DrawCube(transform.ToMat4(), glm::vec4(1.0f));
+		Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)m_SelectedEntity.Handle());
 		Renderer::SceneEnd();
 		Renderer::EnableDepthTest();
 		Renderer::SetLight(false);
@@ -244,17 +245,23 @@ void EditorLayer::RenderViewport()
 	// Render selected entity outline
 	if (m_SelectedEntity.Handle() != entt::null)
 	{
-		TransformComponent transform = m_SelectedEntity.GetComponent<TransformComponent>();
+		TransformComponent  transform = m_SelectedEntity.GetComponent<TransformComponent>();
+		MeshComponent  mesh			  = m_SelectedEntity.GetComponent<MeshComponent>();
+		MaterialComponent material    = m_SelectedEntity.GetComponent<MaterialComponent>();
 		transform.Scale += 0.2f;
+		material.Color = { 0.98f, 0.24f, 0.0f, 1.0f };
+		material.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
 
 		Renderer::SetStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 		Renderer::SetStencilMask(0x00);
 		Renderer::DisableDepthTest();
+		Renderer::DisableFaceCulling();
 		Renderer::SetLight(true);
 		Renderer::SceneBegin(m_EditorCamera);
-		Renderer::DrawCube(transform.ToMat4(), { 0.98f, 0.24f, 0.0f, 1.0f });
+		Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)m_SelectedEntity.Handle());
 		Renderer::SceneEnd();
 		Renderer::EnableDepthTest();
+		Renderer::EnableFaceCulling();
 		Renderer::SetLight(false);
 	}
 
@@ -274,6 +281,131 @@ void EditorLayer::RenderViewport()
 	m_TargetFB->UnbindBuffer();
 }
 
+void EditorLayer::RenderEntityData()
+{
+	const WindowSpec& spec = Application::Instance()->Spec();
+	ImGui::SetNextWindowPos({ spec.Width * 0.8f, 0.0f });
+	ImGui::SetNextWindowSize({ spec.Width * 0.2f, spec.Height * 1.0f });
+	ImGui::Begin("Entity panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+
+	if (m_SelectedEntity.Handle() == entt::null)
+	{
+		ImGui::End();
+		return;
+	}
+
+	TagComponent& tag = m_SelectedEntity.GetComponent<TagComponent>();
+	ImGui::Indent(16.0f);
+	ImGui::Text("Tag: %s", tag.Tag.c_str());
+	ImGui::Unindent(16.0f);
+
+	TransformComponent& transform = m_SelectedEntity.GetComponent<TransformComponent>();
+	ImGui::PushID(1);
+	if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+		ImGui::Indent(16.0f);
+		ImGui::DragFloat3("Position", glm::value_ptr(transform.Position), 0.05f);
+		ImGui::DragFloat3("Rotation", glm::value_ptr(transform.Rotation), 0.05f);
+		ImGui::DragFloat3("Scale",    glm::value_ptr(transform.Scale),    0.05f);
+		ImGui::Unindent(16.0f);
+	}
+	ImGui::PopID();
+
+	ImGui::PushID(2);
+	if (m_SelectedEntity.HasComponent<MaterialComponent>())
+	{
+		MaterialComponent& material = m_SelectedEntity.GetComponent<MaterialComponent>();
+
+		if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::Indent(16.0f);
+			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
+			ImGui::Text("Texture ID: %d", material.AlbedoTextureID);
+			ImGui::Unindent(16.0f);
+		}
+	}
+	ImGui::PopID();
+
+	ImGui::PushID(3);
+	if (m_SelectedEntity.HasComponent<MeshComponent>())
+	{
+		MeshComponent& mesh = m_SelectedEntity.GetComponent<MeshComponent>();
+
+		if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::Indent(16.0f);
+			if(ImGui::BeginCombo("##MeshCombo", AssetManager::GetMesh(mesh.MeshID).MeshName.c_str()))
+			{
+				const std::unordered_map<int32_t, Mesh>& meshes = AssetManager::AllMeshes();
+
+				for (const auto& [id, meshData] : meshes)
+				{
+					if (ImGui::Selectable(meshData.MeshName.c_str(), id == mesh.MeshID))
+					{
+						mesh.MeshID = id;
+					}
+				}
+
+				ImGui::EndCombo();
+			}
+			ImGui::Unindent(16.0f);
+		}
+	}
+	ImGui::PopID();
+
+	ImGui::PushID(4);
+	if (m_SelectedEntity.HasComponent<DirectionalLightComponent>())
+	{
+		DirectionalLightComponent& light = m_SelectedEntity.GetComponent<DirectionalLightComponent>();
+
+		if (ImGui::CollapsingHeader("Directional light", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::Indent(16.0f);
+			ImGui::DragFloat3("Direction", glm::value_ptr(light.Direction), 0.05f);
+			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::Unindent(16.0f);
+		}
+	}
+	ImGui::PopID();
+
+	ImGui::PushID(1);
+	if (m_SelectedEntity.HasComponent<PointLightComponent>())
+	{
+		PointLightComponent& light = m_SelectedEntity.GetComponent<PointLightComponent>();
+
+		if (ImGui::CollapsingHeader("Point light", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::Indent(16.0f);
+			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::DragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::Unindent(16.0f);
+		}
+	}
+	ImGui::PopID();
+
+	ImGui::PushID(5);
+	if (m_SelectedEntity.HasComponent<SpotLightComponent>())
+	{
+		SpotLightComponent& light = m_SelectedEntity.GetComponent<SpotLightComponent>();
+
+		if (ImGui::CollapsingHeader("Spotlight", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::Indent(16.0f);
+			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::DragFloat("Cutoff", &light.Cutoff, 0.01f, 0.0f, FLT_MAX, "%.3f");
+			ImGui::DragFloat("Outer cutoff", &light.OuterCutoff, 0.01f, 0.0f, FLT_MAX, "%.3f");
+			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::DragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::Unindent(16.0f);
+		}
+	}
+	ImGui::PopID();
+
+	ImGui::End();
+}
+
 void EditorLayer::RenderGuizmo()
 {
 	if (m_SelectedEntity.Handle() == entt::null || m_GuizmoMode == -1)
@@ -284,7 +416,7 @@ void EditorLayer::RenderGuizmo()
 	const WindowSpec& spec = Application::Instance()->Spec();
 	ImGuizmo::SetOrthographic(false);
 	ImGuizmo::SetDrawlist();
-	ImGuizmo::SetRect((float)Application::Instance()->Spec().Width * 0.2f, 0.0f, spec.Width * 0.8f, spec.Height);
+	ImGuizmo::SetRect((float)Application::Instance()->Spec().Width * 0.2f, 0.0f, spec.Width * 0.6f, spec.Height);
 
 	const glm::mat4& cameraProj = m_EditorCamera.GetProjection();
 	const glm::mat4& cameraView = m_EditorCamera.GetViewMatrix();
@@ -292,7 +424,7 @@ void EditorLayer::RenderGuizmo()
 
 	bool doSnap = Input::IsKeyPressed(Key::LeftControl);
 	float snapStep = (m_GuizmoMode == ImGuizmo::ROTATE ? 45.0f : 0.5f);
-	float snapArr[3]{ snapStep };
+	float snapArr[3]{ snapStep, snapStep, snapStep };
 
 	ImGuizmo::Manipulate(glm::value_ptr(cameraView), glm::value_ptr(cameraProj), ImGuizmo::OPERATION(m_GuizmoMode),
 		ImGuizmo::MODE::WORLD, glm::value_ptr(transform), nullptr, doSnap ? snapArr : nullptr);

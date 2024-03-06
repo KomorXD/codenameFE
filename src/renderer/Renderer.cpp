@@ -152,7 +152,7 @@ void Renderer::Init()
 		SCOPE_PROFILE("Quad mesh init");
 
 		Mesh quadMesh = GenerateMeshData(QuadMeshData());
-		quadMesh.MeshName = "Quad mesh";
+		quadMesh.MeshName = "Quad";
 
 		int32_t meshID = AssetManager::AddMesh(quadMesh, AssetManager::MESH_PLANE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
@@ -162,7 +162,7 @@ void Renderer::Init()
 		SCOPE_PROFILE("Cube mesh init");
 
 		Mesh cubeMesh = GenerateMeshData(CubeMeshData());
-		cubeMesh.MeshName = "Cube mesh";
+		cubeMesh.MeshName = "Cube";
 
 		int32_t meshID = AssetManager::AddMesh(cubeMesh, AssetManager::MESH_CUBE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
@@ -507,6 +507,16 @@ void Renderer::EnableDepthTest()
 void Renderer::DisableDepthTest()
 {
 	GLCall(glDisable(GL_DEPTH_TEST));
+}
+
+void Renderer::EnableFaceCulling()
+{
+	GLCall(glEnable(GL_CULL_FACE));
+}
+
+void Renderer::DisableFaceCulling()
+{
+	GLCall(glDisable(GL_CULL_FACE));
 }
 
 void Renderer::DefaultRender()

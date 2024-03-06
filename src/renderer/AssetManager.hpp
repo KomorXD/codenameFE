@@ -19,6 +19,7 @@ public:
 	static int32_t AddMesh(Mesh& mesh);
 	static int32_t AddMesh(Mesh& mesh, int32_t id);
 
+	static const std::unordered_map<int32_t, Mesh>& AllMeshes();
 	static Mesh& GetMesh(int32_t id);
 	static int32_t MeshID(Mesh& mesh);
 	

@@ -23,6 +23,7 @@ public:
 
 private:
 	void RenderViewport();
+	void RenderEntityData();
 	void RenderGuizmo();
 
 	Camera m_EditorCamera;

@@ -61,6 +61,9 @@ public:
 	static void EnableDepthTest();
 	static void DisableDepthTest();
 
+	static void EnableFaceCulling();
+	static void DisableFaceCulling();
+
 	static void DefaultRender();
 	static void PickerRender();
 

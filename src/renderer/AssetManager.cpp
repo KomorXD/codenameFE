@@ -39,6 +39,11 @@ int32_t AssetManager::AddMesh(Mesh& mesh, int32_t id)
 	return s_LastMeshID;
 }
 
+const std::unordered_map<int32_t, Mesh>& AssetManager::AllMeshes()
+{
+	return s_Meshes;
+}
+
 Mesh& AssetManager::GetMesh(int32_t id)
 {
 	assert(s_Meshes.contains(id) && "Trying to access non-existing mesh");
