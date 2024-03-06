@@ -23,12 +23,17 @@ public:
 
 private:
 	void RenderViewport();
+	void RenderGuizmo();
 
 	Camera m_EditorCamera;
 	Scene m_Scene;
 	Entity m_SelectedEntity;
 
+	int32_t m_GuizmoMode = -1;
+	bool m_LockFocus = false;
+
 	bool m_ViewportHovered = false;
+	bool m_ViewportFocused = false;
 
 	std::unique_ptr<Framebuffer> m_ScreenFB;
 	std::unique_ptr<Framebuffer> m_TargetFB;

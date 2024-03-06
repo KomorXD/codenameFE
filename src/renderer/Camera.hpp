@@ -29,6 +29,8 @@ public:
 	inline const glm::mat4& GetProjection() { UpdateProjection(); return m_Projection;	}
 	inline const glm::mat4& GetViewMatrix() { UpdateView();		  return m_View;		}
 	inline glm::mat4 GetViewProjection()	{ return GetProjection() * GetViewMatrix(); }
+
+	inline const CameraControlType& ControlType() const { return m_ControlType; }
 	
 	glm::vec3 Position = glm::vec3(0.0f);
 

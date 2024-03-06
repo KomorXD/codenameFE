@@ -5,6 +5,7 @@
 #define IMGUI_IMPL_OPENGL_LOADER_GLAD
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
+#include <imgui/ImGuizmo.h>
 
 #include "Application.hpp"
 #include "Logger.hpp"
@@ -113,6 +114,7 @@ void Application::Run()
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
+		ImGuizmo::BeginFrame();
 		ImGui::PushFont(font);
 
 		Event ev{};

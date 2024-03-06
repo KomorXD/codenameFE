@@ -6,8 +6,10 @@
 #include "../Logger.hpp"
 #include "../scenes/Entity.hpp"
 #include "../renderer/AssetManager.hpp"
+#include "../Math.hpp"
 
 #include <imgui/imgui.h>
+#include <imgui/ImGuizmo.h>
 #include <glm/gtc/type_ptr.hpp>
 
 EditorLayer::EditorLayer()
@@ -85,7 +87,19 @@ void EditorLayer::OnEvent(Event& ev)
 	{
 		if (ev.Key.Code == Key::Escape)
 		{
-			Application::Instance()->Shutdown();
+			m_SelectedEntity = Entity();
+			return;
+		}
+		
+		if (m_EditorCamera.ControlType() != CameraControlType::FirstPersonControl)
+		{
+			switch (ev.Key.Code)
+			{
+			case Key::Q:	m_GuizmoMode = -1;				    return;
+			case Key::W:	m_GuizmoMode = ImGuizmo::TRANSLATE; return;
+			case Key::E:	m_GuizmoMode = ImGuizmo::ROTATE;    return;
+			case Key::R:	m_GuizmoMode = ImGuizmo::SCALE;	    return;
+			}
 		}
 
 		m_EditorCamera.OnEvent(ev);
@@ -93,7 +107,7 @@ void EditorLayer::OnEvent(Event& ev)
 		return;
 	}
 
-	if (ev.Type == Event::MouseButtonPressed && ev.MouseButton.Button == MouseButton::Left && m_ViewportHovered)
+	if (!m_LockFocus && ev.Type == Event::MouseButtonPressed && ev.MouseButton.Button == MouseButton::Left && m_ViewportHovered)
 	{
 		glm::vec2 mousePos = Input::GetMousePosition() - glm::vec2(((float)Application::Instance()->Spec().Width / 5.0f), 0.0f);
 		int8_t pixelColor = m_PickerFB->GetPixelAt(mousePos).r;
@@ -145,15 +159,6 @@ void EditorLayer::OnTick()
 {
 }
 
-static glm::vec3 s_LightPos = glm::vec3(0.0f, 5.0f, 0.0f);
-static glm::vec3 s_LightCol = glm::vec3(1.0f);
-static glm::vec3 s_Dir = glm::vec3(-0.5f, -1.0f, -0.2f);
-static float s_Linear    = 0.022f;
-static float s_Quadratic = 0.0019f;
-static float s_CutOff = 12.5f;
-static float s_OuterCutOff = 17.5f;
-static bool s_Blur = false;
-
 void EditorLayer::OnRender()
 {
 	RenderViewport();
@@ -163,7 +168,6 @@ void EditorLayer::OnRender()
 	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width / 5.0f, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Scene panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
-	ImGui::Checkbox("Blur", &s_Blur);
 
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -171,19 +175,6 @@ void EditorLayer::OnRender()
 		ImGui::DragFloat3("Cam position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
-		ImGui::Unindent(16.0f);
-	}
-
-	if (ImGui::CollapsingHeader("Point light source", ImGuiTreeNodeFlags_DefaultOpen))
-	{
-		ImGui::Indent(16.0f);
-		ImGui::DragFloat3("Light position", glm::value_ptr(s_LightPos), 0.05f, -FLT_MAX, FLT_MAX);
-		ImGui::DragFloat3("Color", glm::value_ptr(s_LightCol), 0.01f, 0.0f, 1.0f);
-		ImGui::DragFloat3("Direction", glm::value_ptr(s_Dir), 0.01f, -FLT_MAX, FLT_MAX);
-		ImGui::DragFloat("Linear term", &s_Linear, 0.001f, 0.0f, 1.0f);
-		ImGui::DragFloat("Quadratic term", &s_Quadratic, 0.001f, 0.0f, 2.0f);
-		ImGui::DragFloat("Cut off", &s_CutOff, 0.1f, 0.0f, 100.0f);
-		ImGui::DragFloat("Outer cut off", &s_OuterCutOff, 0.1f, 0.0f, 100.0f);
 		ImGui::Unindent(16.0f);
 	}
 
@@ -195,14 +186,18 @@ void EditorLayer::OnRender()
 	ImGui::End();
 	ImGui::PopStyleVar();
 
-	ImGui::SetNextWindowPos({ ((float)Application::Instance()->Spec().Width / 5.0f), 0.0f});
+	ImGui::SetNextWindowPos({ ((float)Application::Instance()->Spec().Width * 0.2f), 0.0f});
 	ImGui::SetNextWindowSize({ 0.8f * (float)Application::Instance()->Spec().Width, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
 	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
 	m_ViewportHovered = ImGui::IsWindowHovered();
+	m_ViewportFocused = ImGui::IsWindowFocused();
+	RenderGuizmo();
 	ImGui::End();
 	ImGui::PopStyleVar();
+
+	
 }
 
 void EditorLayer::RenderViewport()
@@ -244,7 +239,6 @@ void EditorLayer::RenderViewport()
 	// Normal pass
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0x00);
-	Renderer::SetBlur(s_Blur);
 	m_Scene.Render(m_EditorCamera);
 
 	// Render selected entity outline
@@ -278,4 +272,44 @@ void EditorLayer::RenderViewport()
 	Renderer::DrawScreenQuad();
 	m_TargetFB->UnbindRenderBuffer();
 	m_TargetFB->UnbindBuffer();
+}
+
+void EditorLayer::RenderGuizmo()
+{
+	if (m_SelectedEntity.Handle() == entt::null || m_GuizmoMode == -1)
+	{
+		return;
+	}
+
+	const WindowSpec& spec = Application::Instance()->Spec();
+	ImGuizmo::SetOrthographic(false);
+	ImGuizmo::SetDrawlist();
+	ImGuizmo::SetRect((float)Application::Instance()->Spec().Width * 0.2f, 0.0f, spec.Width * 0.8f, spec.Height);
+
+	const glm::mat4& cameraProj = m_EditorCamera.GetProjection();
+	const glm::mat4& cameraView = m_EditorCamera.GetViewMatrix();
+	glm::mat4 transform = m_SelectedEntity.GetComponent<TransformComponent>().ToMat4();
+
+	bool doSnap = Input::IsKeyPressed(Key::LeftControl);
+	float snapStep = (m_GuizmoMode == ImGuizmo::ROTATE ? 45.0f : 0.5f);
+	float snapArr[3]{ snapStep };
+
+	ImGuizmo::Manipulate(glm::value_ptr(cameraView), glm::value_ptr(cameraProj), ImGuizmo::OPERATION(m_GuizmoMode),
+		ImGuizmo::MODE::WORLD, glm::value_ptr(transform), nullptr, doSnap ? snapArr : nullptr);
+	m_LockFocus = ImGuizmo::IsOver();
+
+	if (ImGuizmo::IsUsing())
+	{
+		glm::vec3 translation{};
+		glm::vec3 rotation{};
+		glm::vec3 scale{};
+		TransformComponent& transformComp = m_SelectedEntity.GetComponent<TransformComponent>();
+
+		Math::TransformDecompose(transform, translation, rotation, scale);
+		glm::vec3 deltaRotation = rotation - transformComp.Rotation;
+
+		transformComp.Position = translation;
+		transformComp.Rotation = transformComp.Rotation + deltaRotation;
+		transformComp.Scale = scale;
+	}
 }
