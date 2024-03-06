@@ -1,2 +1,2 @@
 # codenameFE
-f*****.engine, my little sandbox
+f\(.*\)\.e\(.*\), my little sandbox
