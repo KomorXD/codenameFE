@@ -71,9 +71,10 @@ EditorLayer::EditorLayer()
 
 	Entity light = m_Scene.SpawnEntity("Light");
 	light.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
+	light.GetComponent<TransformComponent>().Rotation = { -glm::pi<float>() / 2.0f, 0.0f, 0.0f};
 	light.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
 	light.AddComponent<MaterialComponent>().Color = glm::vec4(1.0f);
-	light.AddComponent<PointLightComponent>();
+	light.AddComponent<SpotLightComponent>();
 
 	Entity ground = m_Scene.SpawnEntity("Ground");
 	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
@@ -165,13 +166,48 @@ void EditorLayer::OnTick()
 
 void EditorLayer::OnRender()
 {
+	RenderScenePanel();
 	RenderViewport();
 
+	ImGui::SetNextWindowPos({ ((float)Application::Instance()->Spec().Width * 0.2f), 0.0f});
+	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.6f, (float)Application::Instance()->Spec().Height });
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
+	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
+	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	m_ViewportHovered = ImGui::IsWindowHovered();
+	m_ViewportFocused = ImGui::IsWindowFocused();
+	RenderGuizmo();
+	ImGui::End();
+
+	RenderEntityData();
+	ImGui::PopStyleVar();
+}
+
+void EditorLayer::RenderScenePanel()
+{
 	glm::vec2 windowSize = { Application::Instance()->Spec().Width, Application::Instance()->Spec().Height };
 	ImGui::SetNextWindowPos({ 0.0f, 0.0f });
 	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.2f, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Scene panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+
+	ImVec2 avSpace = ImGui::GetContentRegionAvail();
+	ImGui::Text("Spawned objects");
+	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+	ImGui::BeginChild("Spawned objects", ImVec2(avSpace.x, avSpace.y / 3.0f), true);
+
+	for (Entity& entity : m_Scene.m_Entities)
+	{
+		ImGui::PushID((uint32_t)entity.Handle());
+		if (ImGui::Selectable(entity.GetComponent<TagComponent>().Tag.c_str(), entity.Handle() == m_SelectedEntity.Handle()))
+		{
+			m_SelectedEntity = entity;
+		}
+		ImGui::PopID();
+	}
+
+	ImGui::EndChild();
+	ImGui::PopStyleColor();
 
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -188,19 +224,6 @@ void EditorLayer::OnRender()
 	ImGui::EndChild();
 
 	ImGui::End();
-	ImGui::PopStyleVar();
-
-	ImGui::SetNextWindowPos({ ((float)Application::Instance()->Spec().Width * 0.2f), 0.0f});
-	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.6f, (float)Application::Instance()->Spec().Height });
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
-	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
-	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
-	m_ViewportHovered = ImGui::IsWindowHovered();
-	m_ViewportFocused = ImGui::IsWindowFocused();
-	RenderGuizmo();
-	ImGui::End();
-
-	RenderEntityData();
 	ImGui::PopStyleVar();
 }
 
@@ -227,7 +250,7 @@ void EditorLayer::RenderViewport()
 	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
 	Renderer::Clear();
 	// Render selected entity to stencil buffer
-	if (m_SelectedEntity.Handle() != entt::null)
+	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())
 	{
 		TransformComponent& transform = m_SelectedEntity.GetComponent<TransformComponent>();
 		MeshComponent& mesh	= m_SelectedEntity.GetComponent<MeshComponent>();
@@ -250,7 +273,7 @@ void EditorLayer::RenderViewport()
 	m_Scene.Render(m_EditorCamera);
 
 	// Render selected entity outline
-	if (m_SelectedEntity.Handle() != entt::null)
+	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())
 	{
 		TransformComponent  transform = m_SelectedEntity.GetComponent<TransformComponent>();
 		MeshComponent  mesh			  = m_SelectedEntity.GetComponent<MeshComponent>();
@@ -400,7 +423,6 @@ void EditorLayer::RenderEntityData()
 		if (ImGui::CollapsingHeader("Directional light", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::Indent(16.0f);
-			ImGui::DragFloat3("Direction", glm::value_ptr(light.Direction), 0.05f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
 			ImGui::Unindent(16.0f);
 		}

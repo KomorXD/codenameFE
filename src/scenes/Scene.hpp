@@ -16,7 +16,8 @@ struct Scene
 
 private:
 	entt::registry m_Registry;
-	std::vector<entt::entity> m_Entities;
+	std::vector<Entity> m_Entities;
 
 	friend class Entity;
+	friend class EditorLayer;
 };

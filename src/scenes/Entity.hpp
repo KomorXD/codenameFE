@@ -9,6 +9,15 @@ class Entity
 public:
 	Entity() = default;
 	Entity(entt::entity handle, Scene* scene);
+	Entity(const Entity& other);
+
+	Entity& operator= (const Entity& other)
+	{
+		m_Handle = other.m_Handle;
+		m_Scene = other.m_Scene;
+
+		return *this;
+	}
 
 	inline entt::entity Handle() const { return m_Handle; }
 

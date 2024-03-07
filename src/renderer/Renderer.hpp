@@ -46,9 +46,9 @@ public:
 	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawScreenQuad();
 
-	static void AddDirectionalLight(const DirectionalLightComponent& light);
+	static void AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light);
 	static void AddPointLight(const glm::vec3& position, const PointLightComponent& light);
-	static void AddSpotLight(const glm::vec3& position, const SpotLightComponent& light);
+	static void AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light);
 
 	static void SetBlur(bool enabled);
 	static void SetLight(bool enabled);

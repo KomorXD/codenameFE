@@ -22,6 +22,7 @@ public:
 	virtual void OnRender()			override;
 
 private:
+	void RenderScenePanel();
 	void RenderViewport();
 	void RenderEntityData();
 	void RenderGuizmo();

@@ -1,3 +1,6 @@
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
+
 #include "Renderer.hpp"
 #include "../Logger.hpp"
 #include "../Timer.hpp"
@@ -433,10 +436,12 @@ void Renderer::DrawScreenQuad()
 	GLCall(glEnable(GL_DEPTH_TEST));
 }
 
-void Renderer::AddDirectionalLight(const DirectionalLightComponent& light)
+void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
 {
+	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
+
 	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", glm::normalize(light.Direction));
+	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", glm::normalize(dir));
 	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",	   light.Color);
 
 	s_Data.DirLightsCount++;
@@ -453,12 +458,14 @@ void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponen
 	s_Data.PointLightsCount++;
 }
 
-void Renderer::AddSpotLight(const glm::vec3& position, const SpotLightComponent& light)
+void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light)
 {
+	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
+	
 	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	  position);
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	  transform.Position);
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		  glm::cos(glm::radians(light.Cutoff)));
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	  light.Direction);
+	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	  dir);
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].outerCutOff",   glm::cos(glm::radians(light.OuterCutoff)));
 	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		  light.Color);
 	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	  light.LinearTerm);
