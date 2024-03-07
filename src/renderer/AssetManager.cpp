@@ -110,6 +110,11 @@ int32_t AssetManager::AddTexture(std::shared_ptr<Texture> texture, int32_t id)
 	return s_LastTextureID;
 }
 
+const std::unordered_map<int32_t, std::shared_ptr<Texture>>& AssetManager::AllTextures()
+{
+	return s_Textures;
+}
+
 std::shared_ptr<Texture> AssetManager::GetTexture(int32_t id)
 {
 	assert(s_Textures.contains(id) && "Trying to access non-existing texture");

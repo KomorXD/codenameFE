@@ -49,6 +49,11 @@ EditorLayer::EditorLayer()
 	m_PickerFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
 	m_PickerFB->UnbindBuffer();
 
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/arrow.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/cbbl.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/plank.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
 	int32_t grassID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
 	
 	constexpr float radius = 10.0f;
@@ -321,7 +326,38 @@ void EditorLayer::RenderEntityData()
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
 			ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
-			ImGui::Text("Texture ID: %d", material.AlbedoTextureID);
+
+			if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			{
+				ImGui::OpenPopup("available_textures_group");
+			}
+
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 10.0f, 10.0f });
+			if (ImGui::BeginPopup("available_textures_group"))
+			{
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 10.0f, 10.0f });
+
+				bool newLine = false;
+				for (const auto& [id, texture] : AssetManager::AllTextures())
+				{
+					if (ImGui::ImageButton((ImTextureID)(texture->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+					{
+						material.AlbedoTextureID = id;
+					}
+
+					if (!newLine)
+					{
+						ImGui::SameLine();
+					}
+
+					newLine = !newLine;
+				}
+
+				ImGui::PopStyleVar();
+				ImGui::EndPopup();
+			}
+			ImGui::PopStyleVar();
+
 			ImGui::Unindent(16.0f);
 		}
 	}

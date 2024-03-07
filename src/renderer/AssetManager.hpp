@@ -33,6 +33,7 @@ public:
 	static int32_t AddTexture(std::shared_ptr<Texture> texture);
 	static int32_t AddTexture(std::shared_ptr<Texture> texture, int32_t id);
 
+	static const std::unordered_map<int32_t, std::shared_ptr<Texture>>& AllTextures();
 	static std::shared_ptr<Texture> GetTexture(int32_t id);
 	static int32_t TextureID(std::shared_ptr<Texture> texture);
 
