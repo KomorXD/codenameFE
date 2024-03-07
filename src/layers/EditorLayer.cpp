@@ -207,12 +207,14 @@ void EditorLayer::OnRender()
 void EditorLayer::RenderViewport()
 {
 	// Color picker stuff
+	Renderer::ClearColor(glm::vec4(1.0f));
+	Renderer::Clear();
 	glm::ivec2 bufferSize = m_PickerFB->RenderDimensions();
 	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
 	m_PickerFB->BindBuffer();
 	m_PickerFB->BindRenderBuffer();
 	Renderer::Clear();
-	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
+	Renderer::ClearColor(glm::vec4(1.0f));
 	Renderer::PickerRender();
 	m_Scene.Render(m_EditorCamera);
 	Renderer::DefaultRender();
@@ -221,25 +223,25 @@ void EditorLayer::RenderViewport()
 	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
 	m_MainMFB->BindBuffer();
 	m_MainMFB->BindRenderBuffer();
-	Renderer::Clear();
-	Renderer::ClearColor(glm::vec4(1.0f));
 
+	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
+	Renderer::Clear();
 	// Render selected entity to stencil buffer
 	if (m_SelectedEntity.Handle() != entt::null)
 	{
 		TransformComponent& transform = m_SelectedEntity.GetComponent<TransformComponent>();
-		MeshComponent& mesh			  = m_SelectedEntity.GetComponent<MeshComponent>();
-		MaterialComponent& material   = m_SelectedEntity.GetComponent<MaterialComponent>();
+		MeshComponent& mesh	= m_SelectedEntity.GetComponent<MeshComponent>();
 		
 		Renderer::SetStencilFunc(GL_ALWAYS, 1, 0xFF);
 		Renderer::SetStencilMask(0xFF);
 		Renderer::DisableDepthTest();
 		Renderer::SetLight(true);
 		Renderer::SceneBegin(m_EditorCamera);
-		Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)m_SelectedEntity.Handle());
+		Renderer::SubmitMesh(transform.ToMat4(), mesh, {}, (int32_t)m_SelectedEntity.Handle());
 		Renderer::SceneEnd();
 		Renderer::EnableDepthTest();
 		Renderer::SetLight(false);
+		Renderer::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
 	// Normal pass
