@@ -25,14 +25,16 @@ private:
 	void RenderScenePanel();
 	void RenderViewport();
 	void RenderEntityData();
-	void RenderGuizmo();
+	void RenderGizmo();
 
 	Camera m_EditorCamera;
-	Scene m_Scene;
+	Scene  m_Scene;
 	Entity m_SelectedEntity;
+	Entity m_CopiedEntity;
 
-	int32_t m_GuizmoMode = -1;
-	bool m_LockFocus = false;
+	int32_t m_GizmoMode = -1;
+	bool m_LockFocus    = false;
+	bool m_IsGizmoUsed  = false;
 
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;

@@ -6,11 +6,10 @@
 
 Entity Scene::SpawnEntity(const std::string& name)
 {
-	Entity ent(m_Registry.create(), this);
+	Entity ent(m_Registry.create((entt::entity)(m_Entities.size() + 1)), this);
 	ent.AddComponent<TagComponent>().Tag = name.empty() ? "Entity" : name;
 	ent.AddComponent<TransformComponent>();
 	m_Entities.push_back(ent);
-
 	return ent;
 }
 
@@ -34,16 +33,6 @@ void Scene::Render(Camera& editorCamera)
 		}
 	}
 
-	// Add point lights
-	{
-		auto view = m_Registry.view<TransformComponent, PointLightComponent>();
-		for (entt::entity entity : view)
-		{
-			auto [transform, light] = view.get<TransformComponent, PointLightComponent>(entity);
-			Renderer::AddPointLight(transform.Position, light);
-		}
-	}
-
 	// Add spotlights
 	{
 		auto view = m_Registry.view<TransformComponent, SpotLightComponent>();
@@ -51,6 +40,16 @@ void Scene::Render(Camera& editorCamera)
 		{
 			auto [transform, light] = view.get<TransformComponent, SpotLightComponent>(entity);
 			Renderer::AddSpotLight(transform, light);
+		}
+	}
+
+	// Add point lights
+	{
+		auto view = m_Registry.view<TransformComponent, PointLightComponent>();
+		for (entt::entity entity : view)
+		{
+			auto [transform, light] = view.get<TransformComponent, PointLightComponent>(entity);
+			Renderer::AddPointLight(transform.Position, light);
 		}
 	}
 

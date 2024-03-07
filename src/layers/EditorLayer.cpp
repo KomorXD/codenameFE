@@ -55,31 +55,26 @@ EditorLayer::EditorLayer()
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/plank.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
 	int32_t grassID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
-	
-	constexpr float radius = 10.0f;
-	constexpr uint32_t count = 20;
-	constexpr float step = 2.0f * glm::pi<float>() / count;
-	for (uint32_t i = 0; i < count; i++)
-	{
-		glm::vec3 pos = { glm::cos(i * step) * radius, 2.0f, glm::sin(i * step) * radius };
-		
-		Entity cube = m_Scene.SpawnEntity("Cuboid");
-		cube.GetComponent<TransformComponent>().Position = pos;
-		cube.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-		cube.AddComponent<MaterialComponent>().Color = glm::vec4(pos / radius, 1.0f);
-	}
 
-	Entity light = m_Scene.SpawnEntity("Light");
-	light.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
-	light.GetComponent<TransformComponent>().Rotation = { -glm::pi<float>() / 2.0f, 0.0f, 0.0f};
-	light.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-	light.AddComponent<MaterialComponent>().Color = glm::vec4(1.0f);
-	light.AddComponent<SpotLightComponent>();
+	Entity nothing = m_Scene.SpawnEntity("Nothing");
 
 	Entity ground = m_Scene.SpawnEntity("Ground");
 	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
 	ground.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
 	ground.AddComponent<MaterialComponent>().AlbedoTextureID = grassID;
+	
+	constexpr float radius = 7.0f;
+	constexpr uint32_t count = 5;
+	constexpr float step = 2.0f * glm::pi<float>() / count;
+	for (uint32_t i = 0; i < count; i++)
+	{
+		glm::vec3 pos = { glm::cos(i * step) * radius, 2.0f, glm::sin(i * step) * radius };
+		
+		Entity cube = m_Scene.SpawnEntity("Cuboid_" + std::to_string(i));
+		cube.GetComponent<TransformComponent>().Position = pos;
+		cube.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
+		cube.AddComponent<MaterialComponent>().Color = glm::vec4(pos / radius, 1.0f);
+	}
 }
 
 void EditorLayer::OnAttach()
@@ -96,15 +91,28 @@ void EditorLayer::OnEvent(Event& ev)
 			m_SelectedEntity = Entity();
 			return;
 		}
+
+		if (ev.Key.Code == Key::Delete && m_SelectedEntity.Handle() != entt::null && !m_IsGizmoUsed)
+		{
+			m_Scene.DestroyEntity(m_SelectedEntity);
+			m_SelectedEntity = Entity();
+			return;
+		}
+
+		if (ev.Key.Code == Key::D && ev.Key.CtrlPressed && m_SelectedEntity.Handle() != entt::null)
+		{
+			m_SelectedEntity = m_SelectedEntity.Clone();
+			return;
+		}
 		
 		if (m_EditorCamera.ControlType() != CameraControlType::FirstPersonControl)
 		{
 			switch (ev.Key.Code)
 			{
-			case Key::Q:	m_GuizmoMode = -1;				    return;
-			case Key::W:	m_GuizmoMode = ImGuizmo::TRANSLATE; return;
-			case Key::E:	m_GuizmoMode = ImGuizmo::ROTATE;    return;
-			case Key::R:	m_GuizmoMode = ImGuizmo::SCALE;	    return;
+			case Key::Q:	m_GizmoMode = -1;				    return;
+			case Key::W:	m_GizmoMode = ImGuizmo::TRANSLATE; return;
+			case Key::E:	m_GizmoMode = ImGuizmo::ROTATE;    return;
+			case Key::R:	m_GizmoMode = ImGuizmo::SCALE;	    return;
 			}
 		}
 
@@ -115,8 +123,19 @@ void EditorLayer::OnEvent(Event& ev)
 	if (!m_LockFocus && ev.Type == Event::MouseButtonPressed && ev.MouseButton.Button == MouseButton::Left && m_ViewportHovered)
 	{
 		glm::vec2 mousePos = Input::GetMousePosition() - glm::vec2(((float)Application::Instance()->Spec().Width / 5.0f), 0.0f);
-		int8_t pixelColor = m_PickerFB->GetPixelAt(mousePos).r;
-		m_SelectedEntity = pixelColor != -1 ? Entity((entt::entity)(uint32_t)(pixelColor - 1), &m_Scene) : Entity();
+		glm::uvec4 pixel = m_PickerFB->GetPixelAt(mousePos);
+
+		if (pixel == glm::uvec4(255))
+		{
+			m_SelectedEntity = Entity();
+			return;
+		}
+
+		uint32_t redContrib   = pixel.r * 65025;
+		uint32_t greenContrib = pixel.g * 255;
+		uint32_t blueContrib  = pixel.b;
+		uint32_t pixelID = redContrib + greenContrib + blueContrib;
+		m_SelectedEntity = Entity((entt::entity)(uint32_t)(pixelID - 1), &m_Scene);
 
 		return;
 	}
@@ -176,11 +195,11 @@ void EditorLayer::OnRender()
 	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
 	m_ViewportHovered = ImGui::IsWindowHovered();
 	m_ViewportFocused = ImGui::IsWindowFocused();
-	RenderGuizmo();
+	RenderGizmo();
+	ImGui::PopStyleVar();
 	ImGui::End();
 
 	RenderEntityData();
-	ImGui::PopStyleVar();
 }
 
 void EditorLayer::RenderScenePanel()
@@ -188,7 +207,6 @@ void EditorLayer::RenderScenePanel()
 	glm::vec2 windowSize = { Application::Instance()->Spec().Width, Application::Instance()->Spec().Height };
 	ImGui::SetNextWindowPos({ 0.0f, 0.0f });
 	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.2f, (float)Application::Instance()->Spec().Height });
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Scene panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
 	ImVec2 avSpace = ImGui::GetContentRegionAvail();
@@ -224,7 +242,6 @@ void EditorLayer::RenderScenePanel()
 	ImGui::EndChild();
 
 	ImGui::End();
-	ImGui::PopStyleVar();
 }
 
 void EditorLayer::RenderViewport()
@@ -276,8 +293,9 @@ void EditorLayer::RenderViewport()
 	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())
 	{
 		TransformComponent  transform = m_SelectedEntity.GetComponent<TransformComponent>();
-		MeshComponent  mesh			  = m_SelectedEntity.GetComponent<MeshComponent>();
-		MaterialComponent material    = m_SelectedEntity.GetComponent<MaterialComponent>();
+		MeshComponent mesh = m_SelectedEntity.GetComponent<MeshComponent>();
+		MaterialComponent material{};
+
 		transform.Scale += 0.2f;
 		material.Color = { 0.98f, 0.24f, 0.0f, 1.0f };
 		material.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
@@ -325,9 +343,13 @@ void EditorLayer::RenderEntityData()
 	}
 
 	TagComponent& tag = m_SelectedEntity.GetComponent<TagComponent>();
+	char buf[64];
+	strcpy_s(buf, 64, tag.Tag.data());
 	ImGui::Indent(16.0f);
-	ImGui::Text("Tag: %s", tag.Tag.c_str());
+	ImGui::Text(std::to_string((uint32_t)m_SelectedEntity.Handle()).c_str());
+	ImGui::InputText("Tag", buf, 64);
 	ImGui::Unindent(16.0f);
+	tag.Tag = buf;
 
 	TransformComponent& transform = m_SelectedEntity.GetComponent<TransformComponent>();
 	ImGui::PushID(1);
@@ -383,6 +405,11 @@ void EditorLayer::RenderEntityData()
 			}
 			ImGui::PopStyleVar();
 
+			if (ImGui::Button("Remove component"))
+			{
+				m_SelectedEntity.RemoveComponent<MaterialComponent>();
+			}
+
 			ImGui::Unindent(16.0f);
 		}
 	}
@@ -410,6 +437,12 @@ void EditorLayer::RenderEntityData()
 
 				ImGui::EndCombo();
 			}
+
+			if (ImGui::Button("Remove component"))
+			{
+				m_SelectedEntity.RemoveComponent<MeshComponent>();
+			}
+
 			ImGui::Unindent(16.0f);
 		}
 	}
@@ -424,12 +457,18 @@ void EditorLayer::RenderEntityData()
 		{
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
+
+			if (ImGui::Button("Remove component"))
+			{
+				m_SelectedEntity.RemoveComponent<DirectionalLightComponent>();
+			}
+
 			ImGui::Unindent(16.0f);
 		}
 	}
 	ImGui::PopID();
 
-	ImGui::PushID(1);
+	ImGui::PushID(5);
 	if (m_SelectedEntity.HasComponent<PointLightComponent>())
 	{
 		PointLightComponent& light = m_SelectedEntity.GetComponent<PointLightComponent>();
@@ -440,12 +479,18 @@ void EditorLayer::RenderEntityData()
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
 			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
 			ImGui::DragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
+
+			if (ImGui::Button("Remove component"))
+			{
+				m_SelectedEntity.RemoveComponent<PointLightComponent>();
+			}
+
 			ImGui::Unindent(16.0f);
 		}
 	}
 	ImGui::PopID();
 
-	ImGui::PushID(5);
+	ImGui::PushID(6);
 	if (m_SelectedEntity.HasComponent<SpotLightComponent>())
 	{
 		SpotLightComponent& light = m_SelectedEntity.GetComponent<SpotLightComponent>();
@@ -458,18 +503,73 @@ void EditorLayer::RenderEntityData()
 			ImGui::DragFloat("Outer cutoff", &light.OuterCutoff, 0.01f, 0.0f, FLT_MAX, "%.3f");
 			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
 			ImGui::DragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
+
+			if (ImGui::Button("Remove component"))
+			{
+				m_SelectedEntity.RemoveComponent<SpotLightComponent>();
+			}
+
 			ImGui::Unindent(16.0f);
 		}
 	}
 	ImGui::PopID();
+	ImGui::NewLine();
+	ImGui::Separator();
+	ImGui::NewLine();
+
+	if (ImGui::Button("Add new component"))
+	{
+		ImGui::OpenPopup("add_component_group");
+	}
+
+	if (ImGui::BeginPopup("add_component_group"))
+	{
+		auto [width, height] = ImGui::CalcTextSize("Directional light");
+		width += ImGui::GetStyle().FramePadding.x * 2.0f;
+		height += ImGui::GetStyle().FramePadding.y * 2.0f;
+
+		if (!m_SelectedEntity.HasComponent<MaterialComponent>() && ImGui::Button("Material", { width, height }))
+		{
+			m_SelectedEntity.AddComponent<MaterialComponent>();
+			ImGui::CloseCurrentPopup();
+		}
+
+		if (!m_SelectedEntity.HasComponent<MeshComponent>() && ImGui::Button("Mesh", { width, height }))
+		{
+			m_SelectedEntity.AddComponent<MeshComponent>();
+			ImGui::CloseCurrentPopup();
+		}
+
+		if (!m_SelectedEntity.HasComponent<DirectionalLightComponent>() && ImGui::Button("Directional light", { width, height }))
+		{
+			m_SelectedEntity.AddComponent<DirectionalLightComponent>();
+			ImGui::CloseCurrentPopup();
+		}
+
+		if (!m_SelectedEntity.HasComponent<PointLightComponent>() && ImGui::Button("Point light", { width, height }))
+		{
+			m_SelectedEntity.AddComponent<PointLightComponent>();
+			ImGui::CloseCurrentPopup();
+		}
+
+		if (!m_SelectedEntity.HasComponent<SpotLightComponent>() && ImGui::Button("Spotlight", { width, height }))
+		{
+			m_SelectedEntity.AddComponent<SpotLightComponent>();
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
 
 	ImGui::End();
 }
 
-void EditorLayer::RenderGuizmo()
+void EditorLayer::RenderGizmo()
 {
-	if (m_SelectedEntity.Handle() == entt::null || m_GuizmoMode == -1)
+	if (m_SelectedEntity.Handle() == entt::null || m_GizmoMode == -1)
 	{
+		m_LockFocus = false;
+		m_IsGizmoUsed = false;
 		return;
 	}
 
@@ -483,14 +583,15 @@ void EditorLayer::RenderGuizmo()
 	glm::mat4 transform = m_SelectedEntity.GetComponent<TransformComponent>().ToMat4();
 
 	bool doSnap = Input::IsKeyPressed(Key::LeftControl);
-	float snapStep = (m_GuizmoMode == ImGuizmo::ROTATE ? 45.0f : 0.5f);
+	float snapStep = (m_GizmoMode == ImGuizmo::ROTATE ? 45.0f : 0.5f);
 	float snapArr[3]{ snapStep, snapStep, snapStep };
 
-	ImGuizmo::Manipulate(glm::value_ptr(cameraView), glm::value_ptr(cameraProj), ImGuizmo::OPERATION(m_GuizmoMode),
+	ImGuizmo::Manipulate(glm::value_ptr(cameraView), glm::value_ptr(cameraProj), ImGuizmo::OPERATION(m_GizmoMode),
 		ImGuizmo::MODE::WORLD, glm::value_ptr(transform), nullptr, doSnap ? snapArr : nullptr);
 	m_LockFocus = ImGuizmo::IsOver();
+	m_IsGizmoUsed = ImGuizmo::IsUsing();
 
-	if (ImGuizmo::IsUsing())
+	if (m_IsGizmoUsed)
 	{
 		glm::vec3 translation{};
 		glm::vec3 rotation{};
@@ -499,7 +600,7 @@ void EditorLayer::RenderGuizmo()
 
 		Math::TransformDecompose(transform, translation, rotation, scale);
 		glm::vec3 deltaRotation = rotation - transformComp.Rotation;
-
+		
 		transformComp.Position = translation;
 		transformComp.Rotation = transformComp.Rotation + deltaRotation;
 		transformComp.Scale = scale;

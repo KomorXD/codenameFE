@@ -10,6 +10,7 @@ public:
 	Entity() = default;
 	Entity(entt::entity handle, Scene* scene);
 	Entity(const Entity& other);
+	Entity(Entity&& other) noexcept;
 
 	Entity& operator= (const Entity& other)
 	{
@@ -18,6 +19,19 @@ public:
 
 		return *this;
 	}
+
+	Entity& operator= (Entity&& other)
+	{
+		m_Handle = other.m_Handle;
+		m_Scene = other.m_Scene;
+
+		other.m_Handle = entt::null;
+		other.m_Scene = nullptr;
+
+		return *this;
+	}
+
+	Entity Clone();
 
 	inline entt::entity Handle() const { return m_Handle; }
 

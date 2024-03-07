@@ -48,7 +48,7 @@ uniform PointLight u_PointLights[8];
 uniform int u_PointLightsCount = 0;
 
 uniform SpotLight u_SpotLights[8];
-uniform int u_SpotLightsCount;
+uniform int u_SpotLightsCount = 0;
 
 uniform sampler2D u_Textures[24];
 
