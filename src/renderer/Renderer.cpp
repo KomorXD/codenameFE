@@ -369,7 +369,7 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	MeshInstance& instance = instances.emplace_back();
 	instance.Transform = transform;
 	instance.Color = material.Color;
-	instance.EntityID = ((float)entityID + 1.0f) / 255.0f;
+	instance.EntityID = (float)entityID + 1.0f;
 	
 	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;
 	s_Data.InstancesCount++;
