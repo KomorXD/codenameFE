@@ -102,6 +102,36 @@ struct RendererData
 
 static RendererData s_Data{};
 
+static void PrintDriversInfo()
+{
+	GLCall(LOG_INFO("GPU Vendor:\t{}",     (char*)glGetString(GL_VENDOR)));
+	GLCall(LOG_INFO("GPU:\t\t{}",		   (char*)glGetString(GL_RENDERER)));
+	GLCall(LOG_INFO("OpenGL version:\t{}", (char*)glGetString(GL_VERSION)));
+
+	int32_t data{};
+
+	GLCall(glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &data));
+	LOG_INFO("Texture units:\t{}", data);
+
+	GLCall(glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &data));
+	LOG_INFO("Max SSBO size:\t{} bytes", data);
+
+	GLCall(glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &data));
+	LOG_INFO("SSBO bindings:\t{}", data);
+
+	GLCall(glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS, &data));
+	LOG_INFO("UBO bindings:\t{}", data);
+
+	GLCall(glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &data));
+	LOG_INFO("Max UBO size:\t{} bytes", data);
+
+	GLCall(glGetIntegerv(GL_MAX_UNIFORM_LOCATIONS, &data));
+	LOG_INFO("Max uniform locations:\t{}", data);
+
+	GLCall(glGetIntegerv(GL_MAX_VERTEX_UNIFORM_VECTORS, &data));
+	LOG_INFO("Max uniform array size:\t{}", data);
+}
+
 static Mesh GenerateMeshData(VertexData vertexData)
 {
 	Mesh mesh{};
@@ -158,6 +188,8 @@ void Renderer::Init()
 	GLCall(glStencilFunc(GL_NOTEQUAL, 1, 0xFF));
 	GLCall(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 	GLCall(glStencilMask(0x00));
+
+	PrintDriversInfo();
 
 	{
 		SCOPE_PROFILE("Quad mesh init");
