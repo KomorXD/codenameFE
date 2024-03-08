@@ -7,8 +7,10 @@ layout(location = 3)  in vec3 a_Bitangent;
 layout(location = 4)  in vec2 a_TextureUV;
 layout(location = 5)  in mat4 a_Transform;
 layout(location = 9)  in vec4 a_Color;
-layout(location = 10) in float a_TextureSlot;
-layout(location = 11) in float a_NormalTextureSlot;
+layout(location = 10) in vec2 a_TilingFactor;
+layout(location = 11) in vec2 a_TextureOffset;
+layout(location = 12) in float a_TextureSlot;
+layout(location = 13) in float a_NormalTextureSlot;
 
 layout (std140, binding = 0) uniform Matrices
 {
@@ -35,7 +37,7 @@ void main()
 	vs_out.worldPos			 = (a_Transform * vec4(a_Pos, 1.0)).xyz;
 	vs_out.TBN				 = mat3(T, B, N);
 	vs_out.color			 = a_Color;
-	vs_out.textureUV		 = a_TextureUV;
+	vs_out.textureUV		 = a_TextureUV * a_TilingFactor + a_TextureOffset;
 	vs_out.textureSlot		 = a_TextureSlot;
 	vs_out.normalTextureSlot = a_NormalTextureSlot;
 

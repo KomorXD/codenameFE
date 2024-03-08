@@ -2,7 +2,7 @@
 
 layout(location = 0) in vec3 a_Pos;
 layout(location = 5) in mat4 a_Transform;
-layout(location = 12) in float a_EntityID;
+layout(location = 14) in float a_EntityID;
 
 layout (std140, binding = 0) uniform Matrices
 {

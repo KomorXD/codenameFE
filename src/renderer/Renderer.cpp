@@ -49,6 +49,8 @@ struct MeshInstance
 {
 	glm::mat4 Transform;
 	glm::vec4 Color;
+	glm::vec2 TilingFactor;
+	glm::vec2 TextureOffset;
 
 	float TextureSlot;
 	float NormalTextureSlot;
@@ -122,9 +124,11 @@ static Mesh GenerateMeshData(VertexData vertexData)
 	layout.Push<float>(4); // 7  Transform
 	layout.Push<float>(4); // 8  Transform
 	layout.Push<float>(4); // 9  Color
-	layout.Push<float>(1); // 10 Texture slot
-	layout.Push<float>(1); // 11 Normal texture slot
-	layout.Push<float>(1); // 12 Entity ID
+	layout.Push<float>(2); // 10 Tiling factor
+	layout.Push<float>(2); // 11 Texture offset
+	layout.Push<float>(1); // 12 Texture slot
+	layout.Push<float>(1); // 13 Normal texture slot
+	layout.Push<float>(1); // 14 Entity ID
 	mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
 	mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 5);
 
@@ -375,6 +379,8 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	MeshInstance& instance = instances.emplace_back();
 	instance.Transform = transform;
 	instance.Color = material.Color;
+	instance.TilingFactor = material.TilingFactor;
+	instance.TextureOffset = material.TextureOffset;
 	instance.EntityID = (float)entityID + 1.0f;
 	
 	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;

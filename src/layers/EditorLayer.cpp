@@ -377,7 +377,10 @@ void EditorLayer::RenderEntityData()
 		{
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
+			ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
 			ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
+			
 			static int32_t* idOfInterest = nullptr;
 
 			if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))

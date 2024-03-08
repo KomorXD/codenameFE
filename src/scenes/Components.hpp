@@ -32,6 +32,8 @@ struct TransformComponent
 struct MaterialComponent
 {
 	glm::vec4 Color = glm::vec4(1.0f);
+	glm::vec2 TilingFactor = glm::vec2(1.0f);
+	glm::vec2 TextureOffset = glm::vec2(0.0f);
 	float Shininess = 0.5f;
 	int32_t AlbedoTextureID = AssetManager::TEXTURE_WHITE;
 	int32_t NormalTextureID = AssetManager::TEXTURE_NORMAL;
