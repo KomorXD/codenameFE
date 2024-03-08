@@ -34,6 +34,7 @@ struct MaterialComponent
 	glm::vec4 Color = glm::vec4(1.0f);
 	float Shininess = 0.5f;
 	int32_t AlbedoTextureID = AssetManager::TEXTURE_WHITE;
+	int32_t NormalTextureID = AssetManager::TEXTURE_NORMAL;
 
 	MaterialComponent() = default;
 	MaterialComponent(const MaterialComponent& other) = default;

@@ -54,9 +54,14 @@ EditorLayer::EditorLayer()
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/plank.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall.jpg"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall_normal.jpg"));
 	int32_t grassID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
 
 	Entity nothing = m_Scene.SpawnEntity("Nothing");
+	nothing.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
+	nothing.AddComponent<PointLightComponent>();
 
 	Entity ground = m_Scene.SpawnEntity("Ground");
 	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
@@ -373,9 +378,19 @@ void EditorLayer::RenderEntityData()
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
 			ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
+			static int32_t* idOfInterest = nullptr;
 
 			if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 			{
+				idOfInterest = &material.AlbedoTextureID;
+				ImGui::OpenPopup("available_textures_group");
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.NormalTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			{
+				idOfInterest = &material.NormalTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
 
@@ -389,7 +404,7 @@ void EditorLayer::RenderEntityData()
 				{
 					if (ImGui::ImageButton((ImTextureID)(texture->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 					{
-						material.AlbedoTextureID = id;
+						*idOfInterest = id;
 					}
 
 					if (!newLine)

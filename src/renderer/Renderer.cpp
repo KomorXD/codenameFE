@@ -51,6 +51,7 @@ struct MeshInstance
 	glm::vec4 Color;
 
 	float TextureSlot;
+	float NormalTextureSlot;
 	float EntityID;
 };
 
@@ -110,19 +111,22 @@ static Mesh GenerateMeshData(VertexData vertexData)
 	VertexBufferLayout layout;
 	layout.Push<float>(3); // 0 Position
 	layout.Push<float>(3); // 1 Normal
-	layout.Push<float>(2); // 2 Texture UV
+	layout.Push<float>(3); // 2 Tangent
+	layout.Push<float>(3); // 3 Bitangent
+	layout.Push<float>(2); // 4 Texture UV
 	mesh.VAO->AddBuffers(mesh.VBO, ibo, layout);
 
 	layout.Clear();
-	layout.Push<float>(4); // 3 Transform
-	layout.Push<float>(4); // 4 Transform
-	layout.Push<float>(4); // 5 Transform
-	layout.Push<float>(4); // 6 Transform
-	layout.Push<float>(4); // 7 Color
-	layout.Push<float>(1); // 8 Texture slot
-	layout.Push<float>(1); // 9 Entity ID
+	layout.Push<float>(4); // 5  Transform
+	layout.Push<float>(4); // 6  Transform
+	layout.Push<float>(4); // 7  Transform
+	layout.Push<float>(4); // 8  Transform
+	layout.Push<float>(4); // 9  Color
+	layout.Push<float>(1); // 10 Texture slot
+	layout.Push<float>(1); // 11 Normal texture slot
+	layout.Push<float>(1); // 12 Entity ID
 	mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
-	mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 3);
+	mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 5);
 
 	return mesh;
 }
@@ -230,9 +234,13 @@ void Renderer::Init()
 			s_Data.DefaultShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
 		}
 
-		uint8_t whitePixel[] = { 255.0f, 255.0f, 255.0f, 255.0f };
+		uint8_t whitePixel[] = { 255, 255, 255, 255 };
 		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1);
 		AssetManager::AddTexture(defaultAlbedo, AssetManager::TEXTURE_WHITE);
+
+		uint8_t normalPixel[] = { 127, 127, 255, 255 };
+		std::shared_ptr<Texture> defaultNormal = std::make_shared<Texture>(normalPixel, 1, 1);
+		AssetManager::AddTexture(defaultNormal, AssetManager::TEXTURE_NORMAL);
 
 		s_Data.PickerShader = std::make_shared<Shader>("resources/shaders/Picker.vert", "resources/shaders/Picker.frag");
 		s_Data.CurrentShader = s_Data.DefaultShader;
@@ -286,9 +294,7 @@ void Renderer::Flush()
 	s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
 	s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
 
-	GLCall(glActiveTexture(GL_TEXTURE0));
-	GLCall(glBindTexture(GL_TEXTURE_2D, AssetManager::GetTexture(AssetManager::TEXTURE_WHITE)->GetID()));
-	for (int32_t i = 1; i < s_Data.BoundTexturesCount; i++)
+	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
 		GLCall(glActiveTexture(GL_TEXTURE0 + i));
 		GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
@@ -375,24 +381,41 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	s_Data.InstancesCount++;
 
 	std::shared_ptr<Texture> albedo = AssetManager::GetTexture(material.AlbedoTextureID);
-	int32_t duplicateIdx = -1;
+	std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
+	int32_t duplicateAlbedoIdx = -1;
+	int32_t duplicateNormalIdx = -1;
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
 		if (s_Data.TextureBindings[i] == albedo->GetID())
 		{
-			duplicateIdx = i;
-			break;
+			duplicateAlbedoIdx = i;
+		}
+
+		if (s_Data.TextureBindings[i] == normal->GetID())
+		{
+			duplicateNormalIdx = i;
 		}
 	}
 
-	if (duplicateIdx != -1)
+	if (duplicateAlbedoIdx != -1)
 	{
-		instance.TextureSlot = (float)duplicateIdx;
+		instance.TextureSlot = (float)duplicateAlbedoIdx;
 	}
 	else
 	{
 		s_Data.TextureBindings[s_Data.BoundTexturesCount] = albedo->GetID();
 		instance.TextureSlot = (float)s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
+	if (duplicateNormalIdx != -1)
+	{
+		instance.NormalTextureSlot = (float)duplicateNormalIdx;
+	}
+	else
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = normal->GetID();
+		instance.NormalTextureSlot = (float)s_Data.BoundTexturesCount;
 		++s_Data.BoundTexturesCount;
 	}
 }

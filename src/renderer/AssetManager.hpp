@@ -40,7 +40,8 @@ public:
 	static bool RemoveTexture(int32_t id);
 	static bool RemoveTexture(std::shared_ptr<Texture> texture);
 
-	static constexpr int32_t TEXTURE_WHITE = 1;
+	static constexpr int32_t TEXTURE_WHITE  = 1;
+	static constexpr int32_t TEXTURE_NORMAL = 2;
 
 private:
 	static std::unordered_map<int32_t, Mesh> s_Meshes;

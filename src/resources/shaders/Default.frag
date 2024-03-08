@@ -31,10 +31,11 @@ struct SpotLight
 in VS_OUT
 {
 	vec3 worldPos;
-	vec3 normal;
+	mat3 TBN;
 	vec4 color;
 	vec2 textureUV;
 	flat float textureSlot;
+	flat float normalTextureSlot;
 } fs_in;
 
 uniform vec3 u_ViewPos = vec3(0.0);
@@ -85,7 +86,40 @@ void main()
 		case 23: slot = 23; break;
 	}
 
+	int normalSlot = -1;
+	switch(int(fs_in.normalTextureSlot))
+	{
+		case  0: normalSlot = 0;  break;
+		case  1: normalSlot = 1;  break;
+		case  2: normalSlot = 2;  break;
+		case  3: normalSlot = 3;  break;
+		case  4: normalSlot = 4;  break;
+		case  5: normalSlot = 5;  break;
+		case  6: normalSlot = 6;  break;
+		case  7: normalSlot = 7;  break;
+		case  8: normalSlot = 8;  break;
+		case  9: normalSlot = 9;  break;
+		case 10: normalSlot = 10; break;
+		case 11: normalSlot = 11; break;
+		case 12: normalSlot = 12; break;
+		case 13: normalSlot = 13; break;
+		case 14: normalSlot = 14; break;
+		case 15: normalSlot = 15; break;
+		case 16: normalSlot = 16; break;
+		case 17: normalSlot = 17; break;
+		case 18: normalSlot = 18; break;
+		case 19: normalSlot = 19; break;
+		case 20: normalSlot = 20; break;
+		case 21: normalSlot = 21; break;
+		case 22: normalSlot = 22; break;
+		case 23: normalSlot = 23; break;
+	}
+
 	vec4 color = texture(u_Textures[slot], fs_in.textureUV) * fs_in.color;
+	vec3 normal = texture(u_Textures[normalSlot], fs_in.textureUV).rgb;
+	normal = normal * 2.0 - 1.0;
+	normal = normalize(fs_in.TBN * normal);
+	
 	if(color.a == 0.0)
 	{
 		discard;
@@ -101,7 +135,7 @@ void main()
 	vec3 totalDirectional = vec3(0.0);
 	for(int i = 0; i < u_DirLightsCount; i++)
 	{
-		totalDirectional += max(dot(fs_in.normal, -u_DirLights[i].direction), 0.0) * u_DirLights[i].color;
+		totalDirectional += max(dot(normal, -u_DirLights[i].direction), 0.0) * u_DirLights[i].color;
 	}
 
 	vec3 totalDiffuse = vec3(0.0);
@@ -117,8 +151,8 @@ void main()
 		vec3 viewDir = normalize(u_ViewPos - fs_in.worldPos);
 		vec3 halfway = normalize(lightDir + viewDir);
 
-		totalDiffuse += max(dot(fs_in.normal, lightDir), 0.0) * pointLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir));
-		totalSpecular += pow(max(dot(fs_in.normal, halfway), 0.0), 32.0) * pointLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir));
+		totalDiffuse += max(dot(normal, lightDir), 0.0) * pointLight.color * attenuation * step(0.0, dot(normal, lightDir));
+		totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * pointLight.color * attenuation * step(0.0, dot(normal, lightDir));
 	}
 
 	for(int i = 0; i < u_SpotLightsCount; i++)
@@ -138,8 +172,8 @@ void main()
 			vec3 viewDir = normalize(u_ViewPos - fs_in.worldPos);
 			vec3 halfway = normalize(lightDir + viewDir);
 
-			totalDiffuse += max(dot(fs_in.normal, lightDir), 0.0) * spotLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir)) * intensity;
-			totalSpecular += pow(max(dot(fs_in.normal, halfway), 0.0), 32.0) * spotLight.color * attenuation * step(0.0, dot(fs_in.normal, lightDir)) * intensity;
+			totalDiffuse += max(dot(normal, lightDir), 0.0) * spotLight.color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
+			totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * spotLight.color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
 		}
 	}
 
