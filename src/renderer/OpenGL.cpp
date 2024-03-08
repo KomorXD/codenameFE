@@ -186,7 +186,7 @@ UniformBuffer::UniformBuffer(const void* data, uint64_t size)
 {
 	GLCall(glGenBuffers(1, &m_ID));
 	GLCall(glBindBuffer(GL_UNIFORM_BUFFER, m_ID));
-	GLCall(glBufferData(GL_UNIFORM_BUFFER, size, data, GL_STATIC_DRAW));
+	GLCall(glBufferData(GL_UNIFORM_BUFFER, size, data, GL_DYNAMIC_DRAW));
 }
 
 UniformBuffer::~UniformBuffer()
@@ -518,6 +518,49 @@ int32_t Shader::GetUniformLocation(const std::string& name)
 	m_UniformLocations[name] = location;
 
 	return location;
+}
+
+SharedBuffer::SharedBuffer(const void* data, uint64_t size)
+{
+	GLCall(glGenBuffers(1, &m_ID));
+	GLCall(glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_ID));
+	GLCall(glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_DRAW));
+}
+
+SharedBuffer::~SharedBuffer()
+{
+	if (m_ID != 0)
+	{
+		Unbind();
+		GLCall(glDeleteBuffers(1, &m_ID));
+	}
+}
+
+void SharedBuffer::Bind() const
+{
+	GLCall(glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_ID));
+}
+
+void SharedBuffer::Unbind() const
+{
+	GLCall(glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0));
+}
+
+void SharedBuffer::BindBufferSlot(uint32_t bufferIndex)
+{
+	GLCall(glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bufferIndex, m_ID));
+}
+
+void SharedBuffer::ResetData(const void* data, uint64_t size) const
+{
+	Bind();
+	GLCall(glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, GL_DYNAMIC_DRAW));
+}
+
+void SharedBuffer::SetData(const void* data, uint32_t size, uint32_t offset) const
+{
+	Bind();
+	GLCall(glBufferSubData(GL_SHADER_STORAGE_BUFFER, (GLintptr)offset, size, data));
 }
 
 Framebuffer::Framebuffer()

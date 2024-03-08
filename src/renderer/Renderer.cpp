@@ -63,6 +63,26 @@ struct MeshBufferData
 	std::vector<MeshInstance> Instances;
 };
 
+struct DirLightBufferData
+{
+	glm::vec4 Direction;
+	glm::vec4 Color;
+};
+
+struct PointLightBufferData
+{
+	glm::vec4 PosAndLinear;
+	glm::vec4 ColorAndQuadratic;
+};
+
+struct SpotLightBufferData
+{
+	glm::vec4 PositionAndCutoff;
+	glm::vec4 DirectionAndOuterCutoff;
+	glm::vec4 ColorAndLinear;
+	float Quadratic;
+};
+
 struct RendererData
 {
 	static constexpr uint32_t MaxQuads	   = 5000;
@@ -88,16 +108,20 @@ struct RendererData
 	std::shared_ptr<Shader>	DefaultShader;
 	std::shared_ptr<Shader> PickerShader;
 	std::shared_ptr<Shader> CurrentShader;
-	
-	uint32_t DirLightsCount   = 0;
-	uint32_t PointLightsCount = 0;
-	uint32_t SpotLightsCount  = 0;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
 
+	std::shared_ptr<SharedBuffer> DirLightsBuffer;
+	std::vector<DirLightBufferData> DirLightsData;
+
+	std::shared_ptr<SharedBuffer> PointLightsBuffer;
+	std::vector<DirLightBufferData> PointLightsData;
+
+	std::shared_ptr<SharedBuffer> SpotLightsBuffer;
+	std::vector<SpotLightBufferData> SpotLightsData;
+
 	uint32_t BoundTexturesCount = 1;
 	std::array<int32_t, 24> TextureBindings;
-	
 };
 
 static RendererData s_Data{};
@@ -255,9 +279,19 @@ void Renderer::Init()
 
 	{
 		SCOPE_PROFILE("Uniform buffers init");
+		s_Data.DefaultShader->Bind();
 
 		s_Data.MatricesBuffer = std::make_shared<UniformBuffer>(nullptr, 2 * sizeof(glm::mat4));
 		s_Data.MatricesBuffer->BindBufferRange(0, 0, 2 * sizeof(glm::mat4));
+
+		s_Data.DirLightsBuffer = std::make_shared<SharedBuffer>(nullptr, sizeof(int32_t) + 128 * sizeof(DirLightBufferData));
+		s_Data.DirLightsBuffer->BindBufferSlot(0);
+
+		s_Data.PointLightsBuffer = std::make_shared<SharedBuffer>(nullptr, sizeof(int32_t) + 128 * sizeof(PointLightBufferData));
+		s_Data.PointLightsBuffer->BindBufferSlot(1);
+
+		s_Data.SpotLightsBuffer = std::make_shared<SharedBuffer>(nullptr, sizeof(int32_t) + 128 * sizeof(SpotLightBufferData));
+		s_Data.SpotLightsBuffer->BindBufferSlot(2);
 	}
 
 	{
@@ -325,10 +359,17 @@ void Renderer::SceneEnd()
 
 void Renderer::Flush()
 {
-	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform1i("u_DirLightsCount",   s_Data.DirLightsCount);
-	s_Data.DefaultShader->SetUniform1i("u_PointLightsCount", s_Data.PointLightsCount);
-	s_Data.DefaultShader->SetUniform1i("u_SpotLightsCount",  s_Data.SpotLightsCount);
+	int32_t count = s_Data.DirLightsData.size();
+	s_Data.DirLightsBuffer->SetData(s_Data.DirLightsData.data(), s_Data.DirLightsData.size() * sizeof(DirLightBufferData));
+	s_Data.DirLightsBuffer->SetData(&count, sizeof(int32_t), 128 * sizeof(DirLightBufferData));
+
+	count = s_Data.PointLightsData.size();
+	s_Data.PointLightsBuffer->SetData(s_Data.PointLightsData.data(), s_Data.PointLightsData.size() * sizeof(PointLightBufferData));
+	s_Data.PointLightsBuffer->SetData(&count, sizeof(int32_t), 128 * sizeof(PointLightBufferData));
+
+	count = s_Data.SpotLightsData.size();
+	s_Data.SpotLightsBuffer->SetData(s_Data.SpotLightsData.data(), s_Data.SpotLightsData.size() * sizeof(SpotLightBufferData));
+	s_Data.SpotLightsBuffer->SetData(&count, sizeof(int32_t), 128 * sizeof(SpotLightBufferData));
 
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
@@ -500,39 +541,23 @@ void Renderer::DrawScreenQuad()
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
 {
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
-
-	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].direction", glm::normalize(dir));
-	s_Data.DefaultShader->SetUniform3f("u_DirLights[" + std::to_string(s_Data.DirLightsCount) + "].color",	   light.Color);
-
-	s_Data.DirLightsCount++;
+	s_Data.DirLightsData.push_back({ glm::vec4(dir, 1.0f), glm::vec4(light.Color, 1.0f) });
 }
 
 void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)
 {
-	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	   position);
-	s_Data.DefaultShader->SetUniform3f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		   light.Color);
-	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	   light.LinearTerm);
-	s_Data.DefaultShader->SetUniform1f("u_PointLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
-
-	s_Data.PointLightsCount++;
+	s_Data.PointLightsData.push_back({ glm::vec4(position, light.LinearTerm), glm::vec4(light.Color, light.QuadraticTerm) });
 }
 
 void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light)
 {
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
-	
-	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].position",	  transform.Position);
-	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].cutOff",		  glm::cos(glm::radians(light.Cutoff)));
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].direction",	  dir);
-	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].outerCutOff",   glm::cos(glm::radians(light.OuterCutoff)));
-	s_Data.DefaultShader->SetUniform3f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].color",		  light.Color);
-	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].linearTerm",	  light.LinearTerm);
-	s_Data.DefaultShader->SetUniform1f("u_SpotLights[" + std::to_string(s_Data.PointLightsCount) + "].quadraticTerm", light.QuadraticTerm);
-
-	s_Data.SpotLightsCount++;
+	s_Data.SpotLightsData.push_back({
+		glm::vec4(transform.Position, light.Cutoff),
+		glm::vec4(dir, light.OuterCutoff),
+		glm::vec4(light.Color, light.LinearTerm),
+		light.QuadraticTerm
+	});
 }
 
 void Renderer::SetBlur(bool enabled)
@@ -615,9 +640,9 @@ void Renderer::StartBatch()
 	s_Data.LineVertexCount = 0;
 	s_Data.LineBufferPtr = s_Data.LineBufferBase;
 
-	s_Data.DirLightsCount = 0;
-	s_Data.PointLightsCount = 0;
-	s_Data.SpotLightsCount = 0;
+	s_Data.DirLightsData.clear();
+	s_Data.PointLightsData.clear();
+	s_Data.SpotLightsData.clear();
 
 	s_Data.BoundTexturesCount = 1;
 }

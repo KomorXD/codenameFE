@@ -190,6 +190,22 @@ private:
 	std::unordered_map<std::string, int32_t> m_UniformLocations;
 };
 
+class SharedBuffer
+{
+public:
+	SharedBuffer(const void* data, uint64_t size);
+	~SharedBuffer();
+
+	void Bind() const;
+	void Unbind() const;
+	void BindBufferSlot(uint32_t bufferIndex);
+	void ResetData(const void* data, uint64_t size) const;
+	void SetData(const void* data, uint32_t size, uint32_t offset = 0) const;
+
+private:
+	uint32_t m_ID = 0;
+};
+
 class Framebuffer
 {
 public:
