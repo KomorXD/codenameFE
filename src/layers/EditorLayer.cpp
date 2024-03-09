@@ -233,6 +233,46 @@ void EditorLayer::RenderScenePanel()
 
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
+	
+	ImGui::NewLine();
+
+	if (ImGui::Button("New entity"))
+	{
+		ImGui::OpenPopup("new_entity_group");
+	}
+
+	if (ImGui::BeginPopup("new_entity_group"))
+	{
+		auto [width, height] = ImGui::CalcTextSize("Empty entity");
+		width += ImGui::GetStyle().FramePadding.x * 2.0f;
+		height += ImGui::GetStyle().FramePadding.y * 2.0f;
+
+		if (ImGui::Button("Empty entity", { width, height }))
+		{
+			m_SelectedEntity = m_Scene.SpawnEntity("Empty entity");
+			ImGui::CloseCurrentPopup();
+		}
+
+		if (ImGui::Button("Plane", { width, height }))
+		{
+			m_SelectedEntity = m_Scene.SpawnEntity("Plane");
+			m_SelectedEntity.GetComponent<TransformComponent>().Rotation = { glm::radians(-90.0f), 0.0f, 0.0f };
+			m_SelectedEntity.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_PLANE;
+			m_SelectedEntity.AddComponent<MaterialComponent>();
+			ImGui::CloseCurrentPopup();
+		}
+
+		if (ImGui::Button("Cube", { width, height }))
+		{
+			m_SelectedEntity = m_Scene.SpawnEntity("Cube");
+			m_SelectedEntity.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
+			m_SelectedEntity.AddComponent<MaterialComponent>();
+			ImGui::CloseCurrentPopup();
+		}
+
+		ImGui::EndPopup();
+	}
+
 	ImGui::NewLine();
 
 	if (ImGui::BeginCombo("Gizmo mode", m_GizmoMode == ImGuizmo::WORLD ? "World" : "Local"))
@@ -249,6 +289,8 @@ void EditorLayer::RenderScenePanel()
 
 		ImGui::EndCombo();
 	}
+
+	ImGui::NewLine();
 
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -367,6 +409,7 @@ void EditorLayer::RenderEntityData()
 	ImGui::Text(std::to_string((uint32_t)m_SelectedEntity.Handle()).c_str());
 	ImGui::InputText("Tag", buf, 64);
 	ImGui::Unindent(16.0f);
+	ImGui::NewLine();
 	tag.Tag = buf;
 
 	TransformComponent& transform = m_SelectedEntity.GetComponent<TransformComponent>();
@@ -378,10 +421,45 @@ void EditorLayer::RenderEntityData()
 		ImGui::DragFloat3("Rotation", glm::value_ptr(transform.Rotation), 0.05f);
 		ImGui::DragFloat3("Scale",    glm::value_ptr(transform.Scale),    0.05f);
 		ImGui::Unindent(16.0f);
+		ImGui::NewLine();
 	}
 	ImGui::PopID();
 
 	ImGui::PushID(2);
+	if (m_SelectedEntity.HasComponent<MeshComponent>())
+	{
+		MeshComponent& mesh = m_SelectedEntity.GetComponent<MeshComponent>();
+
+		if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::Indent(16.0f);
+			if (ImGui::BeginCombo("##MeshCombo", AssetManager::GetMesh(mesh.MeshID).MeshName.c_str()))
+			{
+				const std::unordered_map<int32_t, Mesh>& meshes = AssetManager::AllMeshes();
+
+				for (const auto& [id, meshData] : meshes)
+				{
+					if (ImGui::Selectable(meshData.MeshName.c_str(), id == mesh.MeshID))
+					{
+						mesh.MeshID = id;
+					}
+				}
+
+				ImGui::EndCombo();
+			}
+
+			if (ImGui::Button("Remove component"))
+			{
+				m_SelectedEntity.RemoveComponent<MeshComponent>();
+			}
+
+			ImGui::Unindent(16.0f);
+			ImGui::NewLine();
+		}
+	}
+	ImGui::PopID();
+
+	ImGui::PushID(3);
 	if (m_SelectedEntity.HasComponent<MaterialComponent>())
 	{
 		MaterialComponent& material = m_SelectedEntity.GetComponent<MaterialComponent>();
@@ -393,7 +471,7 @@ void EditorLayer::RenderEntityData()
 			ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
 			ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
 			ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
-			
+
 			static int32_t* idOfInterest = nullptr;
 
 			if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
@@ -442,39 +520,7 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
-		}
-	}
-	ImGui::PopID();
-
-	ImGui::PushID(3);
-	if (m_SelectedEntity.HasComponent<MeshComponent>())
-	{
-		MeshComponent& mesh = m_SelectedEntity.GetComponent<MeshComponent>();
-
-		if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			ImGui::Indent(16.0f);
-			if(ImGui::BeginCombo("##MeshCombo", AssetManager::GetMesh(mesh.MeshID).MeshName.c_str()))
-			{
-				const std::unordered_map<int32_t, Mesh>& meshes = AssetManager::AllMeshes();
-
-				for (const auto& [id, meshData] : meshes)
-				{
-					if (ImGui::Selectable(meshData.MeshName.c_str(), id == mesh.MeshID))
-					{
-						mesh.MeshID = id;
-					}
-				}
-
-				ImGui::EndCombo();
-			}
-
-			if (ImGui::Button("Remove component"))
-			{
-				m_SelectedEntity.RemoveComponent<MeshComponent>();
-			}
-
-			ImGui::Unindent(16.0f);
+			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
@@ -495,6 +541,7 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
+			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
@@ -517,6 +564,7 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
+			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
@@ -541,10 +589,11 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
+			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
-	ImGui::NewLine();
+
 	ImGui::Separator();
 	ImGui::NewLine();
 
