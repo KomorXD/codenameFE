@@ -8,25 +8,16 @@ struct DirectionalLight
 
 struct PointLight
 {
-	vec3 position;
-	float linearTerm;
-
-	vec3 color;
-	float quadraticTerm;
+	vec4 positionAndLin;
+	vec4 colorAndQuad;
 };
 
 struct SpotLight
 {
-	vec3 position;
-	float cutOff;
-
-	vec3 direction;
-	float outerCutOff;
-
-	vec3 color;
-	float linearTerm;
-	
-	float quadraticTerm;
+	vec4 positionAndCutoff;
+	vec4 directionAndOuterCutoff;
+	vec4 colorAndLin;
+	vec4 quadraticTerm;
 };
 
 in VS_OUT
@@ -39,23 +30,16 @@ in VS_OUT
 	flat float normalTextureSlot;
 } fs_in;
 
-layout(std430, binding = 0) readonly buffer DirectionalLights
+layout(std140, binding = 1) uniform Lights
 {
-	DirectionalLight lights[128];
-	int count;
-} dirLights;
-
-layout(std430, binding = 1) readonly buffer PointLights
-{
-	PointLight lights[128];
-	int count;
-} pointLights;
-
-layout(std430, binding = 2) readonly buffer SpotLights
-{
-	SpotLight lights[128];
-	int count;
-} spotLights;
+	DirectionalLight dirLights[128];
+	PointLight pointLights[128];
+	SpotLight spotLights[128];
+	
+	int dirLightsCount;
+	int pointLightsCount;
+	int spotLightsCount;
+} lights;
 
 uniform vec3 u_ViewPos = vec3(0.0);
 uniform bool u_IsLightSource = false;
@@ -103,12 +87,12 @@ void main()
 	int albedoSlot = parseSlot(fs_in.textureSlot);
 	int normalSlot = parseSlot(fs_in.normalTextureSlot);
 
-	vec4 color = texture(u_Textures[albedoSlot], fs_in.textureUV) * fs_in.color;
+	vec4 diffuseColor = texture(u_Textures[albedoSlot], fs_in.textureUV) * fs_in.color;
 	vec3 normal = texture(u_Textures[normalSlot], fs_in.textureUV).rgb;
 	normal = normal * 2.0 - 1.0;
 	normal = normalize(fs_in.TBN * normal);
 	
-	if(color.a == 0.0)
+	if(diffuseColor.a == 0.0)
 	{
 		discard;
 		return;
@@ -116,57 +100,68 @@ void main()
 
 	if(u_IsLightSource)
 	{
-		fragColor = vec4(pow(color.rgb, vec3(1.0 / 2.2)), color.a);
+		fragColor = vec4(pow(diffuseColor.rgb, vec3(1.0 / 2.2)), diffuseColor.a);
 		return;
 	}
 
 	vec3 totalDirectional = vec3(0.0);
-	for(int i = 0; i < dirLights.count; i++)
+	for(int i = 0; i < lights.dirLightsCount; i++)
 	{
-		DirectionalLight light = dirLights.lights[i];
+		DirectionalLight light = lights.dirLights[i];
 		totalDirectional += max(dot(normal, -light.direction.xyz), 0.0) * light.color.rgb;
 	}
 
 	vec3 totalDiffuse = vec3(0.0);
 	vec3 totalSpecular = vec3(0.0);
-	for(int i = 0; i < pointLights.count; i++)
+	for(int i = 0; i < lights.pointLightsCount; i++)
 	{
-		PointLight pointLight = pointLights.lights[i];
+		PointLight pointLight = lights.pointLights[i];
+		vec3 position	= pointLight.positionAndLin.xyz;
+		vec3 color		= pointLight.colorAndQuad.xyz;
+		float linear	= pointLight.positionAndLin.w;
+		float quadratic = pointLight.colorAndQuad.w;
 		
-		vec3 lightDir = normalize(pointLight.position - fs_in.worldPos);
-		float fragToLightDist = length(pointLight.position - fs_in.worldPos);
-		float attenuation = 1.0 / (1.0 + pointLight.linearTerm * fragToLightDist + pointLight.quadraticTerm * fragToLightDist * fragToLightDist);
+		vec3 lightDir = normalize(position - fs_in.worldPos);
+		float fragToLightDist = length(position - fs_in.worldPos);
+		float attenuation = 1.0 / (1.0 + linear * fragToLightDist + quadratic * fragToLightDist * fragToLightDist);
 		
 		vec3 viewDir = normalize(u_ViewPos - fs_in.worldPos);
 		vec3 halfway = normalize(lightDir + viewDir);
 
-		totalDiffuse += max(dot(normal, lightDir), 0.0) * pointLight.color * attenuation * step(0.0, dot(normal, lightDir));
-		totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * pointLight.color * attenuation * step(0.0, dot(normal, lightDir));
+		totalDiffuse += max(dot(normal, lightDir), 0.0) * color * attenuation * step(0.0, dot(normal, lightDir));
+		totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * color * attenuation * step(0.0, dot(normal, lightDir));
 	}
 
-	for(int i = 0; i < spotLights.count; i++)
+	for(int i = 0; i < lights.spotLightsCount; i++)
 	{
-		SpotLight spotLight = spotLights.lights[i];
+		SpotLight spotLight = lights.spotLights[i];
+		vec3 position	  = spotLight.positionAndCutoff.xyz;
+		vec3 direction	  = spotLight.directionAndOuterCutoff.xyz;
+		vec3 color		  = spotLight.colorAndLin.xyz;
+		float cutoff	  = spotLight.positionAndCutoff.w;
+		float outerCutoff = spotLight.directionAndOuterCutoff.w;
+		float linear	  = spotLight.colorAndLin.w;
+		float quadratic	  = spotLight.quadraticTerm.x;
 
-		vec3 lightDir = normalize(spotLight.position - fs_in.worldPos);
-		float theta = dot(lightDir, normalize(-spotLight.direction));
-		float epsilon = abs(spotLight.cutOff - spotLight.outerCutOff) + 0.0001;
-		float intensity = clamp((theta - spotLight.outerCutOff) / epsilon, 0.0, 1.0);
+		vec3 lightDir = normalize(position - fs_in.worldPos);
+		float theta = dot(lightDir, normalize(-direction));
+		float epsilon = abs(cutoff - outerCutoff) + 0.0001;
+		float intensity = clamp((theta - outerCutoff) / epsilon, 0.0, 1.0);
 
-		if(theta > spotLight.cutOff)
+		if(theta > cutoff)
 		{
-			float fragToLightDist = length(spotLight.position - fs_in.worldPos);
-			float attenuation = 1.0 / (1.0 + spotLight.linearTerm * fragToLightDist + spotLight.quadraticTerm * fragToLightDist * fragToLightDist);
+			float fragToLightDist = length(position - fs_in.worldPos);
+			float attenuation = 1.0 / (1.0 + linear * fragToLightDist + quadratic * fragToLightDist * fragToLightDist);
 		
 			vec3 viewDir = normalize(u_ViewPos - fs_in.worldPos);
 			vec3 halfway = normalize(lightDir + viewDir);
 
-			totalDiffuse += max(dot(normal, lightDir), 0.0) * spotLight.color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
-			totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * spotLight.color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
+			totalDiffuse += max(dot(normal, lightDir), 0.0) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
+			totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
 		}
 	}
 
-	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * color.rgb;
+	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * diffuseColor.rgb;
 	fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
-	fragColor.a = color.a;
+	fragColor.a = diffuseColor.a;
 }

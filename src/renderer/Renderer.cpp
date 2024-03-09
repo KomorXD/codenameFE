@@ -81,6 +81,8 @@ struct SpotLightBufferData
 	glm::vec4 DirectionAndOuterCutoff;
 	glm::vec4 ColorAndLinear;
 	float Quadratic;
+	
+	glm::vec3 Padding;
 };
 
 struct RendererData
@@ -110,15 +112,11 @@ struct RendererData
 	std::shared_ptr<Shader> CurrentShader;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
+	std::shared_ptr<UniformBuffer> LightsBuffer;
 
-	std::shared_ptr<SharedBuffer> DirLightsBuffer;
-	std::vector<DirLightBufferData> DirLightsData;
-
-	std::shared_ptr<SharedBuffer> PointLightsBuffer;
-	std::vector<DirLightBufferData> PointLightsData;
-
-	std::shared_ptr<SharedBuffer> SpotLightsBuffer;
-	std::vector<SpotLightBufferData> SpotLightsData;
+	std::vector<DirLightBufferData>	  DirLightsData;
+	std::vector<PointLightBufferData> PointLightsData;
+	std::vector<SpotLightBufferData>  SpotLightsData;
 
 	uint32_t BoundTexturesCount = 1;
 	std::array<int32_t, 24> TextureBindings;
@@ -279,19 +277,14 @@ void Renderer::Init()
 
 	{
 		SCOPE_PROFILE("Uniform buffers init");
-		s_Data.DefaultShader->Bind();
 
 		s_Data.MatricesBuffer = std::make_shared<UniformBuffer>(nullptr, 2 * sizeof(glm::mat4));
 		s_Data.MatricesBuffer->BindBufferRange(0, 0, 2 * sizeof(glm::mat4));
 
-		s_Data.DirLightsBuffer = std::make_shared<SharedBuffer>(nullptr, sizeof(int32_t) + 128 * sizeof(DirLightBufferData));
-		s_Data.DirLightsBuffer->BindBufferSlot(0);
-
-		s_Data.PointLightsBuffer = std::make_shared<SharedBuffer>(nullptr, sizeof(int32_t) + 128 * sizeof(PointLightBufferData));
-		s_Data.PointLightsBuffer->BindBufferSlot(1);
-
-		s_Data.SpotLightsBuffer = std::make_shared<SharedBuffer>(nullptr, sizeof(int32_t) + 128 * sizeof(SpotLightBufferData));
-		s_Data.SpotLightsBuffer->BindBufferSlot(2);
+		s_Data.LightsBuffer = std::make_shared<UniformBuffer>(nullptr,
+			3 * sizeof(int32_t) + 128 * (sizeof(DirLightBufferData) + sizeof(PointLightBufferData) + sizeof(SpotLightBufferData)));
+		s_Data.LightsBuffer->BindBufferRange(1, 0,
+			3 * sizeof(int32_t) + 128 * (sizeof(DirLightBufferData) + sizeof(PointLightBufferData) + sizeof(SpotLightBufferData)));
 	}
 
 	{
@@ -359,17 +352,26 @@ void Renderer::SceneEnd()
 
 void Renderer::Flush()
 {
+	s_Data.LightsBuffer->Bind();
+	s_Data.LightsBuffer->SetData(s_Data.DirLightsData.data(), s_Data.DirLightsData.size() * sizeof(DirLightBufferData));
+	uint32_t offset = 128 * sizeof(DirLightBufferData);
+
+	s_Data.LightsBuffer->SetData(s_Data.PointLightsData.data(), s_Data.PointLightsData.size() * sizeof(PointLightBufferData), offset);
+	offset += 128 * sizeof(PointLightBufferData);
+
+	s_Data.LightsBuffer->SetData(s_Data.SpotLightsData.data(), s_Data.SpotLightsData.size() * sizeof(SpotLightBufferData), offset);
+	offset += 128 * sizeof(SpotLightBufferData);
+
 	int32_t count = s_Data.DirLightsData.size();
-	s_Data.DirLightsBuffer->SetData(s_Data.DirLightsData.data(), s_Data.DirLightsData.size() * sizeof(DirLightBufferData));
-	s_Data.DirLightsBuffer->SetData(&count, sizeof(int32_t), 128 * sizeof(DirLightBufferData));
+	s_Data.LightsBuffer->SetData(&count, sizeof(int32_t), offset);
+	offset += sizeof(int32_t);
 
 	count = s_Data.PointLightsData.size();
-	s_Data.PointLightsBuffer->SetData(s_Data.PointLightsData.data(), s_Data.PointLightsData.size() * sizeof(PointLightBufferData));
-	s_Data.PointLightsBuffer->SetData(&count, sizeof(int32_t), 128 * sizeof(PointLightBufferData));
+	s_Data.LightsBuffer->SetData(&count, sizeof(int32_t), offset);
+	offset += sizeof(int32_t);
 
 	count = s_Data.SpotLightsData.size();
-	s_Data.SpotLightsBuffer->SetData(s_Data.SpotLightsData.data(), s_Data.SpotLightsData.size() * sizeof(SpotLightBufferData));
-	s_Data.SpotLightsBuffer->SetData(&count, sizeof(int32_t), 128 * sizeof(SpotLightBufferData));
+	s_Data.LightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
