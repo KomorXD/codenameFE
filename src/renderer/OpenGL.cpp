@@ -2,6 +2,7 @@
 #include "../Logger.hpp"
 
 #include <fstream>
+#include <filesystem>
 #include "stb/stb_image.h"
 
 void GLClearErrors()
@@ -851,10 +852,13 @@ Texture::Texture(const std::string& path)
 	{
 		stbi_image_free(buffer);
 	}
+
+	std::filesystem::path texturePath = path;
+	m_Name = texturePath.filename().string();
 }
 
-Texture::Texture(const uint8_t* data, int32_t width, int32_t height)
-	: m_ID(0), m_Width(width), m_Height(height), m_BPP(0), m_Path("")
+Texture::Texture(const uint8_t* data, int32_t width, int32_t height, const std::string& name)
+	: m_ID(0), m_Width(width), m_Height(height), m_BPP(0), m_Path(""), m_Name(name)
 {
 	GLCall(glGenTextures(1, &m_ID));
 	GLCall(glBindTexture(GL_TEXTURE_2D, m_ID));
@@ -875,6 +879,26 @@ Texture::~Texture()
 	{
 		GLCall(glDeleteTextures(1, &m_ID));
 	}
+}
+
+void Texture::SetFilter(int32_t filter)
+{
+	Bind();
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter));
+	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
+
+	m_Filter = filter;
+}
+
+void Texture::SetWrap(int32_t wrap)
+{
+	Bind();
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap));
+	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
+
+	m_Wrap = wrap;
 }
 
 void Texture::Bind(uint32_t slot) const

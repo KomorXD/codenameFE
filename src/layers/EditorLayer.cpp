@@ -219,8 +219,8 @@ void EditorLayer::RenderScenePanel()
 	ImVec2 avSpace = ImGui::GetContentRegionAvail();
 	ImGui::Text("Spawned objects");
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-	ImGui::BeginChild("Spawned objects", ImVec2(avSpace.x, avSpace.y / 3.0f), true);
 
+	ImGui::BeginChild("Spawned entites", ImVec2(avSpace.x, avSpace.y / 5.0f), true);
 	for (Entity& entity : m_Scene.m_Entities)
 	{
 		ImGui::PushID((uint32_t)entity.Handle());
@@ -230,10 +230,9 @@ void EditorLayer::RenderScenePanel()
 		}
 		ImGui::PopID();
 	}
-
 	ImGui::EndChild();
+
 	ImGui::PopStyleColor();
-	
 	ImGui::NewLine();
 
 	if (ImGui::Button("New entity"))
@@ -406,7 +405,6 @@ void EditorLayer::RenderEntityData()
 	char buf[64];
 	strcpy_s(buf, 64, tag.Tag.data());
 	ImGui::Indent(16.0f);
-	ImGui::Text(std::to_string((uint32_t)m_SelectedEntity.Handle()).c_str());
 	ImGui::InputText("Tag", buf, 64);
 	ImGui::Unindent(16.0f);
 	ImGui::NewLine();
@@ -471,6 +469,48 @@ void EditorLayer::RenderEntityData()
 			ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
 			ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
 			ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
+
+			std::shared_ptr<Texture> tex    = AssetManager::GetTexture(material.AlbedoTextureID);
+			std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
+			if (ImGui::BeginCombo("Texture filtering", tex->Filter() == GL_NEAREST ? "Nearest" : "Linear"))
+			{
+				if (ImGui::Selectable("Nearest", tex->Filter() == GL_NEAREST))
+				{
+					tex->SetFilter(GL_NEAREST);
+					normal->SetFilter(GL_NEAREST);
+				}
+
+				if (ImGui::Selectable("Linear", tex->Filter() == GL_LINEAR))
+				{
+					tex->SetFilter(GL_LINEAR);
+					normal->SetFilter(GL_LINEAR);
+				}
+
+				ImGui::EndCombo();
+			}
+
+			const std::unordered_map<int32_t, std::string> wrapToString = {
+				{ GL_CLAMP_TO_EDGE,		   "Clamp to edge"		  },
+				{ GL_CLAMP_TO_BORDER,	   "Clamp to border"	  },
+				{ GL_REPEAT,			   "Repeat"				  },
+				{ GL_MIRROR_CLAMP_TO_EDGE, "Mirror clamp to edge" },
+				{ GL_MIRRORED_REPEAT,	   "Mirrorer repeat"	  }
+			};
+			std::string preview = wrapToString.at(tex->Wrap());
+
+			if (ImGui::BeginCombo("Texture wrapping", preview.c_str()))
+			{
+				for (const auto& [wrap, wrapStr] : wrapToString)
+				{
+					if (ImGui::Selectable(wrapStr.c_str(), tex->Filter() == wrap))
+					{
+						tex->SetWrap(wrap);
+						normal->SetWrap(wrap);
+					}
+				}
+
+				ImGui::EndCombo();
+			}
 
 			static int32_t* idOfInterest = nullptr;
 

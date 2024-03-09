@@ -298,11 +298,11 @@ void Renderer::Init()
 		}
 
 		uint8_t whitePixel[] = { 255, 255, 255, 255 };
-		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1);
+		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1, "Default");
 		AssetManager::AddTexture(defaultAlbedo, AssetManager::TEXTURE_WHITE);
 
 		uint8_t normalPixel[] = { 127, 127, 255, 255 };
-		std::shared_ptr<Texture> defaultNormal = std::make_shared<Texture>(normalPixel, 1, 1);
+		std::shared_ptr<Texture> defaultNormal = std::make_shared<Texture>(normalPixel, 1, 1, "Default normal");
 		AssetManager::AddTexture(defaultNormal, AssetManager::TEXTURE_NORMAL);
 
 		s_Data.PickerShader = std::make_shared<Shader>("resources/shaders/Picker.vert", "resources/shaders/Picker.frag");

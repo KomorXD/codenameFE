@@ -288,8 +288,11 @@ class Texture
 {
 public:
 	Texture(const std::string& path);
-	Texture(const uint8_t* data, int32_t width, int32_t height);
+	Texture(const uint8_t* data, int32_t width, int32_t height, const std::string& name);
 	~Texture();
+
+	void SetFilter(int32_t filter);
+	void SetWrap(int32_t wrap);
 
 	void Bind(uint32_t slot = 0) const;
 	void Unbind() const;
@@ -297,13 +300,21 @@ public:
 	inline int32_t GetWidth() const { return m_Width; }
 	inline int32_t GetHeight() const { return m_Height; }
 	inline uint32_t GetID() const { return m_ID; }
-	inline std::string GetPath() { return m_Path; }
+	inline const std::string& GetPath() const { return m_Path; }
+	inline const std::string& Name() const { return m_Name; }
+
+	inline int32_t Filter() const { return m_Filter; }
+	inline int32_t Wrap()   const { return m_Wrap; }
 
 private:
 	uint32_t m_ID	  = 0;
 	int32_t	 m_Width  = 0;
 	int32_t	 m_Height = 0;
 	int32_t	 m_BPP	  = 0;
+
+	int32_t m_Filter = GL_NEAREST;
+	int32_t m_Wrap   = GL_REPEAT;
 	
 	std::string	m_Path;
+	std::string m_Name;
 };
