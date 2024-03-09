@@ -555,8 +555,8 @@ void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLight
 {
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
 	s_Data.SpotLightsData.push_back({
-		glm::vec4(transform.Position, light.Cutoff),
-		glm::vec4(dir, light.OuterCutoff),
+		glm::vec4(transform.Position, glm::cos(glm::radians(light.Cutoff))),
+		glm::vec4(dir, glm::cos(glm::radians(light.Cutoff - light.EdgeSmoothness))),
 		glm::vec4(light.Color, light.LinearTerm),
 		light.QuadraticTerm
 	});
