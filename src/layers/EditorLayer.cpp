@@ -62,6 +62,7 @@ EditorLayer::EditorLayer()
 	Entity nothing = m_Scene.SpawnEntity("Nothing");
 	nothing.GetComponent<TransformComponent>().Position = { 0.0f, 2.0f, 0.0f };
 	nothing.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
+	nothing.AddComponent<MaterialComponent>();
 	nothing.AddComponent<PointLightComponent>();
 
 	Entity ground = m_Scene.SpawnEntity("Ground");

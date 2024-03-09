@@ -4,6 +4,7 @@ in vec2 textureUV;
 
 uniform sampler2D u_ScreenTexture;
 uniform bool u_BlurEnabled = false;
+uniform float u_Exposure = 1.0;
 
 out vec4 fragColor;
 
@@ -29,9 +30,12 @@ void main()
 {
     if(!u_BlurEnabled)
     {
-       fragColor = vec4(texture(u_ScreenTexture, textureUV).rgb, 1.0);
+		vec3 color = texture(u_ScreenTexture, textureUV).rgb;		
+		vec3 mapped = vec3(1.0) - exp(-color * u_Exposure);
+		mapped = pow(mapped, vec3(1.0 / 2.2));
+		fragColor = vec4(mapped, 1.0);
 
-       return;
+		return;
     }
 
     vec3 sampleTex[9];
@@ -45,6 +49,8 @@ void main()
     {
         color += sampleTex[i] * kernel[i];
     }
-
-    fragColor = vec4(color, 1.0);
+	
+	vec3 mapped = vec3(1.0) - exp(-color * u_Exposure);
+	mapped = pow(mapped, vec3(1.0 / 2.2));
+    fragColor = vec4(mapped, 1.0);
 }

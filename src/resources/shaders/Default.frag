@@ -44,7 +44,6 @@ layout(std140, binding = 1) uniform Lights
 uniform vec3 u_ViewPos = vec3(0.0);
 uniform bool u_IsLightSource = false;
 uniform float u_AmbientStrength = 0.1;
-uniform float u_Exposure = 1.0;
 uniform sampler2D u_Textures[24];
 
 out vec4 fragColor;
@@ -101,7 +100,7 @@ void main()
 
 	if(u_IsLightSource)
 	{
-		fragColor = vec4(pow(diffuseColor.rgb, vec3(1.0 / 2.2)), diffuseColor.a);
+		fragColor = diffuseColor;
 		return;
 	}
 
@@ -163,8 +162,5 @@ void main()
 	}
 
 	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * diffuseColor.rgb;
-	vec3 mapped = vec3(1.0) - exp(-fragColor.rgb * u_Exposure);
-	mapped = pow(mapped, vec3(1.0 / 2.2));
-	fragColor.rgb = mapped;
 	fragColor.a = diffuseColor.a;
 }

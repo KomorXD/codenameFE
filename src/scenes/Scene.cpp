@@ -72,24 +72,30 @@ void Scene::Render(Camera& editorCamera)
 		auto view = m_Registry.view<TransformComponent, DirectionalLightComponent, MeshComponent, MaterialComponent>();
 		for (entt::entity entity : view)
 		{
-			auto [transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)entity);
+			auto [transform, mesh, material, light] = view.get<TransformComponent, MeshComponent, MaterialComponent, DirectionalLightComponent>(entity);
+			MaterialComponent intensified = material;
+			intensified.Color = glm::vec4(glm::vec3(material.Color * light.Intensity), 1.0f);
+			Renderer::SubmitMesh(transform.ToMat4(), mesh, intensified, (int32_t)entity);
 		}
 	}
 	{
 		auto view = m_Registry.view<TransformComponent, PointLightComponent, MeshComponent, MaterialComponent>();
 		for (entt::entity entity : view)
 		{
-			auto [transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)entity);
+			auto [transform, mesh, material, light] = view.get<TransformComponent, MeshComponent, MaterialComponent, PointLightComponent>(entity);
+			MaterialComponent intensified = material;
+			intensified.Color = glm::vec4(glm::vec3(material.Color * light.Intensity), 1.0f);
+			Renderer::SubmitMesh(transform.ToMat4(), mesh, intensified, (int32_t)entity);
 		}
 	}
 	{
 		auto view = m_Registry.view<TransformComponent, SpotLightComponent, MeshComponent, MaterialComponent>();
 		for (entt::entity entity : view)
 		{
-			auto [transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)entity);
+			auto [transform, mesh, material, light] = view.get<TransformComponent, MeshComponent, MaterialComponent, SpotLightComponent>(entity);
+			MaterialComponent intensified = material;
+			intensified.Color = glm::vec4(glm::vec3(material.Color * light.Intensity), 1.0f);
+			Renderer::SubmitMesh(transform.ToMat4(), mesh, intensified, (int32_t)entity);
 		}
 	}
 

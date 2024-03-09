@@ -339,9 +339,11 @@ void Renderer::SceneBegin(Camera& camera)
 	s_Data.MatricesBuffer->SetData(glm::value_ptr(projection), sizeof(glm::mat4));
 	s_Data.MatricesBuffer->SetData(glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4));
 
+	s_Data.ScreenQuadShader->Bind();
+	s_Data.ScreenQuadShader->SetUniform1f("u_Exposure", camera.Exposure);
+
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform3f("u_ViewPos", camera.Position);
-	s_Data.DefaultShader->SetUniform1f("u_Exposure", camera.Exposure);
 
 	StartBatch();
 }
