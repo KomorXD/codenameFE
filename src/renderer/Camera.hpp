@@ -45,7 +45,7 @@ private:
 	float m_FarClip		= 1000.0f;
 
 	float m_Pitch = 0.0f;
-	float m_Yaw	  = 0.0f;
+	float m_Yaw	  = 180.0f;
 	
 	CameraControlType m_ControlType = CameraControlType::TrackballControl;
 

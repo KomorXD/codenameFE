@@ -26,7 +26,7 @@ EditorLayer::EditorLayer()
 	dummyEv.Size.Height = spec.Height;
 
 	m_EditorCamera.OnEvent(dummyEv);
-	m_EditorCamera.Position = { 0.0f, 10.0f, 20.0f };
+	m_EditorCamera.Position = { 0.0f, 5.0f, -10.0f };
 
 	Renderer::OnWindowResize({ 0, 0, (int32_t)(spec.Width * 0.6f), spec.Height });
 
@@ -206,7 +206,7 @@ void EditorLayer::RenderScenePanel()
 	ImGui::Begin("Scene panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
 	ImVec2 avSpace = ImGui::GetContentRegionAvail();
-	ImGui::Text("Spawned objects");
+	ImGui::Text("Spawned entities");
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
 
 	ImGui::BeginChild("Spawned entites", ImVec2(avSpace.x, avSpace.y / 5.0f), true);
@@ -283,7 +283,7 @@ void EditorLayer::RenderScenePanel()
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
-		ImGui::DragFloat3("Cam position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
+		ImGui::DragFloat3("Position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, 5.0f);
 		ImGui::DragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
