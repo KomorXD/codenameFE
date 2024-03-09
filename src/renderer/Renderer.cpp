@@ -341,6 +341,7 @@ void Renderer::SceneBegin(Camera& camera)
 
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform3f("u_ViewPos", camera.Position);
+	s_Data.DefaultShader->SetUniform1f("u_Exposure", camera.Exposure);
 
 	StartBatch();
 }
@@ -543,12 +544,12 @@ void Renderer::DrawScreenQuad()
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
 {
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
-	s_Data.DirLightsData.push_back({ glm::vec4(dir, 1.0f), glm::vec4(light.Color, 1.0f) });
+	s_Data.DirLightsData.push_back({ glm::vec4(dir, 1.0f), glm::vec4(light.Color * light.Intensity, 1.0f) });
 }
 
 void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)
 {
-	s_Data.PointLightsData.push_back({ glm::vec4(position, light.LinearTerm), glm::vec4(light.Color, light.QuadraticTerm) });
+	s_Data.PointLightsData.push_back({ glm::vec4(position, light.LinearTerm), glm::vec4(light.Color * light.Intensity, light.QuadraticTerm) });
 }
 
 void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light)
@@ -557,7 +558,7 @@ void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLight
 	s_Data.SpotLightsData.push_back({
 		glm::vec4(transform.Position, glm::cos(glm::radians(light.Cutoff))),
 		glm::vec4(dir, glm::cos(glm::radians(light.Cutoff - light.EdgeSmoothness))),
-		glm::vec4(light.Color, light.LinearTerm),
+		glm::vec4(light.Color * light.Intensity, light.LinearTerm),
 		light.QuadraticTerm
 	});
 }

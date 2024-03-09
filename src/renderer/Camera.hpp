@@ -33,6 +33,7 @@ public:
 	inline const CameraControlType& ControlType() const { return m_ControlType; }
 	
 	glm::vec3 Position = glm::vec3(0.0f);
+	float Exposure = 1.0f;
 
 private:
 	void UpdateProjection();

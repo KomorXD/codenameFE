@@ -53,6 +53,7 @@ struct MeshComponent
 struct DirectionalLightComponent
 {
 	glm::vec3 Color	= glm::vec3(1.0f);
+	float Intensity = 1.0f;
 
 	DirectionalLightComponent() = default;
 	DirectionalLightComponent(const DirectionalLightComponent& other) = default;
@@ -61,6 +62,7 @@ struct DirectionalLightComponent
 struct PointLightComponent
 {
 	glm::vec3 Color = glm::vec3(1.0f);
+	float Intensity	= 1.0f;
 
 	float LinearTerm	= 0.022f;
 	float QuadraticTerm = 0.0019f;
@@ -72,6 +74,7 @@ struct PointLightComponent
 struct SpotLightComponent
 {
 	glm::vec3 Color	= glm::vec3(1.0f);
+	float Intensity = 1.0f;
 
 	float Cutoff = 12.5f;
 	float EdgeSmoothness = 0.0f;

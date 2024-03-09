@@ -595,7 +595,7 @@ void Framebuffer::AttachTexture(uint32_t width, uint32_t height)
 {
 	GLCall(glGenTextures(1, &m_TextureID));
 	GLCall(glBindTexture(GL_TEXTURE_2D, m_TextureID));
-	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr));
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_TextureID, 0));
@@ -739,7 +739,7 @@ void MultisampledFramebuffer::AttachTexture(uint32_t width, uint32_t height)
 	GLCall(glGenTextures(1, &m_TextureID));
 	GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_TextureID));
 
-	GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, GL_RGB, width, height, GL_TRUE));
+	GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, GL_RGBA16F, width, height, GL_TRUE));
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, m_TextureID, 0));
 
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));

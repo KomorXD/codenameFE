@@ -57,31 +57,19 @@ EditorLayer::EditorLayer()
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/plank.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall.jpg"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall_normal.jpg"));
-	int32_t grassID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
 
 	Entity nothing = m_Scene.SpawnEntity("Nothing");
-	nothing.GetComponent<TransformComponent>().Position = { 0.0f, 5.0f, 0.0f };
+	nothing.GetComponent<TransformComponent>().Position = { 0.0f, 2.0f, 0.0f };
+	nothing.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
 	nothing.AddComponent<PointLightComponent>();
 
 	Entity ground = m_Scene.SpawnEntity("Ground");
-	ground.GetComponent<TransformComponent>().Scale = { 10.0f, 0.1f, 10.0f };
+	ground.GetComponent<TransformComponent>().Scale = { 50.0f, 0.1f, 50.0f };
 	ground.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-	ground.AddComponent<MaterialComponent>().AlbedoTextureID = grassID;
-	
-	constexpr float radius = 7.0f;
-	constexpr uint32_t count = 5;
-	constexpr float step = 2.0f * glm::pi<float>() / count;
-	for (uint32_t i = 0; i < count; i++)
-	{
-		glm::vec3 pos = { glm::cos(i * step) * radius, 2.0f, glm::sin(i * step) * radius };
-		
-		Entity cube = m_Scene.SpawnEntity("Cuboid_" + std::to_string(i));
-		cube.GetComponent<TransformComponent>().Position = pos;
-		cube.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-		cube.AddComponent<MaterialComponent>().Color = glm::vec4(pos / radius, 1.0f);
-	}
+	ground.AddComponent<MaterialComponent>().AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall.jpg"));
+	ground.GetComponent<MaterialComponent>().NormalTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall_normal.jpg"));
+	ground.GetComponent<MaterialComponent>().TilingFactor = { 20.0f, 20.0f };
 }
 
 void EditorLayer::OnAttach()
@@ -295,6 +283,7 @@ void EditorLayer::RenderScenePanel()
 	{
 		ImGui::Indent(16.0f);
 		ImGui::DragFloat3("Cam position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
+		ImGui::DragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, 5.0f);
 		ImGui::DragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::Unindent(16.0f);
@@ -574,6 +563,7 @@ void EditorLayer::RenderEntityData()
 		{
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::DragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
 
 			if (ImGui::Button("Remove component"))
 			{
@@ -595,6 +585,7 @@ void EditorLayer::RenderEntityData()
 		{
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::DragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
 			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
 			ImGui::DragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
 
@@ -618,6 +609,7 @@ void EditorLayer::RenderEntityData()
 		{
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::DragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
 			ImGui::DragFloat("Cutoff", &light.Cutoff, 0.01f, 0.0f, FLT_MAX, "%.3f");
 			ImGui::DragFloat("Edge smoothness", &light.EdgeSmoothness, 0.01f, 0.0f, light.Cutoff, "%.3f");
 			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
