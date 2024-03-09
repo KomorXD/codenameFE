@@ -13,12 +13,12 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [x] Instancing
  - [x] Post-processing (just blur now, but the setup is there)
  - [x] ECS approach
+ - [x] Normal mapping, tangent spaces
+ - [x] HDR
  - [ ] Uploading custom models (+ making sure they have normals and tangents, or calculating them)
- - [ ] Utilizing SSBO to pass light sources' and materials' data
- - [ ] Normal mapping, tangent spaces
+ - [ ] Utilizing UBOs to pass light sources' and materials' data
  - [ ] Material management
  - [ ] PBR (+ IBL, basic Blinn-Phong before that)
- - [ ] HDR
  - [ ] Bloom (+ compute shaders)
  - [ ] Environment maps (+ global lightning)
  - [ ] SSAO
