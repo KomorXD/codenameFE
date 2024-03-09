@@ -32,7 +32,8 @@ private:
 	Entity m_SelectedEntity;
 	Entity m_CopiedEntity;
 
-	int32_t m_GizmoMode = -1;
+	int32_t m_GizmoOp = -1;
+	int32_t m_GizmoMode;
 	bool m_LockFocus    = false;
 	bool m_IsGizmoUsed  = false;
 

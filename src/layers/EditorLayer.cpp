@@ -17,6 +17,8 @@ EditorLayer::EditorLayer()
 {
 	FUNC_PROFILE();
 
+	m_GizmoMode = ImGuizmo::WORLD;
+
 	const WindowSpec& spec = Application::Instance()->Spec();
 	Event dummyEv{};
 	dummyEv.Type = Event::WindowResized;
@@ -114,10 +116,10 @@ void EditorLayer::OnEvent(Event& ev)
 		{
 			switch (ev.Key.Code)
 			{
-			case Key::Q:	m_GizmoMode = -1;				    return;
-			case Key::W:	m_GizmoMode = ImGuizmo::TRANSLATE; return;
-			case Key::E:	m_GizmoMode = ImGuizmo::ROTATE;    return;
-			case Key::R:	m_GizmoMode = ImGuizmo::SCALE;	    return;
+			case Key::Q:	m_GizmoOp = -1;				    return;
+			case Key::W:	m_GizmoOp = ImGuizmo::TRANSLATE; return;
+			case Key::E:	m_GizmoOp = ImGuizmo::ROTATE;    return;
+			case Key::R:	m_GizmoOp = ImGuizmo::SCALE;	    return;
 			}
 		}
 
@@ -231,6 +233,22 @@ void EditorLayer::RenderScenePanel()
 
 	ImGui::EndChild();
 	ImGui::PopStyleColor();
+	ImGui::NewLine();
+
+	if (ImGui::BeginCombo("Gizmo mode", m_GizmoMode == ImGuizmo::WORLD ? "World" : "Local"))
+	{
+		if (ImGui::Selectable("World", m_GizmoMode == ImGuizmo::WORLD))
+		{
+			m_GizmoMode = ImGuizmo::WORLD;
+		}
+
+		if (ImGui::Selectable("Local", m_GizmoMode == ImGuizmo::LOCAL))
+		{
+			m_GizmoMode = ImGuizmo::LOCAL;
+		}
+
+		ImGui::EndCombo();
+	}
 
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -240,11 +258,6 @@ void EditorLayer::RenderScenePanel()
 		ImGui::DragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::Unindent(16.0f);
 	}
-
-	ImGui::Separator();
-	ImGui::BeginChild("Picker framebuffer view");
-	ImGui::Image((ImTextureID)m_PickerFB->GetTextureID(), { ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().x }, { 0.0f, 1.0f }, { 1.0f, 0.0f });
-	ImGui::EndChild();
 
 	ImGui::End();
 }
@@ -584,7 +597,7 @@ void EditorLayer::RenderEntityData()
 
 void EditorLayer::RenderGizmo()
 {
-	if (m_SelectedEntity.Handle() == entt::null || m_GizmoMode == -1)
+	if (m_SelectedEntity.Handle() == entt::null || m_GizmoOp == -1)
 	{
 		m_LockFocus = false;
 		m_IsGizmoUsed = false;
@@ -601,11 +614,11 @@ void EditorLayer::RenderGizmo()
 	glm::mat4 transform = m_SelectedEntity.GetComponent<TransformComponent>().ToMat4();
 
 	bool doSnap = Input::IsKeyPressed(Key::LeftControl);
-	float snapStep = (m_GizmoMode == ImGuizmo::ROTATE ? 45.0f : 0.5f);
+	float snapStep = (m_GizmoOp == ImGuizmo::ROTATE ? 45.0f : 0.5f);
 	float snapArr[3]{ snapStep, snapStep, snapStep };
 
-	ImGuizmo::Manipulate(glm::value_ptr(cameraView), glm::value_ptr(cameraProj), ImGuizmo::OPERATION(m_GizmoMode),
-		ImGuizmo::MODE::WORLD, glm::value_ptr(transform), nullptr, doSnap ? snapArr : nullptr);
+	ImGuizmo::Manipulate(glm::value_ptr(cameraView), glm::value_ptr(cameraProj), ImGuizmo::OPERATION(m_GizmoOp),
+		ImGuizmo::MODE(m_GizmoMode), glm::value_ptr(transform), nullptr, doSnap ? snapArr : nullptr);
 	m_LockFocus = ImGuizmo::IsOver();
 	m_IsGizmoUsed = ImGuizmo::IsUsing();
 
