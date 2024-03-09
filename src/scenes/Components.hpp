@@ -73,8 +73,8 @@ struct SpotLightComponent
 {
 	glm::vec3 Color	= glm::vec3(1.0f);
 
-	float Cutoff	  = 12.5f;
-	float OuterCutoff = 17.5;
+	float Cutoff = 12.5f;
+	float EdgeSmoothness = 0.0f;
 
 	float LinearTerm	= 0.022f;
 	float QuadraticTerm = 0.0019f;

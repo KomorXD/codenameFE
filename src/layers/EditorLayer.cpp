@@ -518,7 +518,7 @@ void EditorLayer::RenderEntityData()
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
 			ImGui::DragFloat("Cutoff", &light.Cutoff, 0.01f, 0.0f, FLT_MAX, "%.3f");
-			ImGui::DragFloat("Outer cutoff", &light.OuterCutoff, 0.01f, 0.0f, FLT_MAX, "%.3f");
+			ImGui::DragFloat("Edge smoothness", &light.EdgeSmoothness, 0.01f, 0.0f, light.Cutoff, "%.3f");
 			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
 			ImGui::DragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
 
