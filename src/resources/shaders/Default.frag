@@ -50,40 +50,6 @@ uniform bool u_IsLightSource = false;
 uniform float u_AmbientStrength = 0.1;
 uniform sampler2D u_Textures[24];
 
-int parseSlot(float inSlot)
-{
-	int slot = -1;
-	switch(int(inSlot))
-	{
-		case  0: slot = 0;  break;
-		case  1: slot = 1;  break;
-		case  2: slot = 2;  break;
-		case  3: slot = 3;  break;
-		case  4: slot = 4;  break;
-		case  5: slot = 5;  break;
-		case  6: slot = 6;  break;
-		case  7: slot = 7;  break;
-		case  8: slot = 8;  break;
-		case  9: slot = 9;  break;
-		case 10: slot = 10; break;
-		case 11: slot = 11; break;
-		case 12: slot = 12; break;
-		case 13: slot = 13; break;
-		case 14: slot = 14; break;
-		case 15: slot = 15; break;
-		case 16: slot = 16; break;
-		case 17: slot = 17; break;
-		case 18: slot = 18; break;
-		case 19: slot = 19; break;
-		case 20: slot = 20; break;
-		case 21: slot = 21; break;
-		case 22: slot = 22; break;
-		case 23: slot = 23; break;
-	}
-
-	return slot;
-}
-
 void main()
 {
 	int entID = int(fs_in.entityID);
@@ -95,9 +61,8 @@ void main()
 	float b = float(bInt) / 255.0;
 	gPicker = vec4(r, g, b, 1.0);
 
-	int albedoSlot = parseSlot(fs_in.textureSlot);
-	int normalSlot = parseSlot(fs_in.normalTextureSlot);
-
+	int albedoSlot = int(fs_in.textureSlot);
+	int normalSlot = int(fs_in.normalTextureSlot);
 	vec4 diffuseColor = texture(u_Textures[albedoSlot], fs_in.textureUV) * fs_in.color;
 	vec3 normal = texture(u_Textures[normalSlot], fs_in.textureUV).rgb;
 	normal = normal * 2.0 - 1.0;
@@ -105,7 +70,6 @@ void main()
 	
 	if(diffuseColor.a == 0.0)
 	{
-		discard;
 		return;
 	}
 

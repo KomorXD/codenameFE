@@ -64,9 +64,6 @@ public:
 	static void EnableFaceCulling();
 	static void DisableFaceCulling();
 
-	static void DefaultRender();
-	static void PickerRender();
-
 	static Viewport CurrentViewport();
 
 private:

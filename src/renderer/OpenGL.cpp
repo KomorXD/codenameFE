@@ -564,45 +564,118 @@ void SharedBuffer::SetData(const void* data, uint32_t size, uint32_t offset) con
 	GLCall(glBufferSubData(GL_SHADER_STORAGE_BUFFER, (GLintptr)offset, size, data));
 }
 
-Framebuffer::Framebuffer()
+Framebuffer::Framebuffer(const glm::uvec2& bufferSize, uint32_t samples)
+	: m_Samples(samples), m_BufferSize(bufferSize)
 {
+	assert(samples > 0 && "Samples valie should be at least 1.");
+
 	GLCall(glGenFramebuffers(1, &m_ID));
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
+
+	GLCall(glGenRenderbuffers(1, &m_RenderbufferID));
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
+
+	if (samples > 1)
+	{
+		GLCall(glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH24_STENCIL8, bufferSize.x, bufferSize.y));
+	}
+	else
+	{
+		GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, bufferSize.x, bufferSize.y));
+	}
+
+	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 }
 
 Framebuffer::~Framebuffer()
 {
-	if (m_ID != 0)
-	{
-		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-		GLCall(glDeleteFramebuffers(1, &m_ID));
-	}
-
-	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-	for (auto& [id, format] : m_ColorAttachments)
-	{
-		GLCall(glDeleteTextures(1, &id));
-	}
-
 	if (m_RenderbufferID != 0)
 	{
 		GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 		GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
 	}
+	
+	for (auto& [id, format] : m_ColorAttachments)
+	{
+		GLCall(glDeleteTextures(1, &id));
+	}
+	
+	if (m_ID != 0)
+	{
+		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+		GLCall(glDeleteFramebuffers(1, &m_ID));
+	}
 }
 
-void Framebuffer::AddColorAttachment(uint32_t width, uint32_t height, GLenum format)
+void Framebuffer::Bind() const
+{
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
+	GLCall(glViewport(0, 0, m_BufferSize.x, m_BufferSize.y));
+}
+
+void Framebuffer::Unbind() const
+{
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+}
+
+void Framebuffer::Resize(const glm::uvec2& bufferSize)
+{
+	bool multisampled = m_Samples > 1;
+
+	if (multisampled)
+	{
+		for (auto& [id, format] : m_ColorAttachments)
+		{
+			GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, id));
+			GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, format, bufferSize.x, bufferSize.y, GL_TRUE));
+		}
+	}
+	else
+	{
+		for (auto& [id, format] : m_ColorAttachments)
+		{
+			GLCall(glBindTexture(GL_TEXTURE_2D, id));
+			GLCall(glTexImage2D(GL_TEXTURE_2D, 0, format, bufferSize.x, bufferSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
+		}
+	}
+
+	m_BufferSize = bufferSize;
+}
+
+void Framebuffer::BlitBuffers(uint32_t sourceAttachmentIndex, uint32_t targetAttachmentID, const Framebuffer& target) const
+{
+	GLCall(glBindFramebuffer(GL_READ_FRAMEBUFFER, m_ID));
+	GLCall(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target.m_ID));
+	GLCall(glReadBuffer(GL_COLOR_ATTACHMENT0 + sourceAttachmentIndex));
+	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0 + targetAttachmentID));
+	GLCall(glBlitFramebuffer(0, 0, m_BufferSize.x, m_BufferSize.y, 0, 0, target.m_BufferSize.x, target.m_BufferSize.y, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+}
+
+void Framebuffer::AddColorAttachment(GLenum format)
 {
 	assert(m_ColorAttachments.size() < 4 && "Framebuffer supports up to 4 color attachments");
 
 	uint32_t id{};
 	GLCall(glGenTextures(1, &id));
-	GLCall(glBindTexture(GL_TEXTURE_2D, id));
-	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_2D, id, 0));
-	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+
+	if (m_Samples > 1)
+	{
+		GLCall(glGenTextures(1, &id));
+		GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, id));
+		GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, format, m_BufferSize.x, m_BufferSize.y, GL_TRUE));
+		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_2D_MULTISAMPLE, id, 0));
+		GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0));
+	}
+	else
+	{
+		GLCall(glBindTexture(GL_TEXTURE_2D, id));
+		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, format, m_BufferSize.x, m_BufferSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_2D, id, 0));
+		GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+	}
 
 	m_ColorAttachments.push_back({ id, format });
 
@@ -613,48 +686,20 @@ void Framebuffer::AddColorAttachment(uint32_t width, uint32_t height, GLenum for
 	}
 }
 
-void Framebuffer::AttachRenderBuffer(uint32_t width, uint32_t height)
+void Framebuffer::BindColorAttachment(uint32_t slot) const
 {
-	GLCall(glGenRenderbuffers(1, &m_RenderbufferID));
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-	GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height));
-	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+	assert(slot < m_ColorAttachments.size() && "Trying to access color attachment out of bounds.");
 
-	m_RenderDimensions = { width, height };
+	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
+	GLCall(glBindTexture(m_Samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, m_ColorAttachments[slot].ID));
 }
 
-void Framebuffer::ResizeColorAttachments(uint32_t width, uint32_t height)
+void Framebuffer::UnbindColorAttachment() const
 {
-	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-	for (auto [id, format] : m_ColorAttachments)
-	{
-		GLCall(glDeleteTextures(1, &id));
-	}
-
-	int32_t count = m_ColorAttachments.size();
-	std::vector<GLenum> formats;
-	for (auto& [id, format] : m_ColorAttachments)
-	{
-		formats.push_back(format);
-	}
-
-	m_ColorAttachments.clear();
-	for (int32_t i = 0; i < count; i++)
-	{
-		AddColorAttachment(width, height, formats[i]);
-	}
+	GLCall(glBindTexture(m_Samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, 0));
 }
 
-void Framebuffer::ResizeRenderBuffer(uint32_t width, uint32_t height)
-{
-	GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
-	AttachRenderBuffer(width, height);
-
-	m_RenderDimensions = { width, height };
-}
-
-void Framebuffer::ClearColorAttachment(int32_t attachmentIdx)
+void Framebuffer::ClearColorAttachment(uint32_t attachmentIdx) const
 {
 	assert(attachmentIdx < m_ColorAttachments.size() && "Trying to access color attachment out of bounds.");
 	
@@ -662,175 +707,18 @@ void Framebuffer::ClearColorAttachment(int32_t attachmentIdx)
 	GLCall(glClearTexImage(m_ColorAttachments[attachmentIdx].ID, 0, GL_RGBA, GL_FLOAT, &lol));
 }
 
-glm::u8vec4 Framebuffer::GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx)
+glm::u8vec4 Framebuffer::GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx) const
 {
 	glm::u8vec4 pixel{};
 
-	BindBuffer();
+	Bind();
 	GLCall(glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIdx));
 	GLCall(glReadPixels((GLint)coords.x, (GLint)coords.y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pixel[0]));
 
 	return pixel;
 }
 
-void Framebuffer::BindBuffer() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-}
-
-void Framebuffer::BindColorAttachment(uint32_t slot) const
-{
-	assert(slot < m_ColorAttachments.size() && "Trying to access color attachment out of bounds.");
-
-	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
-	GLCall(glBindTexture(GL_TEXTURE_2D, m_ColorAttachments[slot].ID));
-}
-
-void Framebuffer::BindRenderBuffer() const
-{
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-}
-
-void Framebuffer::UnbindBuffer() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-}
-
-void Framebuffer::UnbindColorAttachment() const
-{
-	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-}
-
-void Framebuffer::UnbindRenderBuffer() const
-{
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-}
-
 bool Framebuffer::IsComplete() const
-{
-	GLCall(bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-
-	return complete;
-}
-
-MultisampledFramebuffer::MultisampledFramebuffer(int32_t samples)
-	: m_Samples(samples)
-{
-	GLCall(glGenFramebuffers(1, &m_ID));
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-}
-
-MultisampledFramebuffer::~MultisampledFramebuffer()
-{
-	if (m_ID != 0)
-	{
-		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-		GLCall(glDeleteFramebuffers(1, &m_ID));
-	}
-
-	if (m_TextureID != 0)
-	{
-		GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-		GLCall(glDeleteTextures(1, &m_TextureID));
-	}
-
-	if (m_RenderbufferID != 0)
-	{
-		GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-		GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
-	}
-}
-
-void MultisampledFramebuffer::AttachTexture(uint32_t width, uint32_t height)
-{
-	GLCall(glGenTextures(1, &m_TextureID));
-	GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_TextureID));
-
-	GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, GL_RGBA16F, width, height, GL_TRUE));
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, m_TextureID, 0));
-
-	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-}
-
-void MultisampledFramebuffer::AttachRenderBuffer(uint32_t width, uint32_t height)
-{
-	GLCall(glGenRenderbuffers(1, &m_RenderbufferID));
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-
-	GLCall(glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_Samples, GL_DEPTH24_STENCIL8, width, height));
-	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
-
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-
-	m_RenderDimensions = { width, height };
-}
-
-void MultisampledFramebuffer::ResizeTexture(uint32_t width, uint32_t height)
-{
-	GLCall(glDeleteTextures(1, &m_TextureID));
-	AttachTexture(width, height);
-}
-
-void MultisampledFramebuffer::ResizeRenderBuffer(uint32_t width, uint32_t height)
-{
-	GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
-	AttachRenderBuffer(width, height);
-
-	m_RenderDimensions = { width, height };
-}
-
-void MultisampledFramebuffer::BlitBuffers(uint32_t width, uint32_t height, uint32_t targetFramebufferID)
-{
-	GLCall(glBindFramebuffer(GL_READ_FRAMEBUFFER, m_ID));
-	GLCall(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, targetFramebufferID));
-	GLCall(glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
-}
-
-glm::uvec4 MultisampledFramebuffer::GetPixelAt(const glm::vec2& coords)
-{
-	glm::vec<4, uint8_t> pixel{};
-
-	BindBuffer();
-	BindTexture();
-	BindRenderBuffer();
-
-	GLCall(glReadPixels((GLint)coords.x, (GLint)coords.y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pixel[0]));
-
-	return pixel;
-}
-
-void MultisampledFramebuffer::BindBuffer() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-}
-
-void MultisampledFramebuffer::BindTexture(uint32_t slot) const
-{
-	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
-	GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, m_TextureID));
-}
-
-void MultisampledFramebuffer::BindRenderBuffer() const
-{
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-}
-
-void MultisampledFramebuffer::UnbindBuffer() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-}
-
-void MultisampledFramebuffer::UnbindTexture() const
-{
-	GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0));
-}
-
-void MultisampledFramebuffer::UnbindRenderBuffer() const
-{
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-}
-
-bool MultisampledFramebuffer::IsComplete() const
 {
 	GLCall(bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 

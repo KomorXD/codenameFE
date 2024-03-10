@@ -30,21 +30,20 @@ EditorLayer::EditorLayer()
 
 	Renderer::OnWindowResize({ 0, 0, (int32_t)(spec.Width * 0.6f), spec.Height });
 
-	uint32_t width = (uint32_t)(spec.Width * 0.6f);
-	m_ScreenFB = std::make_unique<Framebuffer>();
-	m_ScreenFB->AddColorAttachment(width, (uint32_t)spec.Height, GL_RGBA16F);
-	m_ScreenFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
-	m_ScreenFB->UnbindBuffer();
+	glm::uvec2 fbSize((uint32_t)(spec.Width * 0.6f), spec.Height);
+	m_MainFB = std::make_unique<Framebuffer>(fbSize, 16);
+	m_MainFB->AddColorAttachment(GL_RGBA16F);
+	m_MainFB->AddColorAttachment(GL_RGBA8);
+	m_MainFB->Unbind();
 
-	m_MainFB = std::make_unique<Framebuffer>();
-	m_MainFB->AddColorAttachment(width, (uint32_t)spec.Height, GL_RGBA16F);
-	m_MainFB->AddColorAttachment(width, (uint32_t)spec.Height, GL_RGBA8);
-	m_MainFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
-	m_MainFB->UnbindBuffer();
+	m_ScreenFB = std::make_unique<Framebuffer>(fbSize, 1);
+	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
+	m_ScreenFB->AddColorAttachment(GL_RGBA8);
+	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
+	m_ScreenFB->Unbind();
 
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/arrow.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/cbbl.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/plank.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
@@ -53,7 +52,7 @@ EditorLayer::EditorLayer()
 	Entity nothing = m_Scene.SpawnEntity("Nothing");
 	nothing.GetComponent<TransformComponent>().Position = { 0.0f, 2.0f, 0.0f };
 	nothing.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-	nothing.AddComponent<MaterialComponent>();
+	nothing.AddComponent<MaterialComponent>().AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
 	nothing.AddComponent<PointLightComponent>();
 
 	Entity ground = m_Scene.SpawnEntity("Ground");
@@ -110,7 +109,7 @@ void EditorLayer::OnEvent(Event& ev)
 	if (!m_LockFocus && ev.Type == Event::MouseButtonPressed && ev.MouseButton.Button == MouseButton::Left && m_ViewportHovered)
 	{
 		glm::vec2 mousePos = Input::GetMousePosition() - glm::vec2(((float)Application::Instance()->Spec().Width / 5.0f), 0.0f);
-		glm::u8vec4 pixel = m_MainFB->GetPixelAt(mousePos, 1);
+		glm::u8vec4 pixel = m_ScreenFB->GetPixelAt(mousePos, 1);
 
 		if (pixel == glm::u8vec4(0))
 		{
@@ -124,8 +123,6 @@ void EditorLayer::OnEvent(Event& ev)
 		uint32_t pixelID = redContrib + greenContrib + blueContrib;
 		m_SelectedEntity = Entity((entt::entity)(uint32_t)(pixelID - 1), &m_Scene);
 
-		LOG_INFO("Picked id: {}", pixelID - 1);
-
 		return;
 	}
 
@@ -137,15 +134,13 @@ void EditorLayer::OnEvent(Event& ev)
 		Renderer::OnWindowResize({ 0, 0, (int32_t)(ev.Size.Width * 0.8f), ev.Size.Height });
 		m_EditorCamera.OnEvent(ev);
 
-		m_ScreenFB->BindBuffer();
-		m_ScreenFB->ResizeColorAttachments(width, height);
-		m_ScreenFB->ResizeRenderBuffer(width, height);
-		m_ScreenFB->UnbindBuffer();
+		m_ScreenFB->Bind();
+		m_ScreenFB->Resize({ width, height });
+		m_ScreenFB->Unbind();
 
-		m_MainFB->BindBuffer();
-		m_MainFB->ResizeColorAttachments(width, height);
-		m_MainFB->ResizeRenderBuffer(width, height);
-		m_MainFB->UnbindBuffer();
+		m_MainFB->Bind();
+		m_MainFB->Resize({ width, height });
+		m_MainFB->Unbind();
 
 		return;
 	}
@@ -171,7 +166,7 @@ void EditorLayer::OnRender()
 	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.6f, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
-	ImGui::Image((ImTextureID)m_ScreenFB->GetColorAttachmentID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	ImGui::Image((ImTextureID)m_ScreenFB->GetColorAttachmentID(2), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
 	m_ViewportHovered = ImGui::IsWindowHovered();
 	m_ViewportFocused = ImGui::IsWindowFocused();
 	RenderGizmo();
@@ -274,9 +269,10 @@ void EditorLayer::RenderScenePanel()
 	}
 
 	ImGui::NewLine();
-	ImGui::BeginChild("Picker", { 256.0f, 256.0f }, true);
+	float width = ImGui::GetContentRegionAvail().x;
+	ImGui::BeginChild("Picker", { width, width }, true);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
-	ImGui::Image((ImTextureID)m_MainFB->GetColorAttachmentID(1), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	ImGui::Image((ImTextureID)m_ScreenFB->GetColorAttachmentID(1), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
 	ImGui::PopStyleVar();
 	ImGui::EndChild();
 
@@ -285,9 +281,7 @@ void EditorLayer::RenderScenePanel()
 
 void EditorLayer::RenderViewport()
 {
-	glm::ivec2 bufferSize = m_MainFB->RenderDimensions();
-	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
-	m_MainFB->BindBuffer();
+	m_MainFB->Bind();
 	Renderer::ClearColor(m_BgColor);
 	Renderer::Clear();
 
@@ -342,10 +336,13 @@ void EditorLayer::RenderViewport()
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0xFF);
 	
-	m_MainFB->BindColorAttachment();
-	m_ScreenFB->BindBuffer();
+	m_MainFB->BlitBuffers(0, 0, *m_ScreenFB);
+	m_MainFB->BlitBuffers(1, 1, *m_ScreenFB);
+	m_ScreenFB->Bind();
+	m_ScreenFB->BindColorAttachment();
+	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT2));
 	Renderer::DrawScreenQuad();
-	m_ScreenFB->UnbindBuffer();
+	m_ScreenFB->Unbind();
 }
 
 void EditorLayer::RenderEntityData()

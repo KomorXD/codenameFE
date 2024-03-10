@@ -209,83 +209,35 @@ private:
 class Framebuffer
 {
 public:
-	Framebuffer();
+	Framebuffer(const glm::uvec2& bufferSize, uint32_t samples);
 	~Framebuffer();
 
-	void AddColorAttachment(uint32_t width, uint32_t height, GLenum format);
-	void AttachRenderBuffer(uint32_t width, uint32_t height);
+	void Bind() const;
+	void Unbind() const;
+	void Resize(const glm::uvec2& bufferSize);
+	void BlitBuffers(uint32_t sourceAttachmentIndex, uint32_t targetAttachmentID, const Framebuffer& target) const;
 
-	void ResizeColorAttachments(uint32_t width, uint32_t height);
-	void ResizeRenderBuffer(uint32_t width, uint32_t height);
-
-	void ClearColorAttachment(int32_t attachmentIdx);
-
-	glm::u8vec4 GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx = 0);
-
-	void BindBuffer() const;
-	void BindColorAttachment(uint32_t slot = 0)	const;
-	void BindRenderBuffer()	const;
-
-	void UnbindBuffer()	const;
+	void AddColorAttachment(GLenum format);
+	void BindColorAttachment(uint32_t attachmentIndex = 0) const;
 	void UnbindColorAttachment() const;
-	void UnbindRenderBuffer() const;
+	void ClearColorAttachment(uint32_t attachmentIndex) const;
 
-	inline uint32_t GetFramebufferID() const { return m_ID; }
 	inline uint32_t GetColorAttachmentID(uint32_t slot = 0) const { return m_ColorAttachments[slot].ID; }
-	inline glm::uvec2 RenderDimensions() const { return m_RenderDimensions; }
-
+	glm::u8vec4 GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx) const;
 	bool IsComplete() const;
 
 private:
-	struct ColorAttachData
+	struct ColorAttachmentData
 	{
 		uint32_t ID;
-		GLenum format;
+		GLenum	 Format;
 	};
 
 	uint32_t m_ID = 0;
 	uint32_t m_RenderbufferID = 0;
-	std::vector<ColorAttachData> m_ColorAttachments;
-
-	glm::uvec2 m_RenderDimensions{};
-};
-
-class MultisampledFramebuffer
-{
-public:
-	MultisampledFramebuffer(int32_t samples = 4);
-	~MultisampledFramebuffer();
-
-	void AttachTexture(uint32_t width, uint32_t height);
-	void AttachRenderBuffer(uint32_t width, uint32_t height);
-
-	void ResizeTexture(uint32_t width, uint32_t height);
-	void ResizeRenderBuffer(uint32_t width, uint32_t height);
-
-	void BlitBuffers(uint32_t width, uint32_t height, uint32_t targetFramebufferID);
-
-	glm::uvec4 GetPixelAt(const glm::vec2& coords);
-
-	void BindBuffer()					const;
-	void BindTexture(uint32_t slot = 0)	const;
-	void BindRenderBuffer()				const;
-	void UnbindBuffer()					const;
-	void UnbindTexture()				const;
-	void UnbindRenderBuffer()			const;
-
-	inline uint32_t GetColorAttachmentID() const { return m_TextureID; }
-	inline glm::uvec2 RenderDimensions() const { return m_RenderDimensions; }
-
-	bool IsComplete() const;
-
-private:
-	int32_t m_Samples = 4;
-
-	uint32_t m_ID = 0;
-	uint32_t m_TextureID = 0;
-	uint32_t m_RenderbufferID = 0;
-
-	glm::uvec2 m_RenderDimensions{};
+	uint32_t m_Samples = 1;
+	glm::uvec2 m_BufferSize{};
+	std::vector<ColorAttachmentData> m_ColorAttachments;
 };
 
 class Texture

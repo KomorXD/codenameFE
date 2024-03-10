@@ -108,7 +108,6 @@ struct RendererData
 	LineVertex* LineBufferPtr   = nullptr;
 
 	std::shared_ptr<Shader>	DefaultShader;
-	std::shared_ptr<Shader> PickerShader;
 	std::shared_ptr<Shader> CurrentShader;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
@@ -305,7 +304,6 @@ void Renderer::Init()
 		std::shared_ptr<Texture> defaultNormal = std::make_shared<Texture>(normalPixel, 1, 1, "Default normal");
 		AssetManager::AddTexture(defaultNormal, AssetManager::TEXTURE_NORMAL);
 
-		s_Data.PickerShader = std::make_shared<Shader>("resources/shaders/Picker.vert", "resources/shaders/Picker.frag");
 		s_Data.CurrentShader = s_Data.DefaultShader;
 	}
 }
@@ -615,16 +613,6 @@ void Renderer::EnableFaceCulling()
 void Renderer::DisableFaceCulling()
 {
 	GLCall(glDisable(GL_CULL_FACE));
-}
-
-void Renderer::DefaultRender()
-{
-	s_Data.CurrentShader = s_Data.DefaultShader;
-}
-
-void Renderer::PickerRender()
-{
-	s_Data.CurrentShader = s_Data.PickerShader;
 }
 
 Viewport Renderer::CurrentViewport()
