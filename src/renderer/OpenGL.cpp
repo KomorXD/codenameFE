@@ -578,10 +578,10 @@ Framebuffer::~Framebuffer()
 		GLCall(glDeleteFramebuffers(1, &m_ID));
 	}
 
-	if (m_TextureID != 0)
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+	for (auto& [id, format] : m_ColorAttachments)
 	{
-		GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-		GLCall(glDeleteTextures(1, &m_TextureID));
+		GLCall(glDeleteTextures(1, &id));
 	}
 
 	if (m_RenderbufferID != 0)
@@ -591,15 +591,26 @@ Framebuffer::~Framebuffer()
 	}
 }
 
-void Framebuffer::AttachTexture(uint32_t width, uint32_t height)
+void Framebuffer::AddColorAttachment(uint32_t width, uint32_t height, GLenum format)
 {
-	GLCall(glGenTextures(1, &m_TextureID));
-	GLCall(glBindTexture(GL_TEXTURE_2D, m_TextureID));
-	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
+	assert(m_ColorAttachments.size() < 4 && "Framebuffer supports up to 4 color attachments");
+
+	uint32_t id{};
+	GLCall(glGenTextures(1, &id));
+	GLCall(glBindTexture(GL_TEXTURE_2D, id));
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_TextureID, 0));
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_2D, id, 0));
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+
+	m_ColorAttachments.push_back({ id, format });
+
+	if (m_ColorAttachments.size() > 1)
+	{
+		GLenum buffers[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+		GLCall(glDrawBuffers(m_ColorAttachments.size(), buffers));
+	}
 }
 
 void Framebuffer::AttachRenderBuffer(uint32_t width, uint32_t height)
@@ -613,30 +624,26 @@ void Framebuffer::AttachRenderBuffer(uint32_t width, uint32_t height)
 	m_RenderDimensions = { width, height };
 }
 
-void Framebuffer::AttachDepthBuffer(uint32_t width, uint32_t height)
+void Framebuffer::ResizeColorAttachments(uint32_t width, uint32_t height)
 {
-	GLCall(glGenTextures(1, &m_TextureID));
-	GLCall(glBindTexture(GL_TEXTURE_2D, m_TextureID));
-	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER));
-	
-	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	GLCall(glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor));
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_TextureID, 0));
-	GLCall(glDrawBuffer(GL_NONE));
-	GLCall(glReadBuffer(GL_NONE));
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+	for (auto [id, format] : m_ColorAttachments)
+	{
+		GLCall(glDeleteTextures(1, &id));
+	}
 
-	m_ShadowMapSize = { width, height };
-}
+	int32_t count = m_ColorAttachments.size();
+	std::vector<GLenum> formats;
+	for (auto& [id, format] : m_ColorAttachments)
+	{
+		formats.push_back(format);
+	}
 
-void Framebuffer::ResizeTexture(uint32_t width, uint32_t height)
-{
-	GLCall(glDeleteTextures(1, &m_TextureID));
-	AttachTexture(width, height);
+	m_ColorAttachments.clear();
+	for (int32_t i = 0; i < count; i++)
+	{
+		AddColorAttachment(width, height, formats[i]);
+	}
 }
 
 void Framebuffer::ResizeRenderBuffer(uint32_t width, uint32_t height)
@@ -647,14 +654,20 @@ void Framebuffer::ResizeRenderBuffer(uint32_t width, uint32_t height)
 	m_RenderDimensions = { width, height };
 }
 
-glm::uvec4 Framebuffer::GetPixelAt(const glm::vec2& coords)
+void Framebuffer::ClearColorAttachment(int32_t attachmentIdx)
 {
-	glm::vec<4, uint8_t> pixel{};
+	assert(attachmentIdx < m_ColorAttachments.size() && "Trying to access color attachment out of bounds.");
+	
+	float lol = -1.0f;
+	GLCall(glClearTexImage(m_ColorAttachments[attachmentIdx].ID, 0, GL_RGBA, GL_FLOAT, &lol));
+}
+
+glm::u8vec4 Framebuffer::GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx)
+{
+	glm::u8vec4 pixel{};
 
 	BindBuffer();
-	BindTexture();
-	BindRenderBuffer();
-
+	GLCall(glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIdx));
 	GLCall(glReadPixels((GLint)coords.x, (GLint)coords.y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pixel[0]));
 
 	return pixel;
@@ -665,10 +678,12 @@ void Framebuffer::BindBuffer() const
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
 }
 
-void Framebuffer::BindTexture(uint32_t slot) const
+void Framebuffer::BindColorAttachment(uint32_t slot) const
 {
+	assert(slot < m_ColorAttachments.size() && "Trying to access color attachment out of bounds.");
+
 	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
-	GLCall(glBindTexture(GL_TEXTURE_2D, m_TextureID));
+	GLCall(glBindTexture(GL_TEXTURE_2D, m_ColorAttachments[slot].ID));
 }
 
 void Framebuffer::BindRenderBuffer() const
@@ -676,16 +691,12 @@ void Framebuffer::BindRenderBuffer() const
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
 }
 
-void Framebuffer::BindDepthBuffer() const
-{
-}
-
 void Framebuffer::UnbindBuffer() const
 {
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
-void Framebuffer::UnbindTexture() const
+void Framebuffer::UnbindColorAttachment() const
 {
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
 }
@@ -693,10 +704,6 @@ void Framebuffer::UnbindTexture() const
 void Framebuffer::UnbindRenderBuffer() const
 {
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-}
-
-void Framebuffer::UnbindDepthBuffer() const
-{
 }
 
 bool Framebuffer::IsComplete() const

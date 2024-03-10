@@ -11,6 +11,7 @@ layout(location = 10) in vec2 a_TilingFactor;
 layout(location = 11) in vec2 a_TextureOffset;
 layout(location = 12) in float a_TextureSlot;
 layout(location = 13) in float a_NormalTextureSlot;
+layout(location = 14) in float a_EntityID;
 
 layout (std140, binding = 0) uniform Matrices
 {
@@ -26,6 +27,7 @@ out VS_OUT
 	vec2 textureUV;
 	flat float textureSlot;
 	flat float normalTextureSlot;
+	flat float entityID;
 } vs_out;
 
 void main()
@@ -40,6 +42,7 @@ void main()
 	vs_out.textureUV		 = a_TextureUV * a_TilingFactor + a_TextureOffset;
 	vs_out.textureSlot		 = a_TextureSlot;
 	vs_out.normalTextureSlot = a_NormalTextureSlot;
+	vs_out.entityID			 = a_EntityID;
 
 	gl_Position = u_Projection * u_View * a_Transform * vec4(a_Pos, 1.0);
 }

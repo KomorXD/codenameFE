@@ -32,24 +32,15 @@ EditorLayer::EditorLayer()
 
 	uint32_t width = (uint32_t)(spec.Width * 0.6f);
 	m_ScreenFB = std::make_unique<Framebuffer>();
-	m_ScreenFB->AttachTexture(width, (uint32_t)spec.Height);
+	m_ScreenFB->AddColorAttachment(width, (uint32_t)spec.Height, GL_RGBA16F);
 	m_ScreenFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
 	m_ScreenFB->UnbindBuffer();
 
-	m_TargetFB = std::make_unique<Framebuffer>();
-	m_TargetFB->AttachTexture(width, (uint32_t)spec.Height);
-	m_TargetFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
-	m_TargetFB->UnbindBuffer();
-
-	m_MainMFB = std::make_unique<MultisampledFramebuffer>(16);
-	m_MainMFB->AttachTexture(width, (uint32_t)spec.Height);
-	m_MainMFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
-	m_MainMFB->UnbindBuffer();
-
-	m_PickerFB = std::make_unique<Framebuffer>();
-	m_PickerFB->AttachTexture(width, (uint32_t)spec.Height);
-	m_PickerFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
-	m_PickerFB->UnbindBuffer();
+	m_MainFB = std::make_unique<Framebuffer>();
+	m_MainFB->AddColorAttachment(width, (uint32_t)spec.Height, GL_RGBA16F);
+	m_MainFB->AddColorAttachment(width, (uint32_t)spec.Height, GL_RGBA8);
+	m_MainFB->AttachRenderBuffer(width, (uint32_t)spec.Height);
+	m_MainFB->UnbindBuffer();
 
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/arrow.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/cbbl.png"));
@@ -105,10 +96,10 @@ void EditorLayer::OnEvent(Event& ev)
 		{
 			switch (ev.Key.Code)
 			{
-			case Key::Q:	m_GizmoOp = -1;				    return;
+			case Key::Q:	m_GizmoOp = -1;				     return;
 			case Key::W:	m_GizmoOp = ImGuizmo::TRANSLATE; return;
 			case Key::E:	m_GizmoOp = ImGuizmo::ROTATE;    return;
-			case Key::R:	m_GizmoOp = ImGuizmo::SCALE;	    return;
+			case Key::R:	m_GizmoOp = ImGuizmo::SCALE;	 return;
 			}
 		}
 
@@ -119,9 +110,9 @@ void EditorLayer::OnEvent(Event& ev)
 	if (!m_LockFocus && ev.Type == Event::MouseButtonPressed && ev.MouseButton.Button == MouseButton::Left && m_ViewportHovered)
 	{
 		glm::vec2 mousePos = Input::GetMousePosition() - glm::vec2(((float)Application::Instance()->Spec().Width / 5.0f), 0.0f);
-		glm::uvec4 pixel = m_PickerFB->GetPixelAt(mousePos);
+		glm::u8vec4 pixel = m_MainFB->GetPixelAt(mousePos, 1);
 
-		if (pixel == glm::uvec4(255))
+		if (pixel == glm::u8vec4(0))
 		{
 			m_SelectedEntity = Entity();
 			return;
@@ -132,6 +123,8 @@ void EditorLayer::OnEvent(Event& ev)
 		uint32_t blueContrib  = pixel.b;
 		uint32_t pixelID = redContrib + greenContrib + blueContrib;
 		m_SelectedEntity = Entity((entt::entity)(uint32_t)(pixelID - 1), &m_Scene);
+
+		LOG_INFO("Picked id: {}", pixelID - 1);
 
 		return;
 	}
@@ -145,24 +138,14 @@ void EditorLayer::OnEvent(Event& ev)
 		m_EditorCamera.OnEvent(ev);
 
 		m_ScreenFB->BindBuffer();
-		m_ScreenFB->ResizeTexture(width, height);
+		m_ScreenFB->ResizeColorAttachments(width, height);
 		m_ScreenFB->ResizeRenderBuffer(width, height);
 		m_ScreenFB->UnbindBuffer();
 
-		m_TargetFB->BindBuffer();
-		m_TargetFB->ResizeTexture(width, height);
-		m_TargetFB->ResizeRenderBuffer(width, height);
-		m_TargetFB->UnbindBuffer();
-
-		m_MainMFB->BindBuffer();
-		m_MainMFB->ResizeTexture(width, height);
-		m_MainMFB->ResizeRenderBuffer(width, height);
-		m_MainMFB->UnbindBuffer();
-
-		m_PickerFB->BindBuffer();
-		m_PickerFB->ResizeTexture(width, height);
-		m_PickerFB->ResizeRenderBuffer(width, height);
-		m_PickerFB->UnbindBuffer();
+		m_MainFB->BindBuffer();
+		m_MainFB->ResizeColorAttachments(width, height);
+		m_MainFB->ResizeRenderBuffer(width, height);
+		m_MainFB->UnbindBuffer();
 
 		return;
 	}
@@ -188,7 +171,7 @@ void EditorLayer::OnRender()
 	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.6f, (float)Application::Instance()->Spec().Height });
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Begin("Viewport", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoBringToFrontOnFocus);
-	ImGui::Image((ImTextureID)m_TargetFB->GetTextureID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	ImGui::Image((ImTextureID)m_ScreenFB->GetColorAttachmentID(), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
 	m_ViewportHovered = ImGui::IsWindowHovered();
 	m_ViewportFocused = ImGui::IsWindowFocused();
 	RenderGizmo();
@@ -290,31 +273,24 @@ void EditorLayer::RenderScenePanel()
 		ImGui::Unindent(16.0f);
 	}
 
+	ImGui::NewLine();
+	ImGui::BeginChild("Picker", { 256.0f, 256.0f }, true);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
+	ImGui::Image((ImTextureID)m_MainFB->GetColorAttachmentID(1), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
+	ImGui::PopStyleVar();
+	ImGui::EndChild();
+
 	ImGui::End();
 }
 
 void EditorLayer::RenderViewport()
 {
-	// Color picker stuff
-	Renderer::ClearColor(glm::vec4(1.0f));
-	Renderer::Clear();
-	glm::ivec2 bufferSize = m_PickerFB->RenderDimensions();
+	glm::ivec2 bufferSize = m_MainFB->RenderDimensions();
 	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
-	m_PickerFB->BindBuffer();
-	m_PickerFB->BindRenderBuffer();
+	m_MainFB->BindBuffer();
+	Renderer::ClearColor(m_BgColor);
 	Renderer::Clear();
-	Renderer::ClearColor(glm::vec4(1.0f));
-	Renderer::PickerRender();
-	m_Scene.Render(m_EditorCamera);
-	Renderer::DefaultRender();
 
-	bufferSize = m_MainMFB->RenderDimensions();
-	Renderer::OnWindowResize({ 0, 0, bufferSize.x, bufferSize.y });
-	m_MainMFB->BindBuffer();
-	m_MainMFB->BindRenderBuffer();
-
-	Renderer::ClearColor({ 0.3f, 0.4f, 0.5f, 1.0f });
-	Renderer::Clear();
 	// Render selected entity to stencil buffer
 	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())
 	{
@@ -336,6 +312,7 @@ void EditorLayer::RenderViewport()
 	// Normal pass
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0x00);
+	m_MainFB->ClearColorAttachment(1);
 	m_Scene.Render(m_EditorCamera);
 
 	// Render selected entity outline
@@ -364,18 +341,11 @@ void EditorLayer::RenderViewport()
 
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0xFF);
-
-	// MSAA stuff
-	bufferSize = m_ScreenFB->RenderDimensions();
-	m_MainMFB->BlitBuffers(bufferSize.x, bufferSize.y, m_ScreenFB->GetFramebufferID());
-	m_MainMFB->UnbindRenderBuffer();
-	m_MainMFB->UnbindBuffer();
-	m_TargetFB->BindBuffer();
-	m_TargetFB->BindRenderBuffer();
-	m_ScreenFB->BindTexture();
+	
+	m_MainFB->BindColorAttachment();
+	m_ScreenFB->BindBuffer();
 	Renderer::DrawScreenQuad();
-	m_TargetFB->UnbindRenderBuffer();
-	m_TargetFB->UnbindBuffer();
+	m_ScreenFB->UnbindBuffer();
 }
 
 void EditorLayer::RenderEntityData()

@@ -1,5 +1,8 @@
 #version 430 core
 
+layout(location = 0) out vec4 gDefault;
+layout(location = 1) out vec4 gPicker;
+
 struct DirectionalLight
 {
 	vec4 direction;
@@ -28,6 +31,7 @@ in VS_OUT
 	vec2 textureUV;
 	flat float textureSlot;
 	flat float normalTextureSlot;
+	flat float entityID;
 } fs_in;
 
 layout(std140, binding = 1) uniform Lights
@@ -45,8 +49,6 @@ uniform vec3 u_ViewPos = vec3(0.0);
 uniform bool u_IsLightSource = false;
 uniform float u_AmbientStrength = 0.1;
 uniform sampler2D u_Textures[24];
-
-out vec4 fragColor;
 
 int parseSlot(float inSlot)
 {
@@ -84,6 +86,15 @@ int parseSlot(float inSlot)
 
 void main()
 {
+	int entID = int(fs_in.entityID);
+	int rInt = int(mod(int(entID / 65025.0), 255));
+	int gInt = int(mod(int(entID / 255.0), 255));
+	int bInt = int(mod(entID, 255));
+	float r = float(rInt) / 255.0;
+	float g = float(gInt) / 255.0;
+	float b = float(bInt) / 255.0;
+	gPicker = vec4(r, g, b, 1.0);
+
 	int albedoSlot = parseSlot(fs_in.textureSlot);
 	int normalSlot = parseSlot(fs_in.normalTextureSlot);
 
@@ -100,7 +111,7 @@ void main()
 
 	if(u_IsLightSource)
 	{
-		fragColor = diffuseColor;
+		gDefault = diffuseColor;
 		return;
 	}
 
@@ -161,6 +172,6 @@ void main()
 		}
 	}
 
-	fragColor.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * diffuseColor.rgb;
-	fragColor.a = diffuseColor.a;
+	gDefault.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * diffuseColor.rgb;
+	gDefault.a = diffuseColor.a;
 }

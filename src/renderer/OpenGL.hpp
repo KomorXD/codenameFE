@@ -212,38 +212,42 @@ public:
 	Framebuffer();
 	~Framebuffer();
 
-	void AttachTexture(uint32_t width, uint32_t height);
+	void AddColorAttachment(uint32_t width, uint32_t height, GLenum format);
 	void AttachRenderBuffer(uint32_t width, uint32_t height);
-	void AttachDepthBuffer(uint32_t width, uint32_t height);
 
-	void ResizeTexture(uint32_t width, uint32_t height);
+	void ResizeColorAttachments(uint32_t width, uint32_t height);
 	void ResizeRenderBuffer(uint32_t width, uint32_t height);
 
-	glm::uvec4 GetPixelAt(const glm::vec2& coords);
+	void ClearColorAttachment(int32_t attachmentIdx);
 
-	void BindBuffer()					const;
-	void BindTexture(uint32_t slot = 0)	const;
-	void BindRenderBuffer()				const;
-	void BindDepthBuffer()				const;
-	void UnbindBuffer()					const;
-	void UnbindTexture()				const;
-	void UnbindRenderBuffer()			const;
-	void UnbindDepthBuffer()			const;
+	glm::u8vec4 GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx = 0);
 
-	inline uint32_t GetFramebufferID()	 const { return m_ID; }
-	inline uint32_t GetTextureID()		 const { return m_TextureID; }
+	void BindBuffer() const;
+	void BindColorAttachment(uint32_t slot = 0)	const;
+	void BindRenderBuffer()	const;
+
+	void UnbindBuffer()	const;
+	void UnbindColorAttachment() const;
+	void UnbindRenderBuffer() const;
+
+	inline uint32_t GetFramebufferID() const { return m_ID; }
+	inline uint32_t GetColorAttachmentID(uint32_t slot = 0) const { return m_ColorAttachments[slot].ID; }
 	inline glm::uvec2 RenderDimensions() const { return m_RenderDimensions; }
-	inline glm::uvec2 ShadowMapSize()	 const { return m_ShadowMapSize; }
 
 	bool IsComplete() const;
 
 private:
+	struct ColorAttachData
+	{
+		uint32_t ID;
+		GLenum format;
+	};
+
 	uint32_t m_ID = 0;
-	uint32_t m_TextureID = 0;
 	uint32_t m_RenderbufferID = 0;
+	std::vector<ColorAttachData> m_ColorAttachments;
 
 	glm::uvec2 m_RenderDimensions{};
-	glm::uvec2 m_ShadowMapSize{};
 };
 
 class MultisampledFramebuffer
@@ -269,7 +273,7 @@ public:
 	void UnbindTexture()				const;
 	void UnbindRenderBuffer()			const;
 
-	inline uint32_t GetTextureID() const { return m_TextureID; }
+	inline uint32_t GetColorAttachmentID() const { return m_TextureID; }
 	inline glm::uvec2 RenderDimensions() const { return m_RenderDimensions; }
 
 	bool IsComplete() const;

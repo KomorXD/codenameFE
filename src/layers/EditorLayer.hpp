@@ -32,6 +32,8 @@ private:
 	Entity m_SelectedEntity;
 	Entity m_CopiedEntity;
 
+	glm::vec4 m_BgColor = { 0.3f, 0.4f, 0.5f, 1.0f };
+
 	int32_t m_GizmoOp = -1;
 	int32_t m_GizmoMode;
 	bool m_LockFocus    = false;
@@ -40,8 +42,6 @@ private:
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;
 
+	std::unique_ptr<Framebuffer> m_MainFB;
 	std::unique_ptr<Framebuffer> m_ScreenFB;
-	std::unique_ptr<Framebuffer> m_TargetFB;
-	std::unique_ptr<MultisampledFramebuffer> m_MainMFB;
-	std::unique_ptr<Framebuffer> m_PickerFB;
 };
