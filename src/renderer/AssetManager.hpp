@@ -26,8 +26,9 @@ public:
 	static bool RemoveMesh(int32_t id);
 	static bool RemoveMesh(Mesh& mesh);
 
-	static constexpr int32_t MESH_PLANE = 1;
-	static constexpr int32_t MESH_CUBE  = 2;
+	static constexpr int32_t MESH_PLANE	 = 1;
+	static constexpr int32_t MESH_CUBE	 = 2;
+	static constexpr int32_t MESH_SPHERE = 3;
 
 
 	static int32_t AddTexture(std::shared_ptr<Texture> texture);

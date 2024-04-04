@@ -20,3 +20,4 @@ struct VertexData
 
 VertexData QuadMeshData();
 VertexData CubeMeshData();
+VertexData SphereMeshData();

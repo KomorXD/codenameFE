@@ -157,7 +157,6 @@ static Mesh GenerateMeshData(VertexData vertexData)
 {
 	Mesh mesh{};
 	auto& [vertices, indices] = vertexData;
-	std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
 	mesh.VAO = std::make_shared<VertexArray>();
 	mesh.VBO = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(Vertex), vertices.size());
 
@@ -167,6 +166,8 @@ static Mesh GenerateMeshData(VertexData vertexData)
 	layout.Push<float>(3); // 2 Tangent
 	layout.Push<float>(3); // 3 Bitangent
 	layout.Push<float>(2); // 4 Texture UV
+	
+	std::unique_ptr<IndexBuffer> ibo = std::make_unique<IndexBuffer>(indices.data(), (uint32_t)indices.size());
 	mesh.VAO->AddBuffers(mesh.VBO, ibo, layout);
 
 	layout.Clear();
@@ -182,6 +183,8 @@ static Mesh GenerateMeshData(VertexData vertexData)
 	layout.Push<float>(1); // 14 Entity ID
 	mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
 	mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 5);
+	mesh.VAO->Unbind();
+	mesh.VBO->Unbind();
 
 	return mesh;
 }
@@ -229,6 +232,16 @@ void Renderer::Init()
 		cubeMesh.MeshName = "Cube";
 
 		int32_t meshID = AssetManager::AddMesh(cubeMesh, AssetManager::MESH_CUBE);
+		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
+	}
+
+	{
+		SCOPE_PROFILE("Sphere mesh init");
+
+		Mesh sphereMesh = GenerateMeshData(SphereMeshData());
+		sphereMesh.MeshName = "Sphere";
+
+		int32_t meshID = AssetManager::AddMesh(sphereMesh, AssetManager::MESH_SPHERE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
 	}
 
@@ -613,6 +626,11 @@ void Renderer::EnableFaceCulling()
 void Renderer::DisableFaceCulling()
 {
 	GLCall(glDisable(GL_CULL_FACE));
+}
+
+void Renderer::SetWireframe(bool enabled)
+{
+	GLCall(glPolygonMode(GL_FRONT_AND_BACK, enabled ? GL_LINE : GL_FILL));
 }
 
 Viewport Renderer::CurrentViewport()

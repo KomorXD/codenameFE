@@ -64,6 +64,8 @@ public:
 	static void EnableFaceCulling();
 	static void DisableFaceCulling();
 
+	static void SetWireframe(bool enabled);
+
 	static Viewport CurrentViewport();
 
 private:

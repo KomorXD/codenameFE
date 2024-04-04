@@ -1,5 +1,7 @@
 #include "PrimitivesGen.hpp"
 
+#include <glm/gtc/constants.hpp>
+
 static void CalculateTangents(Vertex& v0, Vertex& v1, Vertex& v2)
 {
 	glm::vec3 edge1 = v1.Position - v0.Position;
@@ -112,4 +114,53 @@ VertexData CubeMeshData()
 	}
 
     return { vertices, indices };
+}
+
+VertexData SphereMeshData()
+{
+	constexpr float RADIUS = 1.0f;
+	constexpr int32_t slices = 48;
+	constexpr int32_t stacks = 48;
+
+	std::vector<Vertex> vertices;
+	for (int32_t stack = 0; stack <= stacks; stack++)
+	{
+		float phi = glm::pi<float>() * (float)stack / stacks;
+		float sinPhi = std::sinf(phi);
+		float cosPhi = std::cosf(phi);
+
+		for (int32_t slice = 0; slice <= slices; slice++)
+		{
+			float theta = 2.0f * glm::pi<float>() * (float)slice / slices;
+			float sinTheta = std::sinf(theta);
+			float cosTheta = std::cosf(theta);
+
+			Vertex vertex{};
+			vertex.Position = vertex.Normal = RADIUS * glm::vec3(cosTheta * sinPhi, cosPhi, sinTheta * sinPhi);
+			vertex.Tangent = glm::normalize(glm::vec3(-sinTheta, 0.0f, cosTheta));
+			vertex.Bitangent = glm::normalize(glm::cross(vertex.Normal, vertex.Tangent));
+			vertex.TextureUV = { (float)slice / slices, (float)stack / stacks };
+			vertices.push_back(vertex);
+		}
+	}
+
+	std::vector<uint32_t> indices;
+	for (int32_t stack = 0; stack < stacks; stack++)
+	{
+		for (int32_t slice = 0; slice < slices; slice++)
+		{
+			int32_t nextSlice = slice + 1;
+			int32_t nextStack = (stack + 1) % (stacks + 1);
+
+			indices.push_back(nextStack * (slices + 1) + nextSlice);
+			indices.push_back(nextStack * (slices + 1) + slice);
+			indices.push_back(stack		* (slices + 1) + slice);
+
+			indices.push_back(stack		* (slices + 1) + nextSlice);
+			indices.push_back(nextStack * (slices + 1) + nextSlice);
+			indices.push_back(stack		* (slices + 1) + slice);
+		}
+	}
+
+	return { vertices, indices };
 }
