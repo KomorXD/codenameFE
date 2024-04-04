@@ -236,6 +236,14 @@ void EditorLayer::RenderScenePanel()
 			ImGui::CloseCurrentPopup();
 		}
 
+		if (ImGui::Button("Sphere", { width, height }))
+		{
+			m_SelectedEntity = m_Scene.SpawnEntity("Sphere");
+			m_SelectedEntity.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
+			m_SelectedEntity.AddComponent<MaterialComponent>();
+			ImGui::CloseCurrentPopup();
+		}
+
 		ImGui::EndPopup();
 	}
 
@@ -265,6 +273,7 @@ void EditorLayer::RenderScenePanel()
 		ImGui::DragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, 5.0f);
 		ImGui::DragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
+		ImGui::Checkbox("Wireframe", &m_DrawWireframe);
 		ImGui::Unindent(16.0f);
 	}
 
@@ -304,15 +313,17 @@ void EditorLayer::RenderViewport()
 	}
 
 	// Normal pass
+	Renderer::SetWireframe(m_DrawWireframe);
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0x00);
 	m_MainFB->ClearColorAttachment(1);
 	m_Scene.Render(m_EditorCamera);
+	Renderer::SetWireframe(false);
 
 	// Render selected entity outline
 	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())
 	{
-		TransformComponent  transform = m_SelectedEntity.GetComponent<TransformComponent>();
+		TransformComponent transform = m_SelectedEntity.GetComponent<TransformComponent>();
 		MeshComponent mesh = m_SelectedEntity.GetComponent<MeshComponent>();
 		MaterialComponent material{};
 

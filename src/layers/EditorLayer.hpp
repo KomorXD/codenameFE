@@ -39,6 +39,8 @@ private:
 	bool m_LockFocus    = false;
 	bool m_IsGizmoUsed  = false;
 
+	bool m_DrawWireframe = false;
+
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;
 
