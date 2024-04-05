@@ -40,7 +40,10 @@ private:
 	WindowSpec m_Spec{};
 	GLFWwindow* m_Window = nullptr;
 	EventQueue m_EventQueue;
+
 	std::stack<std::unique_ptr<Layer>> m_Layers;
+	std::unique_ptr<Layer> m_NextLayer;
+	bool m_DoPopLayer = false;
 
 	inline static Application* s_Instance = nullptr;
 };

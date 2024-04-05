@@ -107,6 +107,23 @@ void Application::Run()
 
 	while (!glfwWindowShouldClose(m_Window))
 	{
+		if (m_DoPopLayer)
+		{
+			m_DoPopLayer = false;
+			m_Layers.pop();
+
+			if (!m_Layers.empty())
+			{
+				m_Layers.top()->OnAttach();
+			}
+		}
+
+		if (m_NextLayer)
+		{
+			m_Layers.push(std::move(m_NextLayer));
+			m_Layers.top()->OnAttach();
+		}
+
 		prevTime = currTime;
 		currTime = glfwGetTime();
 		timestep = currTime - prevTime;
@@ -144,8 +161,7 @@ void Application::Shutdown()
 
 void Application::PushLayer(std::unique_ptr<Layer>&& layer)
 {
-	m_Layers.push(std::move(layer));
-	m_Layers.top()->OnAttach();
+	m_NextLayer = std::move(layer);
 }
 
 void Application::PopLayer()
@@ -155,12 +171,7 @@ void Application::PopLayer()
 		return;
 	}
 
-	m_Layers.pop();
-
-	if (!m_Layers.empty())
-	{
-		m_Layers.top()->OnAttach();
-	}
+	m_DoPopLayer = true;
 }
 
 void Application::SetWindowCallbacks()
