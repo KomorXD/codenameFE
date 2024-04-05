@@ -1,14 +1,9 @@
 #pragma once
 
+#include "CameraControls.hpp"
+
 #include <glm/glm.hpp>
-
-struct Event;
-
-enum class CameraControlType
-{
-	FirstPersonControl,
-	TrackballControl
-};
+#include <memory>
 
 class Camera
 {
@@ -20,6 +15,7 @@ public:
 	void OnUpdate(float ts);
 	
 	void LookAt(const glm::vec3& point);
+	void SetControls(std::unique_ptr<CameraControls>&& controls);
 
 	glm::vec3 GetUpDirection()		const;
 	glm::vec3 GetRightDirection()	const;
@@ -30,14 +26,14 @@ public:
 	inline const glm::mat4& GetViewMatrix() { UpdateView();		  return m_View;		}
 	inline glm::mat4 GetViewProjection()	{ return GetProjection() * GetViewMatrix(); }
 
-	inline const CameraControlType& ControlType() const { return m_ControlType; }
-	
 	glm::vec3 Position = glm::vec3(0.0f);
 	float Exposure = 1.0f;
 
 private:
 	void UpdateProjection();
 	void UpdateView();
+
+	std::unique_ptr<CameraControls> m_ControlsType;
 	
 	float m_FOV			= 80.0f;
 	float m_AspectRatio = 16.0f / 9.0f;
@@ -46,8 +42,6 @@ private:
 
 	float m_Pitch = 0.0f;
 	float m_Yaw	  = 180.0f;
-	
-	CameraControlType m_ControlType = CameraControlType::TrackballControl;
 
 	glm::mat4 m_Projection   = glm::mat4(1.0f);
 	glm::mat4 m_View	     = glm::mat4(1.0f);
@@ -55,4 +49,7 @@ private:
 	glm::vec2 m_PrevMousePos = glm::vec2(0.0f);
 
 	friend class EditorLayer;
+	friend class TrackballControls;
+	friend class FpsControls;
+	friend class OrbitalControls;
 };

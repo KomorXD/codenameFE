@@ -5,6 +5,7 @@
 #include <glm/gtx/quaternion.hpp>
 
 Camera::Camera()
+	: m_ControlsType(std::make_unique<TrackballControls>(this))
 {
 	UpdateProjection();
 	UpdateView();
@@ -12,6 +13,7 @@ Camera::Camera()
 
 Camera::Camera(float fov, float aspectRatio, float nearClip, float farClip)
 	: m_FOV(fov), m_AspectRatio(aspectRatio), m_NearClip(nearClip), m_FarClip(farClip)
+	, m_ControlsType(std::make_unique<TrackballControls>(this))
 {
 	UpdateProjection();
 	UpdateView();
@@ -26,114 +28,12 @@ void Camera::OnEvent(Event& ev)
 		return;
 	}
 
-	if (ev.Type == Event::MouseWheelScrolled)
-	{
-		Position += GetForwardDirection() * ev.MouseWheel.OffsetY;
-
-		return;
-	}
-
-	if (ev.Type == Event::KeyPressed && ev.Key.Code == Key::LeftAlt)
-	{
-		m_ControlType = CameraControlType::FirstPersonControl;
-		Input::DisableCursor();
-
-		return;
-	}
-
-	if (ev.Type == Event::KeyReleased && ev.Key.Code == Key::LeftAlt)
-	{
-		m_ControlType = CameraControlType::TrackballControl;
-		Input::ShowCursor();
-
-		return;
-	}
-
-	if (m_ControlType == CameraControlType::TrackballControl && ev.Type == Event::MouseButtonReleased && 
-		(ev.MouseButton.Button == MouseButton::Middle || ev.MouseButton.Button == MouseButton::Right))
-	{
-		Input::ShowCursor();
-
-		return;
-	}
+	m_ControlsType->OnEvent(ev);
 }
 
 void Camera::OnUpdate(float ts)
 {
-	glm::vec2 mousePos = Input::GetMousePosition();
-	glm::vec2 delta = mousePos - m_PrevMousePos;
-	float deltaLen = glm::length(delta);
-	m_PrevMousePos = mousePos;
-
-	if (m_ControlType == CameraControlType::TrackballControl)
-	{
-		if (Input::IsMouseButtonPressed(MouseButton::Right))
-		{
-			Input::DisableCursor();
-
-			m_Yaw += delta.x * 0.1f;
-			m_Pitch -= delta.y * 0.1f;
-
-			m_Pitch = glm::max(glm::min(m_Pitch, 90.0f), -90.0f);
-
-			return;
-		}
-
-		if (Input::IsMouseButtonPressed(MouseButton::Middle))
-		{
-			Input::DisableCursor();
-
-			Position -= GetRightDirection() * delta.x * 0.02f;
-			Position -= GetUpDirection() * delta.y * 0.02f;
-
-			return;
-		}
-
-		return;
-	}
-	
-	if (m_ControlType == CameraControlType::FirstPersonControl)
-	{
-		glm::vec3 moveVec(0.0f);
-
-		if (Input::IsKeyPressed(Key::A))
-		{
-			moveVec -= GetRightDirection();
-		}
-		else if (Input::IsKeyPressed(Key::D))
-		{
-			moveVec += GetRightDirection();
-		}
-
-		if (Input::IsKeyPressed(Key::W))
-		{
-			moveVec += GetForwardDirection();
-		}
-		else if (Input::IsKeyPressed(Key::S))
-		{
-			moveVec -= GetForwardDirection();
-		}
-
-		if (Input::IsKeyPressed(Key::Space))
-		{
-			moveVec += glm::vec3(0.0f, 1.0f, 0.0f);
-		}
-		else if (Input::IsKeyPressed(Key::LeftShift))
-		{
-			moveVec -= glm::vec3(0.0f, 1.0f, 0.0f);
-		}
-
-		if (glm::length(moveVec) != 0.0f)
-		{
-			Position += glm::normalize(moveVec) * 15.0f * ts;
-		}
-
-		m_Yaw += delta.x * 0.1f;
-		m_Pitch -= delta.y * 0.1f;
-		m_Pitch = glm::max(glm::min(m_Pitch, 90.0f), -90.0f);
-
-		return;
-	}
+	m_ControlsType->OnUpdate(ts);
 }
 
 void Camera::LookAt(const glm::vec3& point)
@@ -142,6 +42,11 @@ void Camera::LookAt(const glm::vec3& point)
 
 	m_Yaw = glm::degrees(std::atan2f(direction.x, direction.z));
 	m_Pitch = glm::degrees(std::asinf(-direction.y));
+}
+
+void Camera::SetControls(std::unique_ptr<CameraControls>&& controls)
+{
+	m_ControlsType = std::move(controls);
 }
 
 glm::vec3 Camera::GetUpDirection() const
