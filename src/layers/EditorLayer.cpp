@@ -1,4 +1,5 @@
 #include "EditorLayer.hpp"
+#include "MaterialEditLayer.hpp"
 
 #include "../Application.hpp"
 #include "../Timer.hpp"
@@ -91,7 +92,7 @@ void EditorLayer::OnEvent(Event& ev)
 			return;
 		}
 		
-		if (m_EditorCamera.ControlType() != CameraControlType::FirstPersonControl)
+		if (!Input::IsKeyPressed(Key::LeftAlt)) // FPS mode when left alt is pressed
 		{
 			switch (ev.Key.Code)
 			{
@@ -207,6 +208,11 @@ void EditorLayer::RenderScenePanel()
 		ImGui::OpenPopup("new_entity_group");
 	}
 
+	if (ImGui::Button("Material editor"))
+	{
+		Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>());
+	}
+
 	if (ImGui::BeginPopup("new_entity_group"))
 	{
 		auto [width, height] = ImGui::CalcTextSize("Empty entity");
@@ -291,6 +297,7 @@ void EditorLayer::RenderScenePanel()
 void EditorLayer::RenderViewport()
 {
 	m_MainFB->Bind();
+	m_MainFB->FillDrawBuffers();
 	Renderer::ClearColor(m_BgColor);
 	Renderer::Clear();
 
@@ -319,6 +326,34 @@ void EditorLayer::RenderViewport()
 	m_MainFB->ClearColorAttachment(1);
 	m_Scene.Render(m_EditorCamera);
 	Renderer::SetWireframe(false);
+
+	// Grid
+	constexpr float distance = 100.0f;
+	constexpr glm::vec4 lineColor(glm::vec3(0.22f), 1.0f);
+	constexpr glm::vec4 darkLineColor(glm::vec3(0.11f), 1.0f);
+	constexpr glm::vec4 mainAxisLineColor(0.98f, 0.24f, 0.0f, 1.0f);
+	glm::vec3 cameraPos = m_EditorCamera.Position;
+	int32_t xOffset = cameraPos.x / 4;
+	int32_t zOffset = cameraPos.z / 4;
+
+	Renderer::SceneBegin(m_EditorCamera);
+	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
+	for (float x = -distance + xOffset * 4.0f; x <= distance + xOffset * 4.0f; x += 4.0f)
+	{
+		glm::vec4 color = (x == 0.0f ? mainAxisLineColor : ((int32_t)x % 10 == 0 ? darkLineColor : lineColor));
+
+		Renderer::DrawLine({ x, 0.0f, -distance + zOffset * 4.0f },
+			{ x, 0.0f, distance + zOffset * 4.0f }, color);
+	}
+
+	for (float z = -distance + zOffset * 4.0f; z <= distance + zOffset * 4.0f; z += 4.0f)
+	{
+		glm::vec4 color = (z == 0.0f ? mainAxisLineColor : ((int32_t)z % 10 == 0 ? darkLineColor : lineColor));
+
+		Renderer::DrawLine({ -distance + xOffset * 4.0f, 0.0f, z },
+			{ distance + xOffset * 4.0f, 0.0f, z }, color);
+	}
+	Renderer::SceneEnd();
 
 	// Render selected entity outline
 	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())
