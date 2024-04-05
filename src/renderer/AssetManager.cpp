@@ -7,6 +7,9 @@ int32_t AssetManager::s_LastMeshID = 0;
 std::unordered_map<int32_t, std::shared_ptr<Texture>> AssetManager::s_Textures;
 int32_t AssetManager::s_LastTextureID = 0;
 
+std::unordered_map<int32_t, Material> AssetManager::s_Materials;
+int32_t AssetManager::s_LastMaterialID = 0;
+
 int32_t AssetManager::AddMesh(Mesh& mesh)
 {
 	for (const auto& [key, val] : s_Meshes)
@@ -150,3 +153,75 @@ bool AssetManager::RemoveTexture(std::shared_ptr<Texture> texture)
 	int32_t id = TextureID(texture);
 	return RemoveTexture(id);
 }
+
+int32_t AssetManager::AddMaterial(Material& material)
+{
+	for (const auto& [key, val] : s_Materials)
+	{
+		if (&val == &material)
+		{
+			return key;
+		}
+	}
+
+	s_LastMaterialID++;
+	s_Materials.insert({ s_LastMaterialID, material });
+	return s_LastMaterialID;
+}
+
+int32_t AssetManager::AddMaterial(Material& material, int32_t id)
+{
+	for (const auto& [key, val] : s_Materials)
+	{
+		if (&val == &material)
+		{
+			return key;
+		}
+	}
+
+	s_LastMaterialID = id;
+	s_Materials.insert({ id, material });
+	return s_LastMaterialID;
+}
+
+const std::unordered_map<int32_t, Material>& AssetManager::AllMaterials()
+{
+	return s_Materials;
+}
+
+Material& AssetManager::GetMaterial(int32_t id)
+{
+	assert(s_Materials.contains(id) && "Trying to access non-existing material");
+	return s_Materials[id];
+}
+
+int32_t AssetManager::MaterialID(Material& material)
+{
+	for (const auto& [key, val] : s_Materials)
+	{
+		if (&val == &material)
+		{
+			return key;
+		}
+	}
+
+	assert(false && "Material doesn't exist");
+}
+
+bool AssetManager::RemoveMaterial(int32_t id)
+{
+	if (!s_Materials.contains(id))
+	{
+		return false;
+	}
+
+	s_Textures.erase(id);
+	return true;
+}
+
+bool AssetManager::RemoveMaterial(Material& material)
+{
+	int32_t id = MaterialID(material);
+	return RemoveMaterial(id);
+}
+

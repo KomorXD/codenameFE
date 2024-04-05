@@ -50,18 +50,21 @@ EditorLayer::EditorLayer()
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
 
+	Material mat{};
+	mat.AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
 	Entity nothing = m_Scene.SpawnEntity("Nothing");
 	nothing.GetComponent<TransformComponent>().Position = { 0.0f, 2.0f, 0.0f };
 	nothing.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-	nothing.AddComponent<MaterialComponent>().AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
+	nothing.AddComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(mat);
 	nothing.AddComponent<PointLightComponent>();
 
+	mat.AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall.jpg"));
+	mat.NormalTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall_normal.jpg"));
+	mat.TilingFactor = { 20.0f, 20.0f };
 	Entity ground = m_Scene.SpawnEntity("Ground");
 	ground.GetComponent<TransformComponent>().Scale = { 50.0f, 0.1f, 50.0f };
 	ground.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-	ground.AddComponent<MaterialComponent>().AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall.jpg"));
-	ground.GetComponent<MaterialComponent>().NormalTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall_normal.jpg"));
-	ground.GetComponent<MaterialComponent>().TilingFactor = { 20.0f, 20.0f };
+	ground.AddComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(mat);
 }
 
 void EditorLayer::OnAttach()
@@ -329,29 +332,30 @@ void EditorLayer::RenderViewport()
 
 	// Grid
 	constexpr float distance = 100.0f;
+	constexpr float offset = 2.0f;
 	constexpr glm::vec4 lineColor(glm::vec3(0.22f), 1.0f);
 	constexpr glm::vec4 darkLineColor(glm::vec3(0.11f), 1.0f);
 	constexpr glm::vec4 mainAxisLineColor(0.98f, 0.24f, 0.0f, 1.0f);
 	glm::vec3 cameraPos = m_EditorCamera.Position;
-	int32_t xOffset = cameraPos.x / 4;
-	int32_t zOffset = cameraPos.z / 4;
+	int32_t xOffset = cameraPos.x / (int32_t)offset;
+	int32_t zOffset = cameraPos.z / (int32_t)offset;
 
 	Renderer::SceneBegin(m_EditorCamera);
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
-	for (float x = -distance + xOffset * 4.0f; x <= distance + xOffset * 4.0f; x += 4.0f)
+	for (float x = -distance + xOffset * offset; x <= distance + xOffset * offset; x += offset)
 	{
 		glm::vec4 color = (x == 0.0f ? mainAxisLineColor : ((int32_t)x % 10 == 0 ? darkLineColor : lineColor));
 
-		Renderer::DrawLine({ x, 0.0f, -distance + zOffset * 4.0f },
-			{ x, 0.0f, distance + zOffset * 4.0f }, color);
+		Renderer::DrawLine({ x, 0.0f, -distance + zOffset * offset },
+			{ x, 0.0f, distance + zOffset * offset }, color);
 	}
 
-	for (float z = -distance + zOffset * 4.0f; z <= distance + zOffset * 4.0f; z += 4.0f)
+	for (float z = -distance + zOffset * offset; z <= distance + zOffset * offset; z += offset)
 	{
 		glm::vec4 color = (z == 0.0f ? mainAxisLineColor : ((int32_t)z % 10 == 0 ? darkLineColor : lineColor));
 
-		Renderer::DrawLine({ -distance + xOffset * 4.0f, 0.0f, z },
-			{ distance + xOffset * 4.0f, 0.0f, z }, color);
+		Renderer::DrawLine({ -distance + xOffset * offset, 0.0f, z },
+			{ distance + xOffset * offset, 0.0f, z }, color);
 	}
 	Renderer::SceneEnd();
 
@@ -360,9 +364,9 @@ void EditorLayer::RenderViewport()
 	{
 		TransformComponent transform = m_SelectedEntity.GetComponent<TransformComponent>();
 		MeshComponent mesh = m_SelectedEntity.GetComponent<MeshComponent>();
-		MaterialComponent material{};
+		Material material{};
 
-		transform.Scale += 0.2f;
+		transform.Scale += 0.1f;
 		material.Color = { 0.98f, 0.24f, 0.0f, 1.0f };
 		material.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
 
@@ -434,13 +438,13 @@ void EditorLayer::RenderEntityData()
 		if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::Indent(16.0f);
-			if (ImGui::BeginCombo("##MeshCombo", AssetManager::GetMesh(mesh.MeshID).MeshName.c_str()))
+			if (ImGui::BeginCombo("##MeshCombo", AssetManager::GetMesh(mesh.MeshID).Name.c_str()))
 			{
 				const std::unordered_map<int32_t, Mesh>& meshes = AssetManager::AllMeshes();
 
 				for (const auto& [id, meshData] : meshes)
 				{
-					if (ImGui::Selectable(meshData.MeshName.c_str(), id == mesh.MeshID))
+					if (ImGui::Selectable(meshData.Name.c_str(), id == mesh.MeshID))
 					{
 						mesh.MeshID = id;
 					}
@@ -463,7 +467,7 @@ void EditorLayer::RenderEntityData()
 	ImGui::PushID(3);
 	if (m_SelectedEntity.HasComponent<MaterialComponent>())
 	{
-		MaterialComponent& material = m_SelectedEntity.GetComponent<MaterialComponent>();
+		Material& material = AssetManager::GetMaterial(m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID);
 
 		if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
 		{

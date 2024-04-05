@@ -219,7 +219,7 @@ void Renderer::Init()
 		SCOPE_PROFILE("Quad mesh init");
 
 		Mesh quadMesh = GenerateMeshData(QuadMeshData());
-		quadMesh.MeshName = "Quad";
+		quadMesh.Name = "Quad";
 
 		int32_t meshID = AssetManager::AddMesh(quadMesh, AssetManager::MESH_PLANE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
@@ -229,7 +229,7 @@ void Renderer::Init()
 		SCOPE_PROFILE("Cube mesh init");
 
 		Mesh cubeMesh = GenerateMeshData(CubeMeshData());
-		cubeMesh.MeshName = "Cube";
+		cubeMesh.Name = "Cube";
 
 		int32_t meshID = AssetManager::AddMesh(cubeMesh, AssetManager::MESH_CUBE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
@@ -239,7 +239,7 @@ void Renderer::Init()
 		SCOPE_PROFILE("Sphere mesh init");
 
 		Mesh sphereMesh = GenerateMeshData(SphereMeshData());
-		sphereMesh.MeshName = "Sphere";
+		sphereMesh.Name = "Sphere";
 
 		int32_t meshID = AssetManager::AddMesh(sphereMesh, AssetManager::MESH_SPHERE);
 		s_Data.MeshesData[meshID].Instances.reserve(s_Data.MaxInstancesOfType);
@@ -316,6 +316,12 @@ void Renderer::Init()
 		uint8_t normalPixel[] = { 127, 127, 255, 255 };
 		std::shared_ptr<Texture> defaultNormal = std::make_shared<Texture>(normalPixel, 1, 1, "Default normal");
 		AssetManager::AddTexture(defaultNormal, AssetManager::TEXTURE_NORMAL);
+
+		Material mat{};
+		mat.Name = "Default material";
+		mat.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
+		mat.NormalTextureID = AssetManager::TEXTURE_NORMAL;
+		AssetManager::AddMaterial(mat, AssetManager::MATERIAL_DEFAULT);
 
 		s_Data.CurrentShader = s_Data.DefaultShader;
 	}
@@ -449,13 +455,13 @@ void Renderer::DrawCube(const glm::mat4& transform, const glm::vec4& color)
 	MeshComponent mesh;
 	mesh.MeshID = AssetManager::MESH_CUBE;
 
-	MaterialComponent material;
+	Material material;
 	material.Color = color;
 
 	SubmitMesh(transform, mesh, material, 0);
 }
 
-void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const MaterialComponent& material, int32_t entityID)
+void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const Material& material, int32_t entityID)
 {
 	if (s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount >= s_Data.MaxInstancesOfType
 		|| s_Data.InstancesCount >= s_Data.MaxInstances

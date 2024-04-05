@@ -59,7 +59,12 @@ void Scene::Render(Camera& editorCamera)
 		for (entt::entity entity : view)
 		{
 			auto[transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
-			Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)entity);
+			Renderer::SubmitMesh(
+				transform.ToMat4(),
+				mesh,
+				AssetManager::GetMaterial(material.MaterialID),
+				(int32_t)entity
+			);
 		}
 	}
 
@@ -73,8 +78,10 @@ void Scene::Render(Camera& editorCamera)
 		for (entt::entity entity : view)
 		{
 			auto [transform, mesh, material, light] = view.get<TransformComponent, MeshComponent, MaterialComponent, DirectionalLightComponent>(entity);
-			MaterialComponent intensified = material;
-			intensified.Color = glm::vec4(glm::vec3(material.Color * light.Intensity), 1.0f);
+			Material& mat = AssetManager::GetMaterial(material.MaterialID);
+			Material intensified = mat;
+			
+			intensified.Color = glm::vec4(glm::vec3(mat.Color * light.Intensity), 1.0f);
 			Renderer::SubmitMesh(transform.ToMat4(), mesh, intensified, (int32_t)entity);
 		}
 	}
@@ -83,8 +90,10 @@ void Scene::Render(Camera& editorCamera)
 		for (entt::entity entity : view)
 		{
 			auto [transform, mesh, material, light] = view.get<TransformComponent, MeshComponent, MaterialComponent, PointLightComponent>(entity);
-			MaterialComponent intensified = material;
-			intensified.Color = glm::vec4(glm::vec3(material.Color * light.Intensity), 1.0f);
+			Material& mat = AssetManager::GetMaterial(material.MaterialID);
+			Material intensified = mat;
+
+			intensified.Color = glm::vec4(glm::vec3(mat.Color * light.Intensity), 1.0f);
 			Renderer::SubmitMesh(transform.ToMat4(), mesh, intensified, (int32_t)entity);
 		}
 	}
@@ -93,8 +102,10 @@ void Scene::Render(Camera& editorCamera)
 		for (entt::entity entity : view)
 		{
 			auto [transform, mesh, material, light] = view.get<TransformComponent, MeshComponent, MaterialComponent, SpotLightComponent>(entity);
-			MaterialComponent intensified = material;
-			intensified.Color = glm::vec4(glm::vec3(material.Color * light.Intensity), 1.0f);
+			Material& mat = AssetManager::GetMaterial(material.MaterialID);
+			Material intensified = mat;
+
+			intensified.Color = glm::vec4(glm::vec3(mat.Color * light.Intensity), 1.0f);
 			Renderer::SubmitMesh(transform.ToMat4(), mesh, intensified, (int32_t)entity);
 		}
 	}
