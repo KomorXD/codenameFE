@@ -218,6 +218,7 @@ public:
 	void BlitBuffers(uint32_t sourceAttachmentIndex, uint32_t targetAttachmentID, const Framebuffer& target) const;
 
 	void AddColorAttachment(GLenum format);
+	void FillDrawBuffers();
 	void BindColorAttachment(uint32_t attachmentIndex = 0) const;
 	void UnbindColorAttachment() const;
 	void ClearColorAttachment(uint32_t attachmentIndex) const;

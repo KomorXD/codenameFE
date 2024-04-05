@@ -686,6 +686,12 @@ void Framebuffer::AddColorAttachment(GLenum format)
 	}
 }
 
+void Framebuffer::FillDrawBuffers()
+{
+	GLenum buffers[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+	GLCall(glDrawBuffers(m_ColorAttachments.size(), buffers));
+}
+
 void Framebuffer::BindColorAttachment(uint32_t slot) const
 {
 	assert(slot < m_ColorAttachments.size() && "Trying to access color attachment out of bounds.");
