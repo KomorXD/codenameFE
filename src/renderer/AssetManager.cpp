@@ -215,7 +215,7 @@ bool AssetManager::RemoveMaterial(int32_t id)
 		return false;
 	}
 
-	s_Textures.erase(id);
+	s_Materials.erase(id);
 	return true;
 }
 

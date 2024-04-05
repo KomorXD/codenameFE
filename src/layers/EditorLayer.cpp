@@ -51,6 +51,7 @@ EditorLayer::EditorLayer()
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
 
 	Material mat{};
+	mat.Name = "Glass material";
 	mat.AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
 	Entity nothing = m_Scene.SpawnEntity("Nothing");
 	nothing.GetComponent<TransformComponent>().Position = { 0.0f, 2.0f, 0.0f };
@@ -58,6 +59,7 @@ EditorLayer::EditorLayer()
 	nothing.AddComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(mat);
 	nothing.AddComponent<PointLightComponent>();
 
+	mat.Name = "Brickwall material";
 	mat.AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall.jpg"));
 	mat.NormalTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall_normal.jpg"));
 	mat.TilingFactor = { 20.0f, 20.0f };
@@ -213,7 +215,7 @@ void EditorLayer::RenderScenePanel()
 
 	if (ImGui::Button("Material editor"))
 	{
-		Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>());
+		Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities));
 	}
 
 	if (ImGui::BeginPopup("new_entity_group"))
@@ -471,6 +473,19 @@ void EditorLayer::RenderEntityData()
 
 		if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			if (ImGui::BeginCombo("##Material", material.Name.c_str()))
+			{
+				for (const auto& [id, mat] : AssetManager::AllMaterials())
+				{
+					if (ImGui::Selectable(mat.Name.c_str(), id == m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID))
+					{
+						m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID = id;
+					}
+				}
+
+				ImGui::EndCombo();
+			}
+
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
 			ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
