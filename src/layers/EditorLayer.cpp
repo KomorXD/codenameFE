@@ -43,13 +43,6 @@ EditorLayer::EditorLayer()
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->Unbind();
 
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/arrow.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/cbbl.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/plank.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/sand.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/grass.jpg"));
-
 	Material mat{};
 	mat.Name = "Glass material";
 	mat.AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
