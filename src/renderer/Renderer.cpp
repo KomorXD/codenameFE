@@ -48,12 +48,7 @@ struct LineVertex
 struct MeshInstance
 {
 	glm::mat4 Transform;
-	glm::vec4 Color;
-	glm::vec2 TilingFactor;
-	glm::vec2 TextureOffset;
-
-	float TextureSlot;
-	float NormalTextureSlot;
+	float MaterialSlot;
 	float EntityID;
 };
 
@@ -85,6 +80,40 @@ struct SpotLightBufferData
 	glm::vec3 Padding;
 };
 
+struct MaterialsBufferData
+{
+	glm::vec4 Color;
+	glm::vec2 TilingFactor;
+	glm::vec2 TextureOffset;
+	float Shininess;
+	int32_t AlbedoTextureID;
+	int32_t NormalTextureID;
+	float Padding;
+};
+
+static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& rhs)
+{
+	return lhs.Color == rhs.Color
+		&& lhs.TilingFactor == rhs.TilingFactor
+		&& lhs.TextureOffset == rhs.TextureOffset
+		&& lhs.Shininess == rhs.Shininess
+		&& lhs.AlbedoTextureID == rhs.AlbedoTextureID
+		&& lhs.NormalTextureID == rhs.NormalTextureID;
+}
+
+static MaterialsBufferData MaterialToBuffer(const Material& material)
+{
+	return {
+		.Color = material.Color,
+		.TilingFactor = material.TilingFactor,
+		.TextureOffset = material.TextureOffset,
+		.Shininess = material.Shininess,
+		.AlbedoTextureID = material.AlbedoTextureID,
+		.NormalTextureID = material.NormalTextureID,
+		.Padding = 0.0f
+	};
+}
+
 struct RendererData
 {
 	static constexpr uint32_t MaxQuads	   = 5000;
@@ -112,10 +141,12 @@ struct RendererData
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
 	std::shared_ptr<UniformBuffer> LightsBuffer;
+	std::shared_ptr<UniformBuffer> MaterialsBuffer;
 
 	std::vector<DirLightBufferData>	  DirLightsData;
 	std::vector<PointLightBufferData> PointLightsData;
 	std::vector<SpotLightBufferData>  SpotLightsData;
+	std::vector<MaterialsBufferData>  MaterialsData;
 
 	uint32_t BoundTexturesCount = 1;
 	std::array<int32_t, 24> TextureBindings;
@@ -175,12 +206,8 @@ static Mesh GenerateMeshData(VertexData vertexData)
 	layout.Push<float>(4); // 6  Transform
 	layout.Push<float>(4); // 7  Transform
 	layout.Push<float>(4); // 8  Transform
-	layout.Push<float>(4); // 9  Color
-	layout.Push<float>(2); // 10 Tiling factor
-	layout.Push<float>(2); // 11 Texture offset
-	layout.Push<float>(1); // 12 Texture slot
-	layout.Push<float>(1); // 13 Normal texture slot
-	layout.Push<float>(1); // 14 Entity ID
+	layout.Push<float>(1); // 9  Material slot
+	layout.Push<float>(1); // 10 Entity ID
 	mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
 	mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 5);
 	mesh.VAO->Unbind();
@@ -297,6 +324,9 @@ void Renderer::Init()
 			3 * sizeof(int32_t) + 128 * (sizeof(DirLightBufferData) + sizeof(PointLightBufferData) + sizeof(SpotLightBufferData)));
 		s_Data.LightsBuffer->BindBufferRange(1, 0,
 			3 * sizeof(int32_t) + 128 * (sizeof(DirLightBufferData) + sizeof(PointLightBufferData) + sizeof(SpotLightBufferData)));
+
+		s_Data.MaterialsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(MaterialsBufferData));
+		s_Data.MaterialsBuffer->BindBufferRange(2, 0, 128 * sizeof(MaterialsBufferData));
 	}
 
 	{
@@ -393,6 +423,9 @@ void Renderer::Flush()
 	count = s_Data.SpotLightsData.size();
 	s_Data.LightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
+	s_Data.MaterialsBuffer->Bind();
+	s_Data.MaterialsBuffer->SetData(s_Data.MaterialsData.data(), s_Data.MaterialsData.size() * sizeof(MaterialsBufferData));
+
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
 		GLCall(glActiveTexture(GL_TEXTURE0 + i));
@@ -465,7 +498,8 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 {
 	if (s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount >= s_Data.MaxInstancesOfType
 		|| s_Data.InstancesCount >= s_Data.MaxInstances
-		|| s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1)
+		|| s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1
+		|| s_Data.MaterialsData.size() >= 127)
 	{
 		NextBatch();
 	}
@@ -473,9 +507,6 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	std::vector<MeshInstance>& instances = s_Data.MeshesData[mesh.MeshID].Instances;
 	MeshInstance& instance = instances.emplace_back();
 	instance.Transform = transform;
-	instance.Color = material.Color;
-	instance.TilingFactor = material.TilingFactor;
-	instance.TextureOffset = material.TextureOffset;
 	instance.EntityID = (float)entityID + 1.0f;
 	
 	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;
@@ -483,41 +514,57 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 
 	std::shared_ptr<Texture> albedo = AssetManager::GetTexture(material.AlbedoTextureID);
 	std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
-	int32_t duplicateAlbedoIdx = -1;
-	int32_t duplicateNormalIdx = -1;
+
+	int32_t albedoIdx = -1;
+	int32_t normalIdx = -1;
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
 		if (s_Data.TextureBindings[i] == albedo->GetID())
 		{
-			duplicateAlbedoIdx = i;
+			albedoIdx = i;
 		}
 
 		if (s_Data.TextureBindings[i] == normal->GetID())
 		{
-			duplicateNormalIdx = i;
+			normalIdx = i;
 		}
 	}
 
-	if (duplicateAlbedoIdx != -1)
-	{
-		instance.TextureSlot = (float)duplicateAlbedoIdx;
-	}
-	else
+	if(albedoIdx == -1)
 	{
 		s_Data.TextureBindings[s_Data.BoundTexturesCount] = albedo->GetID();
-		instance.TextureSlot = (float)s_Data.BoundTexturesCount;
+		albedoIdx = s_Data.BoundTexturesCount;
 		++s_Data.BoundTexturesCount;
 	}
 
-	if (duplicateNormalIdx != -1)
+	if (normalIdx == -1)
 	{
-		instance.NormalTextureSlot = (float)duplicateNormalIdx;
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = normal->GetID();
+		normalIdx = s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
+	int32_t materialIdx = -1;
+	for (int32_t i = 0; i < s_Data.MaterialsData.size(); i++)
+	{
+		bool sameTextures = s_Data.MaterialsData[i].AlbedoTextureID == albedoIdx && s_Data.MaterialsData[i].NormalTextureID;
+		if (MaterialToBufferCmp(material, s_Data.MaterialsData[i]) && sameTextures)
+		{
+			materialIdx = i;
+			break;
+		}
+	}
+
+	if (materialIdx == -1)
+	{
+		instance.MaterialSlot = (float)s_Data.MaterialsData.size();
+		s_Data.MaterialsData.push_back(MaterialToBuffer(material));
+		s_Data.MaterialsData.back().AlbedoTextureID = albedoIdx;
+		s_Data.MaterialsData.back().NormalTextureID = normalIdx;
 	}
 	else
 	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = normal->GetID();
-		instance.NormalTextureSlot = (float)s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
+		instance.MaterialSlot = (float)materialIdx;
 	}
 }
 
@@ -660,6 +707,7 @@ void Renderer::StartBatch()
 	s_Data.DirLightsData.clear();
 	s_Data.PointLightsData.clear();
 	s_Data.SpotLightsData.clear();
+	s_Data.MaterialsData.clear();
 
 	s_Data.BoundTexturesCount = 1;
 }

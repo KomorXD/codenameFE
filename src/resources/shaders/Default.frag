@@ -23,14 +23,23 @@ struct SpotLight
 	vec4 quadraticTerm;
 };
 
+struct Material
+{
+	vec4  color;
+	vec2  tilingFactor;
+	vec2  texOffset;
+	float shininess;
+	int   albedoTextureSlot;
+	int   normalTextureSlot;
+	float padding;
+};
+
 in VS_OUT
 {
 	vec3 worldPos;
 	mat3 TBN;
-	vec4 color;
 	vec2 textureUV;
-	flat float textureSlot;
-	flat float normalTextureSlot;
+	flat float materialSlot;
 	flat float entityID;
 } fs_in;
 
@@ -44,6 +53,11 @@ layout(std140, binding = 1) uniform Lights
 	int pointLightsCount;
 	int spotLightsCount;
 } lights;
+
+layout(std140, binding = 2) uniform Materials
+{
+	Material materialsData[128];
+} materials;
 
 uniform vec3 u_ViewPos = vec3(0.0);
 uniform bool u_IsLightSource = false;
@@ -61,10 +75,9 @@ void main()
 	float b = float(bInt) / 255.0;
 	gPicker = vec4(r, g, b, 1.0);
 
-	int albedoSlot = int(fs_in.textureSlot);
-	int normalSlot = int(fs_in.normalTextureSlot);
-	vec4 diffuseColor = texture(u_Textures[albedoSlot], fs_in.textureUV) * fs_in.color;
-	vec3 normal = texture(u_Textures[normalSlot], fs_in.textureUV).rgb;
+	Material mat = materials.materialsData[int(fs_in.materialSlot)];
+	vec4 diffuseColor = texture(u_Textures[mat.albedoTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset) * mat.color;
+	vec3 normal = texture(u_Textures[mat.normalTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).rgb;
 	normal = normal * 2.0 - 1.0;
 	normal = normalize(fs_in.TBN * normal);
 	
@@ -104,7 +117,7 @@ void main()
 		vec3 halfway = normalize(lightDir + viewDir);
 
 		totalDiffuse += max(dot(normal, lightDir), 0.0) * color * attenuation * step(0.0, dot(normal, lightDir));
-		totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * color * attenuation * step(0.0, dot(normal, lightDir));
+		totalSpecular += pow(max(dot(normal, halfway), 0.0), mat.shininess) * color * attenuation * step(0.0, dot(normal, lightDir));
 	}
 
 	for(int i = 0; i < lights.spotLightsCount; i++)
@@ -132,7 +145,7 @@ void main()
 			vec3 halfway = normalize(lightDir + viewDir);
 
 			totalDiffuse += max(dot(normal, lightDir), 0.0) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
-			totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
+			totalSpecular += pow(max(dot(normal, halfway), 0.0), mat.shininess) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
 		}
 	}
 
