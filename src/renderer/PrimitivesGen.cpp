@@ -139,7 +139,7 @@ VertexData SphereMeshData()
 			vertex.Position = vertex.Normal = RADIUS * glm::vec3(cosTheta * sinPhi, cosPhi, sinTheta * sinPhi);
 			vertex.Tangent = glm::normalize(glm::vec3(-sinTheta, 0.0f, cosTheta));
 			vertex.Bitangent = glm::normalize(glm::cross(vertex.Normal, vertex.Tangent));
-			vertex.TextureUV = { (float)slice / slices, (float)stack / stacks };
+			vertex.TextureUV = { (float)slice / slices, 1.0f - (float)stack / stacks };
 			vertices.push_back(vertex);
 		}
 	}

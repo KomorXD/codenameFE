@@ -70,7 +70,7 @@ void main()
 	
 	if(diffuseColor.a == 0.0)
 	{
-		return;
+		discard;
 	}
 
 	if(u_IsLightSource)
