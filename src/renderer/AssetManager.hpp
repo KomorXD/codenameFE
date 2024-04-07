@@ -32,8 +32,8 @@ class AssetManager
 public:
 	static void ClearAssets();
 
-	static int32_t AddMesh(Mesh& mesh);
-	static int32_t AddMesh(Mesh& mesh, int32_t id);
+	static int32_t AddMesh(Mesh mesh);
+	static int32_t AddMesh(Mesh mesh, int32_t id);
 
 	static const std::unordered_map<int32_t, Mesh>& AllMeshes();
 	static Mesh& GetMesh(int32_t id);
@@ -63,8 +63,8 @@ public:
 	static constexpr int32_t TEXTURE_NORMAL = 2;
 
 
-	static int32_t AddMaterial(Material& material);
-	static int32_t AddMaterial(Material& material, int32_t id);
+	static int32_t AddMaterial(Material material);
+	static int32_t AddMaterial(Material material, int32_t id);
 
 	static const std::unordered_map<int32_t, Material>& AllMaterials();
 	static Material& GetMaterial(int32_t id);

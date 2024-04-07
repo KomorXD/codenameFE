@@ -17,32 +17,16 @@ void AssetManager::ClearAssets()
 	ClearMaterials();
 }
 
-int32_t AssetManager::AddMesh(Mesh& mesh)
+int32_t AssetManager::AddMesh(Mesh mesh)
 {
-	for (const auto& [key, val] : s_Meshes)
-	{
-		if (val == mesh)
-		{
-			return key;
-		}
-	}
-
 	s_LastMeshID++;
 	s_Meshes.insert({ s_LastMeshID, mesh });
 	return s_LastMeshID;
 }
 
-int32_t AssetManager::AddMesh(Mesh& mesh, int32_t id)
+int32_t AssetManager::AddMesh(Mesh mesh, int32_t id)
 {
 	ASSERT(!s_Meshes.contains(id) && "Cannot override existing mesh");
-
-	for (const auto& [key, val] : s_Meshes)
-	{
-		if (val == mesh)
-		{
-			return key;
-		}
-	}
 
 	s_LastMeshID = id;
 	s_Meshes.insert({ id, mesh });
@@ -64,13 +48,13 @@ int32_t AssetManager::MeshID(Mesh& mesh)
 {
 	for (const auto& [key, val] : s_Meshes)
 	{
-		if (val == mesh)
+		if (&val == &mesh)
 		{
 			return key;
 		}
 	}
 
-	assert(false && "Mesh doesn't exist");
+	assert(false && "Mesh reference doesn't exist in assets");
 }
 
 void AssetManager::ClearMeshes()
@@ -146,7 +130,7 @@ int32_t AssetManager::TextureID(std::shared_ptr<Texture> texture)
 		}
 	}
 
-	assert(false && "Texture doesn't exist");
+	assert(false && "Texture reference doesn't exist in assets");
 }
 
 void AssetManager::ClearTextures()
@@ -171,31 +155,15 @@ bool AssetManager::RemoveTexture(std::shared_ptr<Texture> texture)
 	return RemoveTexture(id);
 }
 
-int32_t AssetManager::AddMaterial(Material& material)
+int32_t AssetManager::AddMaterial(Material material)
 {
-	for (const auto& [key, val] : s_Materials)
-	{
-		if (&val == &material)
-		{
-			return key;
-		}
-	}
-
 	s_LastMaterialID++;
 	s_Materials.insert({ s_LastMaterialID, material });
 	return s_LastMaterialID;
 }
 
-int32_t AssetManager::AddMaterial(Material& material, int32_t id)
+int32_t AssetManager::AddMaterial(Material material, int32_t id)
 {
-	for (const auto& [key, val] : s_Materials)
-	{
-		if (&val == &material)
-		{
-			return key;
-		}
-	}
-
 	s_LastMaterialID = id;
 	s_Materials.insert({ id, material });
 	return s_LastMaterialID;
@@ -222,7 +190,7 @@ int32_t AssetManager::MaterialID(Material& material)
 		}
 	}
 
-	assert(false && "Material doesn't exist");
+	assert(false && "Material reference doesn't exist in assets");
 }
 
 void AssetManager::ClearMaterials()
