@@ -226,7 +226,7 @@ void EditorLayer::RenderScenePanel()
 		if (ImGui::Button("Plane", { width, height }))
 		{
 			m_SelectedEntity = m_Scene.SpawnEntity("Plane");
-			m_SelectedEntity.GetComponent<TransformComponent>().Rotation = { glm::radians(-90.0f), 0.0f, 0.0f };
+			m_SelectedEntity.GetComponent<TransformComponent>().Rotation = { glm::half_pi<float>(), 0.0f, 0.0f};
 			m_SelectedEntity.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_PLANE;
 			m_SelectedEntity.AddComponent<MaterialComponent>();
 			ImGui::CloseCurrentPopup();
