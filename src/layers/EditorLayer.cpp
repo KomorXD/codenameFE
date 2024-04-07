@@ -479,6 +479,13 @@ void EditorLayer::RenderEntityData()
 				ImGui::EndCombo();
 			}
 
+			ImGui::SameLine();
+
+			if (ImGui::Button("Edit material"))
+			{
+				Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID));
+			}
+
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
 			ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);

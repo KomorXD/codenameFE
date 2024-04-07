@@ -47,9 +47,15 @@ MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities)
 
 	m_Camera.SetControls(std::make_unique<OrbitalControls>(&m_Camera, &m_SphereEnt.GetComponent<TransformComponent>().Position));
 
-	Entity lightSource = m_Scene.SpawnEntity("Light source");
-	lightSource.GetComponent<TransformComponent>().Position = { -1.5f, 1.5f, -2.0f };
-	lightSource.AddComponent<PointLightComponent>();
+	m_LightEnt = m_Scene.SpawnEntity("Light source");
+	m_LightEnt.GetComponent<TransformComponent>().Position = { -1.5f, 1.5f, -2.0f };
+	m_LightEnt.AddComponent<PointLightComponent>();
+}
+
+MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities, int32_t materialID)
+	: MaterialEditLayer(mainEntities)
+{
+	m_SphereEnt.GetComponent<MaterialComponent>().MaterialID = materialID;
 }
 
 void MaterialEditLayer::OnAttach()
@@ -142,10 +148,10 @@ void MaterialEditLayer::RenderPanel()
 
 	int32_t entityMatID = m_SphereEnt.GetComponent<MaterialComponent>().MaterialID;
 	ImVec2 avSpace = ImGui::GetContentRegionAvail();
+	ImGui::NewLine();
 	ImGui::Text("Registered materials");
 	ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
 
-	ImGui::NewLine();
 	ImGui::BeginChild("Materials", ImVec2(avSpace.x, avSpace.y / 5.0f), true);
 	for (const auto& [id, mat] : AssetManager::AllMaterials())
 	{
@@ -160,10 +166,21 @@ void MaterialEditLayer::RenderPanel()
 	ImGui::PopStyleColor();
 	ImGui::NewLine();
 
-	if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen))
+	if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
+		ImGui::Text("Environment");
 		ImGui::ColorEdit3("Sky color", glm::value_ptr(m_BgColor));
+		ImGui::NewLine();
+
+		TransformComponent& tc = m_LightEnt.GetComponent<TransformComponent>();
+		PointLightComponent& plc = m_LightEnt.GetComponent<PointLightComponent>();
+		ImGui::Text("Light");
+		ImGui::DragFloat3("Position", glm::value_ptr(tc.Position), 0.05f);
+		ImGui::ColorEdit3("Color", glm::value_ptr(plc.Color), ImGuiColorEditFlags_NoInputs);
+		ImGui::DragFloat("Intensity", &plc.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
+		ImGui::DragFloat("Linear attenuation", &plc.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
+		ImGui::DragFloat("Quadratic attenuation", &plc.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
 		ImGui::Unindent(16.0f);
 	}
 
@@ -183,9 +200,8 @@ void MaterialEditLayer::RenderPanel()
 		ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
 		ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
-		ImGui::Unindent(16.0f);
+		ImGui::NewLine();
 		ImGui::Text("Texture settings");
-		ImGui::Indent(16.0f);
 
 		std::shared_ptr<Texture> tex = AssetManager::GetTexture(material.AlbedoTextureID);
 		std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
