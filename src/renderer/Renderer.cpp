@@ -88,7 +88,7 @@ struct MaterialsBufferData
 	float Shininess;
 	int32_t AlbedoTextureID;
 	int32_t NormalTextureID;
-	float Padding;
+	int32_t SpecularTextureID;
 };
 
 static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& rhs)
@@ -98,7 +98,8 @@ static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& 
 		&& lhs.TextureOffset == rhs.TextureOffset
 		&& lhs.Shininess == rhs.Shininess
 		&& lhs.AlbedoTextureID == rhs.AlbedoTextureID
-		&& lhs.NormalTextureID == rhs.NormalTextureID;
+		&& lhs.NormalTextureID == rhs.NormalTextureID
+		&& lhs.SpecularTextureID == rhs.SpecularTextureID;
 }
 
 static MaterialsBufferData MaterialToBuffer(const Material& material)
@@ -110,7 +111,7 @@ static MaterialsBufferData MaterialToBuffer(const Material& material)
 		.Shininess = material.Shininess,
 		.AlbedoTextureID = material.AlbedoTextureID,
 		.NormalTextureID = material.NormalTextureID,
-		.Padding = 0.0f
+		.SpecularTextureID = material.SpecularTextureID
 	};
 }
 
@@ -525,11 +526,13 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;
 	s_Data.InstancesCount++;
 
-	std::shared_ptr<Texture> albedo = AssetManager::GetTexture(material.AlbedoTextureID);
-	std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
+	std::shared_ptr<Texture> albedo	  = AssetManager::GetTexture(material.AlbedoTextureID);
+	std::shared_ptr<Texture> normal	  = AssetManager::GetTexture(material.NormalTextureID);
+	std::shared_ptr<Texture> specular = AssetManager::GetTexture(material.SpecularTextureID);
 
-	int32_t albedoIdx = -1;
-	int32_t normalIdx = -1;
+	int32_t albedoIdx	= -1;
+	int32_t normalIdx	= -1;
+	int32_t specularIdx = -1;
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
 		if (s_Data.TextureBindings[i] == albedo->GetID())
@@ -540,6 +543,11 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 		if (s_Data.TextureBindings[i] == normal->GetID())
 		{
 			normalIdx = i;
+		}
+
+		if (s_Data.TextureBindings[i] == specular->GetID())
+		{
+			specularIdx = i;
 		}
 	}
 
@@ -554,6 +562,13 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	{
 		s_Data.TextureBindings[s_Data.BoundTexturesCount] = normal->GetID();
 		normalIdx = s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
+	if (specularIdx == -1)
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = specular->GetID();
+		specularIdx = s_Data.BoundTexturesCount;
 		++s_Data.BoundTexturesCount;
 	}
 
@@ -572,8 +587,9 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	{
 		instance.MaterialSlot = (float)s_Data.MaterialsData.size();
 		s_Data.MaterialsData.push_back(MaterialToBuffer(material));
-		s_Data.MaterialsData.back().AlbedoTextureID = albedoIdx;
-		s_Data.MaterialsData.back().NormalTextureID = normalIdx;
+		s_Data.MaterialsData.back().AlbedoTextureID	  = albedoIdx;
+		s_Data.MaterialsData.back().NormalTextureID	  = normalIdx;
+		s_Data.MaterialsData.back().SpecularTextureID = specularIdx;
 	}
 	else
 	{

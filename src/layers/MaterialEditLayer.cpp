@@ -264,7 +264,7 @@ void MaterialEditLayer::RenderPanel()
 
 		static int32_t* idOfInterest = nullptr;
 
-		if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		if (ImGui::ImageButton("##Albedo", (ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 		{
 			idOfInterest = &material.AlbedoTextureID;
 			ImGui::OpenPopup("available_textures_group");
@@ -272,9 +272,17 @@ void MaterialEditLayer::RenderPanel()
 
 		ImGui::SameLine();
 
-		if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.NormalTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		if (ImGui::ImageButton("##Normal", (ImTextureID)(AssetManager::GetTexture(material.NormalTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 		{
 			idOfInterest = &material.NormalTextureID;
+			ImGui::OpenPopup("available_textures_group");
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::ImageButton("##Specular", (ImTextureID)(AssetManager::GetTexture(material.SpecularTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		{
+			idOfInterest = &material.SpecularTextureID;
 			ImGui::OpenPopup("available_textures_group");
 		}
 

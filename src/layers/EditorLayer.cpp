@@ -43,6 +43,9 @@ EditorLayer::EditorLayer()
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->Unbind();
 
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/container_diffuse.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/container_specular.png"));
+
 	Material mat{};
 	mat.Name = "Glass material";
 	mat.AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
@@ -542,7 +545,7 @@ void EditorLayer::RenderEntityData()
 
 			static int32_t* idOfInterest = nullptr;
 
-			if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			if (ImGui::ImageButton("##Albedo", (ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
 			{
 				idOfInterest = &material.AlbedoTextureID;
 				ImGui::OpenPopup("available_textures_group");
@@ -550,9 +553,17 @@ void EditorLayer::RenderEntityData()
 
 			ImGui::SameLine();
 
-			if (ImGui::ImageButton((ImTextureID)(AssetManager::GetTexture(material.NormalTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			if (ImGui::ImageButton("##Normal", (ImTextureID)(AssetManager::GetTexture(material.NormalTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
 			{
 				idOfInterest = &material.NormalTextureID;
+				ImGui::OpenPopup("available_textures_group");
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::ImageButton("##Specular", (ImTextureID)(AssetManager::GetTexture(material.SpecularTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
+			{
+				idOfInterest = &material.SpecularTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
 

@@ -31,7 +31,7 @@ struct Material
 	float shininess;
 	int   albedoTextureSlot;
 	int   normalTextureSlot;
-	float padding;
+	int	  specularTextureSlot;
 };
 
 in VS_OUT
@@ -149,6 +149,7 @@ void main()
 		}
 	}
 
-	gDefault.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular) * diffuseColor.rgb;
+	float specularFactor = texture(u_Textures[mat.specularTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).r;
+	gDefault.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular * specularFactor) * diffuseColor.rgb;
 	gDefault.a = diffuseColor.a;
 }
