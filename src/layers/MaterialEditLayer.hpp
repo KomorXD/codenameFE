@@ -27,7 +27,7 @@ private:
 
 	Camera m_Camera;
 	Scene  m_Scene;
-	Entity m_SphereEnt;
+	Entity m_SampleEnt;
 	Entity m_LightEnt;
 	
 	std::vector<Entity>& m_MainEntities;

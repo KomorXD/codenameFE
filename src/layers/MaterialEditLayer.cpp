@@ -41,11 +41,11 @@ MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities)
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->Unbind();
 
-	m_SphereEnt = m_Scene.SpawnEntity("Sphere");
-	m_SphereEnt.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
-	m_SphereEnt.AddComponent<MaterialComponent>();
+	m_SampleEnt = m_Scene.SpawnEntity("Sphere");
+	m_SampleEnt.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
+	m_SampleEnt.AddComponent<MaterialComponent>();
 
-	m_Camera.SetControls(std::make_unique<OrbitalControls>(&m_Camera, &m_SphereEnt.GetComponent<TransformComponent>().Position));
+	m_Camera.SetControls(std::make_unique<OrbitalControls>(&m_Camera, &m_SampleEnt.GetComponent<TransformComponent>().Position));
 
 	m_LightEnt = m_Scene.SpawnEntity("Light source");
 	m_LightEnt.GetComponent<TransformComponent>().Position = { -1.5f, 1.5f, -2.0f };
@@ -55,7 +55,7 @@ MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities)
 MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities, int32_t materialID)
 	: MaterialEditLayer(mainEntities)
 {
-	m_SphereEnt.GetComponent<MaterialComponent>().MaterialID = materialID;
+	m_SampleEnt.GetComponent<MaterialComponent>().MaterialID = materialID;
 }
 
 void MaterialEditLayer::OnAttach()
@@ -146,7 +146,7 @@ void MaterialEditLayer::RenderPanel()
 		AssetManager::AddMaterial(mat);
 	}
 
-	int32_t entityMatID = m_SphereEnt.GetComponent<MaterialComponent>().MaterialID;
+	int32_t entityMatID = m_SampleEnt.GetComponent<MaterialComponent>().MaterialID;
 	ImVec2 avSpace = ImGui::GetContentRegionAvail();
 	ImGui::NewLine();
 	ImGui::Text("Registered materials");
@@ -158,7 +158,7 @@ void MaterialEditLayer::RenderPanel()
 		ImGui::PushID(id);
 		if (ImGui::Selectable(mat.Name.c_str(), entityMatID == id))
 		{
-			m_SphereEnt.GetComponent<MaterialComponent>().MaterialID = id;
+			m_SampleEnt.GetComponent<MaterialComponent>().MaterialID = id;
 		}
 		ImGui::PopID();
 	}
@@ -169,8 +169,25 @@ void MaterialEditLayer::RenderPanel()
 	if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
-		ImGui::Text("Environment");
+		ImGui::Text("General");
 		ImGui::ColorEdit3("Sky color", glm::value_ptr(m_BgColor));
+
+		MeshComponent& mc = m_SampleEnt.GetComponent<MeshComponent>();
+		if (ImGui::BeginCombo("##MeshCombo", AssetManager::GetMesh(mc.MeshID).Name.c_str()))
+		{
+			const std::unordered_map<int32_t, Mesh>& meshes = AssetManager::AllMeshes();
+
+			for (const auto& [id, meshData] : meshes)
+			{
+				if (ImGui::Selectable(meshData.Name.c_str(), id == mc.MeshID))
+				{
+					mc.MeshID = id;
+				}
+			}
+
+			ImGui::EndCombo();
+		}
+
 		ImGui::NewLine();
 
 		TransformComponent& tc = m_LightEnt.GetComponent<TransformComponent>();
@@ -290,7 +307,7 @@ void MaterialEditLayer::RenderPanel()
 		if (entityMatID != AssetManager::MATERIAL_DEFAULT && ImGui::Button("Remove material"))
 		{
 			AssetManager::RemoveMaterial(entityMatID);
-			m_SphereEnt.GetComponent<MaterialComponent>().MaterialID = AssetManager::MATERIAL_DEFAULT;
+			m_SampleEnt.GetComponent<MaterialComponent>().MaterialID = AssetManager::MATERIAL_DEFAULT;
 
 			for (Entity& ent : m_MainEntities)
 			{
