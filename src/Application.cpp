@@ -72,8 +72,15 @@ Application::Application(const WindowSpec& spec)
 
 Application::~Application()
 {
-	s_Instance = nullptr;
+	while (!m_Layers.empty())
+	{
+		m_Layers.pop();
+	}
+
+	AssetManager::ClearAssets();
 	Renderer::Shutdown();
+
+	s_Instance = nullptr;
 
 	if (m_Window)
 	{

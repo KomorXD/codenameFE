@@ -210,8 +210,6 @@ static Mesh GenerateMeshData(VertexData vertexData)
 	layout.Push<float>(1); // 10 Entity ID
 	mesh.InstanceBuffer = std::make_shared<VertexBuffer>(nullptr, s_Data.MaxInstancesOfType * sizeof(MeshInstance));
 	mesh.VAO->AddInstancedVertexBuffer(mesh.InstanceBuffer, layout, 5);
-	mesh.VAO->Unbind();
-	mesh.VBO->Unbind();
 
 	return mesh;
 }
@@ -273,6 +271,33 @@ void Renderer::Init()
 	}
 
 	{
+		SCOPE_PROFILE("Default shader init + default textures");
+
+		s_Data.DefaultShader = std::make_shared<Shader>("resources/shaders/Default.vert", "resources/shaders/Default.frag");
+		s_Data.DefaultShader->Bind();
+		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
+		{
+			s_Data.DefaultShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
+		}
+
+		uint8_t whitePixel[] = { 255, 255, 255, 255 };
+		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1, "Default");
+		AssetManager::AddTexture(defaultAlbedo, AssetManager::TEXTURE_WHITE);
+
+		uint8_t normalPixel[] = { 127, 127, 255, 255 };
+		std::shared_ptr<Texture> defaultNormal = std::make_shared<Texture>(normalPixel, 1, 1, "Default normal");
+		AssetManager::AddTexture(defaultNormal, AssetManager::TEXTURE_NORMAL);
+
+		Material mat{};
+		mat.Name = "Default material";
+		mat.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
+		mat.NormalTextureID = AssetManager::TEXTURE_NORMAL;
+		AssetManager::AddMaterial(mat, AssetManager::MATERIAL_DEFAULT);
+
+		s_Data.CurrentShader = s_Data.DefaultShader;
+	}
+
+	{
 		SCOPE_PROFILE("Screen quad init");
 
 		std::array<ScreenQuadVertex, 6> vertices =
@@ -328,38 +353,26 @@ void Renderer::Init()
 		s_Data.MaterialsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(MaterialsBufferData));
 		s_Data.MaterialsBuffer->BindBufferRange(2, 0, 128 * sizeof(MaterialsBufferData));
 	}
-
-	{
-		SCOPE_PROFILE("Other setup");
-
-		s_Data.DefaultShader = std::make_shared<Shader>("resources/shaders/Default.vert", "resources/shaders/Default.frag");
-		s_Data.DefaultShader->Bind();
-		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
-		{
-			s_Data.DefaultShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
-		}
-
-		uint8_t whitePixel[] = { 255, 255, 255, 255 };
-		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1, "Default");
-		AssetManager::AddTexture(defaultAlbedo, AssetManager::TEXTURE_WHITE);
-
-		uint8_t normalPixel[] = { 127, 127, 255, 255 };
-		std::shared_ptr<Texture> defaultNormal = std::make_shared<Texture>(normalPixel, 1, 1, "Default normal");
-		AssetManager::AddTexture(defaultNormal, AssetManager::TEXTURE_NORMAL);
-
-		Material mat{};
-		mat.Name = "Default material";
-		mat.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
-		mat.NormalTextureID = AssetManager::TEXTURE_NORMAL;
-		AssetManager::AddMaterial(mat, AssetManager::MATERIAL_DEFAULT);
-
-		s_Data.CurrentShader = s_Data.DefaultShader;
-	}
 }
 
 void Renderer::Shutdown()
 {
 	delete[] s_Data.LineBufferBase;
+
+	s_Data.ScreenQuadVertexArray = nullptr;
+	s_Data.ScreenQuadVertexBuffer = nullptr;
+	s_Data.ScreenQuadShader = nullptr;
+
+	s_Data.LineVertexArray = nullptr;
+	s_Data.LineVertexBuffer = nullptr;
+	s_Data.LineShader = nullptr;
+
+	s_Data.DefaultShader = nullptr;
+	s_Data.CurrentShader = nullptr;
+
+	s_Data.MatricesBuffer = nullptr;
+	s_Data.LightsBuffer = nullptr;
+	s_Data.MaterialsBuffer = nullptr;
 }
 
 void Renderer::ReloadShaders()

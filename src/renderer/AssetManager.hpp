@@ -30,6 +30,8 @@ struct Material
 class AssetManager
 {
 public:
+	static void ClearAssets();
+
 	static int32_t AddMesh(Mesh& mesh);
 	static int32_t AddMesh(Mesh& mesh, int32_t id);
 
@@ -37,6 +39,7 @@ public:
 	static Mesh& GetMesh(int32_t id);
 	static int32_t MeshID(Mesh& mesh);
 	
+	static void ClearMeshes();
 	static bool RemoveMesh(int32_t id);
 	static bool RemoveMesh(Mesh& mesh);
 
@@ -52,6 +55,7 @@ public:
 	static std::shared_ptr<Texture> GetTexture(int32_t id);
 	static int32_t TextureID(std::shared_ptr<Texture> texture);
 
+	static void ClearTextures();
 	static bool RemoveTexture(int32_t id);
 	static bool RemoveTexture(std::shared_ptr<Texture> texture);
 
@@ -66,6 +70,7 @@ public:
 	static Material& GetMaterial(int32_t id);
 	static int32_t MaterialID(Material& material);
 
+	static void ClearMaterials();
 	static bool RemoveMaterial(int32_t id);
 	static bool RemoveMaterial(Material& texture);
 

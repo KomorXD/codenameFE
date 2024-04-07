@@ -10,6 +10,13 @@ int32_t AssetManager::s_LastTextureID = 0;
 std::unordered_map<int32_t, Material> AssetManager::s_Materials;
 int32_t AssetManager::s_LastMaterialID = 0;
 
+void AssetManager::ClearAssets()
+{
+	ClearMeshes();
+	ClearTextures();
+	ClearMaterials();
+}
+
 int32_t AssetManager::AddMesh(Mesh& mesh)
 {
 	for (const auto& [key, val] : s_Meshes)
@@ -64,6 +71,11 @@ int32_t AssetManager::MeshID(Mesh& mesh)
 	}
 
 	assert(false && "Mesh doesn't exist");
+}
+
+void AssetManager::ClearMeshes()
+{
+	s_Meshes.clear();
 }
 
 bool AssetManager::RemoveMesh(int32_t id)
@@ -137,6 +149,11 @@ int32_t AssetManager::TextureID(std::shared_ptr<Texture> texture)
 	assert(false && "Texture doesn't exist");
 }
 
+void AssetManager::ClearTextures()
+{
+	s_Textures.clear();
+}
+
 bool AssetManager::RemoveTexture(int32_t id)
 {
 	if (!s_Textures.contains(id))
@@ -206,6 +223,11 @@ int32_t AssetManager::MaterialID(Material& material)
 	}
 
 	assert(false && "Material doesn't exist");
+}
+
+void AssetManager::ClearMaterials()
+{
+	s_Materials.clear();
 }
 
 bool AssetManager::RemoveMaterial(int32_t id)
