@@ -25,13 +25,18 @@ struct SpotLight
 
 struct Material
 {
-	vec4  color;
-	vec2  tilingFactor;
-	vec2  texOffset;
-	float shininess;
-	int   albedoTextureSlot;
-	int   normalTextureSlot;
-	int	  specularTextureSlot;
+	vec4 color;
+	vec2 tilingFactor;
+	vec2 texOffset;
+
+	int albedoTextureSlot;
+	int normalTextureSlot;
+
+	int	roughnessTextureSlot;
+	float roughnessFactor;
+
+	int metallicTextureSlot;
+	float metallicFactor;
 };
 
 in VS_OUT
@@ -117,7 +122,7 @@ void main()
 		vec3 halfway = normalize(lightDir + viewDir);
 
 		totalDiffuse += max(dot(normal, lightDir), 0.0) * color * attenuation * step(0.0, dot(normal, lightDir));
-		totalSpecular += pow(max(dot(normal, halfway), 0.0), mat.shininess) * color * attenuation * step(0.0, dot(normal, lightDir));
+		totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * color * attenuation * step(0.0, dot(normal, lightDir));
 	}
 
 	for(int i = 0; i < lights.spotLightsCount; i++)
@@ -145,11 +150,11 @@ void main()
 			vec3 halfway = normalize(lightDir + viewDir);
 
 			totalDiffuse += max(dot(normal, lightDir), 0.0) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
-			totalSpecular += pow(max(dot(normal, halfway), 0.0), mat.shininess) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
+			totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
 		}
 	}
 
-	float specularFactor = texture(u_Textures[mat.specularTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).r;
+	float specularFactor = texture(u_Textures[mat.roughnessTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).r;
 	gDefault.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular * specularFactor) * diffuseColor.rgb;
 	gDefault.a = diffuseColor.a;
 }
