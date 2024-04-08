@@ -57,7 +57,7 @@ struct DirectionalLightComponent
 struct PointLightComponent
 {
 	glm::vec3 Color = glm::vec3(1.0f);
-	float Intensity	= 1.0f;
+	float Intensity	= 5.0f;
 
 	float LinearTerm	= 0.022f;
 	float QuadraticTerm = 0.0019f;
