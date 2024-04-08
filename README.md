@@ -17,10 +17,10 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [x] HDR
  - [x] Material management
  - [x] Utilizing UBOs to pass light sources' and materials' data
+ - [x] PBR (Blinn-Phong also available)
+ - [ ] Environment maps + IBL
  - [ ] Uploading custom models (+ making sure they have normals and tangents, or calculating them)
- - [ ] PBR (+ IBL, basic Blinn-Phong before that)
  - [ ] Bloom (+ compute shaders)
- - [ ] Environment maps (+ global lightning)
  - [ ] SSAO
  - [ ] Managing textures to optimize draw calls, probably texture atlas
  - [ ] Directional light shadow maps
