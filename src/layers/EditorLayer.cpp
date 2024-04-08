@@ -47,22 +47,34 @@ EditorLayer::EditorLayer()
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/container_specular.png"));
 
 	Material mat{};
-	mat.Name = "Glass material";
-	mat.AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/glass.png"));
-	Entity nothing = m_Scene.SpawnEntity("Nothing");
-	nothing.GetComponent<TransformComponent>().Position = { 0.0f, 2.0f, 0.0f };
-	nothing.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-	nothing.AddComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(mat);
-	nothing.AddComponent<PointLightComponent>();
+	mat.Color = { 1.0f, 0.0f, 0.0f, 1.0f };
+	
+	for (int32_t i = 0; i <= 10; i++)
+	{
+		for (int32_t j = 0; j <= 10; j++)
+		{
+			mat.RoughnessFactor = (float)i / 10;
+			mat.MetallicFactor  = (float)j / 10;
 
-	mat.Name = "Brickwall material";
-	mat.AlbedoTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall.jpg"));
-	mat.NormalTextureID = AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/brickwall_normal.jpg"));
-	mat.TilingFactor = { 20.0f, 20.0f };
-	Entity ground = m_Scene.SpawnEntity("Ground");
-	ground.GetComponent<TransformComponent>().Scale = { 50.0f, 0.1f, 50.0f };
-	ground.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-	ground.AddComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(mat);
+			Entity sphere = m_Scene.SpawnEntity("Sphere #" + std::to_string(i * 10 + j));
+			sphere.GetComponent<TransformComponent>().Position = glm::vec3(i * 2.5f - 10.0f, 0.0f, j * 2.5f - 10.0f);
+			sphere.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
+
+			int32_t matID = AssetManager::AddMaterial(mat);
+			sphere.AddComponent<MaterialComponent>().MaterialID = matID;
+			AssetManager::GetMaterial(matID).Name = "Sphere red material #" + std::to_string(i * 10 + j);
+		}
+	}
+
+	mat.Color = { 1.0f, 1.0f, 0.0f, 1.0f };
+	Entity light = m_Scene.SpawnEntity("Light source");
+	light.GetComponent<TransformComponent>().Position = { 0.0f, 10.0f, 0.0f };
+	light.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
+	light.AddComponent<PointLightComponent>();
+
+	int32_t matID = AssetManager::AddMaterial(mat);
+	light.AddComponent<MaterialComponent>().MaterialID = matID;
+	AssetManager::GetMaterial(matID).Name = "Light yellow material";
 }
 
 void EditorLayer::OnAttach()
@@ -214,6 +226,11 @@ void EditorLayer::RenderScenePanel()
 		Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities));
 	}
 
+	if (ImGui::Button("Reload shaders"))
+	{
+		Renderer::ReloadShaders();
+	}
+
 	if (ImGui::BeginPopup("new_entity_group"))
 	{
 		auto [width, height] = ImGui::CalcTextSize("Empty entity");
@@ -273,6 +290,8 @@ void EditorLayer::RenderScenePanel()
 
 	ImGui::NewLine();
 
+	static bool isPBR = true;
+
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
@@ -280,8 +299,11 @@ void EditorLayer::RenderScenePanel()
 		ImGui::DragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, 5.0f);
 		ImGui::DragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::DragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
+		ImGui::Checkbox("PBR", &isPBR);
 		ImGui::Checkbox("Wireframe", &m_DrawWireframe);
 		ImGui::Unindent(16.0f);
+
+		Renderer::SetPBR(isPBR);
 	}
 
 	ImGui::NewLine();
@@ -499,7 +521,8 @@ void EditorLayer::RenderEntityData()
 			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
 			ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
 			ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
-			ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
+			ImGui::DragFloat("Roughness", &material.RoughnessFactor, 0.001f, 0.0f, 1.0f);
+			ImGui::DragFloat("Metallic", &material.MetallicFactor, 0.001f, 0.0f, 1.0f);
 
 			std::shared_ptr<Texture> tex    = AssetManager::GetTexture(material.AlbedoTextureID);
 			std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
@@ -561,9 +584,17 @@ void EditorLayer::RenderEntityData()
 
 			ImGui::SameLine();
 
-			if (ImGui::ImageButton("##Specular", (ImTextureID)(AssetManager::GetTexture(material.SpecularTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
+			if (ImGui::ImageButton("##Roughness", (ImTextureID)(AssetManager::GetTexture(material.RoughnessTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
 			{
-				idOfInterest = &material.SpecularTextureID;
+				idOfInterest = &material.RoughnessTextureID;
+				ImGui::OpenPopup("available_textures_group");
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::ImageButton("##Metallic", (ImTextureID)(AssetManager::GetTexture(material.MetallicTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
+			{
+				idOfInterest = &material.MetallicTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
 

@@ -194,7 +194,11 @@ void MaterialEditLayer::RenderPanel()
 		PointLightComponent& plc = m_LightEnt.GetComponent<PointLightComponent>();
 		ImGui::Text("Light");
 		ImGui::DragFloat3("Position", glm::value_ptr(tc.Position), 0.05f);
+
+		ImGui::PushID(1);
 		ImGui::ColorEdit3("Color", glm::value_ptr(plc.Color), ImGuiColorEditFlags_NoInputs);
+		ImGui::PopID();
+
 		ImGui::DragFloat("Intensity", &plc.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
 		ImGui::DragFloat("Linear attenuation", &plc.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
 		ImGui::DragFloat("Quadratic attenuation", &plc.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
@@ -213,10 +217,14 @@ void MaterialEditLayer::RenderPanel()
 		ImGui::InputText("Tag", buf, 64);
 		material.Name = buf;
 
+		ImGui::PushID(2);
 		ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
+		ImGui::PopID();
+
 		ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
 		ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
-		ImGui::DragFloat("Shininess", &material.Shininess, 0.1f, 0.0f, 128.0f);
+		ImGui::DragFloat("Roughness", &material.RoughnessFactor, 0.001f, 0.0f, 1.0f);
+		ImGui::DragFloat("Metallic", &material.MetallicFactor, 0.001f, 0.0f, 1.0f);
 		ImGui::NewLine();
 		ImGui::Text("Texture settings");
 
@@ -280,9 +288,17 @@ void MaterialEditLayer::RenderPanel()
 
 		ImGui::SameLine();
 
-		if (ImGui::ImageButton("##Specular", (ImTextureID)(AssetManager::GetTexture(material.SpecularTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		if (ImGui::ImageButton("##Roughness", (ImTextureID)(AssetManager::GetTexture(material.RoughnessTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 		{
-			idOfInterest = &material.SpecularTextureID;
+			idOfInterest = &material.RoughnessTextureID;
+			ImGui::OpenPopup("available_textures_group");
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::ImageButton("##Metallic", (ImTextureID)(AssetManager::GetTexture(material.MetallicTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		{
+			idOfInterest = &material.MetallicTextureID;
 			ImGui::OpenPopup("available_textures_group");
 		}
 
