@@ -37,6 +37,9 @@ struct Material
 
 	int metallicTextureSlot;
 	float metallicFactor;
+
+	int ambientOccTextureSlot;
+	float ambientOccFactor;
 };
 
 in VS_OUT
@@ -134,6 +137,7 @@ void main()
 	
 	float roughness = texture(u_Textures[mat.roughnessTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).r * mat.roughnessFactor;
 	float metallic = texture(u_Textures[mat.metallicTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).r * mat.metallicFactor;
+	float AO = texture(u_Textures[mat.ambientOccTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).r * mat.ambientOccFactor;
 	vec3 V = normalize(u_ViewPos - fs_in.worldPos);
 	vec3 N = texture(u_Textures[mat.normalTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).rgb;
 	N = N * 2.0 - 1.0;
@@ -227,6 +231,6 @@ void main()
 		}
 	}
 	
-	gDefault.rgb = 0.03 * diffuseColor.rgb + Lo;
+	gDefault.rgb = 0.04 * AO * diffuseColor.rgb + Lo;
 	gDefault.a = diffuseColor.a;
 }

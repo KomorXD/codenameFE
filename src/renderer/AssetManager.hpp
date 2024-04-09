@@ -20,14 +20,17 @@ struct Material
 	glm::vec2 TilingFactor = glm::vec2(1.0f);
 	glm::vec2 TextureOffset = glm::vec2(0.0f);
 
-	int32_t AlbedoTextureID    = 1;
-	int32_t NormalTextureID    = 2;
+	int32_t AlbedoTextureID = 1;
+	int32_t NormalTextureID = 2;
 
 	int32_t RoughnessTextureID = 1;
 	float RoughnessFactor = 0.5f;
 
 	int32_t MetallicTextureID = 1;
-	float MetallicFactor = 0.1;
+	float MetallicFactor = 0.1f;
+
+	int32_t AmbientOccTextureID = 1;
+	float AmbientOccFactor = 1.0f;
 
 	Material() = default;
 	Material(const Material& other) = default;

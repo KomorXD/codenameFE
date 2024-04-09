@@ -528,6 +528,7 @@ void EditorLayer::RenderEntityData()
 			ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
 			ImGui::DragFloat("Roughness", &material.RoughnessFactor, 0.001f, 0.0f, 1.0f);
 			ImGui::DragFloat("Metallic", &material.MetallicFactor, 0.001f, 0.0f, 1.0f);
+			ImGui::DragFloat("AO", &material.AmbientOccFactor, 0.001f, 0.0f, 1.0f);
 
 			std::shared_ptr<Texture> tex    = AssetManager::GetTexture(material.AlbedoTextureID);
 			std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
@@ -595,11 +596,17 @@ void EditorLayer::RenderEntityData()
 				ImGui::OpenPopup("available_textures_group");
 			}
 
-			ImGui::SameLine();
-
 			if (ImGui::ImageButton("##Metallic", (ImTextureID)(AssetManager::GetTexture(material.MetallicTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
 			{
 				idOfInterest = &material.MetallicTextureID;
+				ImGui::OpenPopup("available_textures_group");
+			}
+
+			ImGui::SameLine();
+
+			if (ImGui::ImageButton("##AO", (ImTextureID)(AssetManager::GetTexture(material.AmbientOccTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			{
+				idOfInterest = &material.AmbientOccTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
 

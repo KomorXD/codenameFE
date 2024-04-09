@@ -86,16 +86,17 @@ struct MaterialsBufferData
 	glm::vec2 TilingFactor;
 	glm::vec2 TextureOffset;
 
-	int32_t AlbedoTextureID;
-	int32_t NormalTextureID;
+	int32_t AlbedoTextureSlot;
+	int32_t NormalTextureSlot;
 
-	int32_t RoughnessTextureID;
+	int32_t RoughnessTextureSlot;
 	float RoughnessFactor;
 
-	int32_t MetallicTextureID;
+	int32_t MetallicTextureSlot;
 	float MetallicFactor;
 
-	float padding[2];
+	int32_t AmbientOccTextureSlot;
+	float AmbientOccFactor;
 };
 
 static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& rhs)
@@ -103,12 +104,14 @@ static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& 
 	return lhs.Color == rhs.Color
 		&& lhs.TilingFactor == rhs.TilingFactor
 		&& lhs.TextureOffset == rhs.TextureOffset
-		&& lhs.AlbedoTextureID == rhs.AlbedoTextureID
-		&& lhs.NormalTextureID == rhs.NormalTextureID
-		&& lhs.RoughnessTextureID == rhs.RoughnessTextureID
+		&& lhs.AlbedoTextureID == rhs.AlbedoTextureSlot
+		&& lhs.NormalTextureID == rhs.NormalTextureSlot
+		&& lhs.RoughnessTextureID == rhs.RoughnessTextureSlot
 		&& lhs.RoughnessFactor == rhs.RoughnessFactor
-		&& lhs.MetallicTextureID == rhs.MetallicTextureID
-		&& lhs.MetallicFactor == rhs.MetallicFactor;
+		&& lhs.MetallicTextureID == rhs.MetallicTextureSlot
+		&& lhs.MetallicFactor == rhs.MetallicFactor
+		&& lhs.AmbientOccTextureID == rhs.AmbientOccTextureSlot
+		&& lhs.AmbientOccFactor == rhs.AmbientOccFactor;
 }
 
 static MaterialsBufferData MaterialToBuffer(const Material& material)
@@ -117,12 +120,14 @@ static MaterialsBufferData MaterialToBuffer(const Material& material)
 		.Color = material.Color,
 		.TilingFactor = material.TilingFactor,
 		.TextureOffset = material.TextureOffset,
-		.AlbedoTextureID = material.AlbedoTextureID,
-		.NormalTextureID = material.NormalTextureID,
-		.RoughnessTextureID = material.RoughnessTextureID,
+		.AlbedoTextureSlot = material.AlbedoTextureID,
+		.NormalTextureSlot = material.NormalTextureID,
+		.RoughnessTextureSlot = material.RoughnessTextureID,
 		.RoughnessFactor = material.RoughnessFactor,
-		.MetallicTextureID = material.MetallicTextureID,
-		.MetallicFactor = material.MetallicFactor
+		.MetallicTextureSlot = material.MetallicTextureID,
+		.MetallicFactor = material.MetallicFactor,
+		.AmbientOccTextureSlot = material.AmbientOccTextureID,
+		.AmbientOccFactor = material.AmbientOccFactor
 	};
 }
 
@@ -551,11 +556,13 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	std::shared_ptr<Texture> normal	   = AssetManager::GetTexture(material.NormalTextureID);
 	std::shared_ptr<Texture> roughness = AssetManager::GetTexture(material.RoughnessTextureID);
 	std::shared_ptr<Texture> metallic  = AssetManager::GetTexture(material.MetallicTextureID);
+	std::shared_ptr<Texture> ao		   = AssetManager::GetTexture(material.AmbientOccTextureID);
 
 	int32_t albedoIdx	 = -1;
 	int32_t normalIdx	 = -1;
 	int32_t roughnessIdx = -1;
 	int32_t metallicIdx  = -1;
+	int32_t aoIdx		 = -1;
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
 		if (s_Data.TextureBindings[i] == albedo->GetID())
@@ -576,6 +583,11 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 		if (s_Data.TextureBindings[i] == metallic->GetID())
 		{
 			metallicIdx = i;
+		}
+
+		if (s_Data.TextureBindings[i] == ao->GetID())
+		{
+			aoIdx = i;
 		}
 	}
 
@@ -607,12 +619,20 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 		++s_Data.BoundTexturesCount;
 	}
 
+	if (aoIdx == -1)
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = ao->GetID();
+		aoIdx = s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
 	int32_t materialIdx = -1;
 	for (int32_t i = 0; i < s_Data.MaterialsData.size(); i++)
 	{
 		MaterialsBufferData& matData = s_Data.MaterialsData[i];
-		bool sameTextures = matData.AlbedoTextureID == albedoIdx && matData.NormalTextureID == normalIdx
-			&& matData.RoughnessTextureID == roughnessIdx && matData.MetallicTextureID == metallicIdx;
+		bool sameTextures = matData.AlbedoTextureSlot == albedoIdx && matData.NormalTextureSlot == normalIdx
+			&& matData.RoughnessTextureSlot == roughnessIdx && matData.MetallicTextureSlot == metallicIdx
+			&& matData.AmbientOccTextureSlot == aoIdx;
 
 		if (MaterialToBufferCmp(material, s_Data.MaterialsData[i]) && sameTextures)
 		{
@@ -625,10 +645,11 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	{
 		instance.MaterialSlot = (float)s_Data.MaterialsData.size();
 		s_Data.MaterialsData.push_back(MaterialToBuffer(material));
-		s_Data.MaterialsData.back().AlbedoTextureID	= albedoIdx;
-		s_Data.MaterialsData.back().NormalTextureID	= normalIdx;
-		s_Data.MaterialsData.back().RoughnessTextureID = roughnessIdx;
-		s_Data.MaterialsData.back().MetallicTextureID = metallicIdx;
+		s_Data.MaterialsData.back().AlbedoTextureSlot	  = albedoIdx;
+		s_Data.MaterialsData.back().NormalTextureSlot	  = normalIdx;
+		s_Data.MaterialsData.back().RoughnessTextureSlot  = roughnessIdx;
+		s_Data.MaterialsData.back().MetallicTextureSlot   = metallicIdx;
+		s_Data.MaterialsData.back().AmbientOccTextureSlot = aoIdx;
 	}
 	else
 	{
