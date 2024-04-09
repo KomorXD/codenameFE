@@ -7,11 +7,12 @@
 #include "../Logger.hpp"
 #include "../scenes/Entity.hpp"
 #include "../renderer/AssetManager.hpp"
-#include "../Math.hpp"
+#include "../RandomUtils.hpp"
 
 #include <imgui/imgui.h>
 #include <imgui/ImGuizmo.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <filesystem>
 
 EditorLayer::EditorLayer()
 	: m_EditorCamera(90.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
@@ -45,6 +46,10 @@ EditorLayer::EditorLayer()
 
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/container_diffuse.png"));
 	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/container_specular.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/rustediron2_basecolor.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/rustediron2_normal.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/rustediron2_roughness.png"));
+	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/rustediron2_metallic.png"));
 
 	Material mat{};
 	mat.Color = { 1.0f, 0.0f, 0.0f, 1.0f };
@@ -601,9 +606,9 @@ void EditorLayer::RenderEntityData()
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 10.0f, 10.0f });
 			if (ImGui::BeginPopup("available_textures_group"))
 			{
-				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 10.0f, 10.0f });
-
-				bool newLine = false;
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 15.0f, 0.0f });
+				
+				uint8_t cnt = 1;
 				for (const auto& [id, texture] : AssetManager::AllTextures())
 				{
 					if (ImGui::ImageButton((ImTextureID)(texture->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
@@ -611,14 +616,39 @@ void EditorLayer::RenderEntityData()
 						*idOfInterest = id;
 					}
 
-					if (!newLine)
+					if (cnt++ % 3 == 0)
+					{
+						ImGui::NewLine();
+					}
+					else
 					{
 						ImGui::SameLine();
 					}
-
-					newLine = !newLine;
 				}
 
+				ImGui::PopStyleVar();
+				ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0.0f, 10.0f });
+
+				if (cnt % 3 != 1)
+				{
+					ImGui::NewLine();
+				}
+
+				float width = ImGui::GetContentRegionAvail().x;
+				float textWidth = ImGui::CalcTextSize("Add new texture").x;
+				
+				ImGui::SetCursorPosX(width / 2.0f - textWidth / 2.0f + 6.5f);
+				if (ImGui::Button("Add new texture"))
+				{
+					std::optional<std::string> path = OpenFileDialog(std::filesystem::current_path().string());
+
+					if (path.has_value())
+					{
+						std::shared_ptr<Texture> texture = std::make_shared<Texture>(path.value());
+						AssetManager::AddTexture(texture);
+					}
+				}
+				
 				ImGui::PopStyleVar();
 				ImGui::EndPopup();
 			}
@@ -791,7 +821,7 @@ void EditorLayer::RenderGizmo()
 		glm::vec3 scale{};
 		TransformComponent& transformComp = m_SelectedEntity.GetComponent<TransformComponent>();
 
-		Math::TransformDecompose(transform, translation, rotation, scale);
+		TransformDecompose(transform, translation, rotation, scale);
 		glm::vec3 deltaRotation = rotation - transformComp.Rotation;
 		
 		transformComp.Position = translation;
