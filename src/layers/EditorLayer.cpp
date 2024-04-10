@@ -147,10 +147,10 @@ void EditorLayer::OnEvent(Event& ev)
 
 	if(ev.Type == Event::WindowResized)
 	{
-		uint32_t width = (uint32_t)(ev.Size.Width * 0.8f);
+		uint32_t width = (uint32_t)(ev.Size.Width * 0.6f);
 		uint32_t height = ev.Size.Height;
 
-		Renderer::OnWindowResize({ 0, 0, (int32_t)(ev.Size.Width * 0.8f), ev.Size.Height });
+		Renderer::OnWindowResize({ 0, 0, (int32_t)(ev.Size.Width * 0.6f), ev.Size.Height });
 		m_EditorCamera.OnEvent(ev);
 
 		m_ScreenFB->Bind();
@@ -652,7 +652,8 @@ void EditorLayer::RenderEntityData()
 					if (path.has_value())
 					{
 						std::shared_ptr<Texture> texture = std::make_shared<Texture>(path.value());
-						AssetManager::AddTexture(texture);
+						*idOfInterest = AssetManager::AddTexture(texture);
+						ImGui::CloseCurrentPopup();
 					}
 				}
 				

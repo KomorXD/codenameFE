@@ -353,7 +353,8 @@ void MaterialEditLayer::RenderPanel()
 				if (path.has_value())
 				{
 					std::shared_ptr<Texture> texture = std::make_shared<Texture>(path.value());
-					AssetManager::AddTexture(texture);
+					*idOfInterest = AssetManager::AddTexture(texture);
+					ImGui::CloseCurrentPopup();
 				}
 			}
 
