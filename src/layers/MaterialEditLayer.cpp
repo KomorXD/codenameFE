@@ -216,23 +216,42 @@ void MaterialEditLayer::RenderPanel()
 		strcpy_s(buf, 64, material.Name.data());
 
 		ImGui::Indent(16.0f);
-		ImGui::InputText("Tag", buf, 64);
-		material.Name = buf;
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
+		if (ImGui::BeginCombo("##Material", material.Name.c_str()))
+		{
+			for (const auto& [id, mat] : AssetManager::AllMaterials())
+			{
+				if (ImGui::Selectable(mat.Name.c_str(), id == m_SampleEnt.GetComponent<MaterialComponent>().MaterialID))
+				{
+					m_SampleEnt.GetComponent<MaterialComponent>().MaterialID = id;
+				}
+			}
 
-		ImGui::PushID(2);
-		ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
-		ImGui::PopID();
+			ImGui::EndCombo();
+		}
 
-		ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
-		ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
-		ImGui::DragFloat("Roughness", &material.RoughnessFactor, 0.001f, 0.0f, 1.0f);
-		ImGui::DragFloat("Metallic", &material.MetallicFactor, 0.001f, 0.0f, 1.0f);
-		ImGui::DragFloat("AO", &material.AmbientOccFactor, 0.001f, 0.0f, 1.0f);
-		ImGui::NewLine();
-		ImGui::Text("Texture settings");
+		ImGui::SameLine();
 
-		std::shared_ptr<Texture> tex = AssetManager::GetTexture(material.AlbedoTextureID);
+		if (ImGui::PrettyButton("Edit"))
+		{
+			Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_MainEntities, m_SampleEnt.GetComponent<MaterialComponent>().MaterialID));
+		}
+
+		ImGui::SameLine();
+
+		if (ImGui::PrettyButton("New"))
+		{
+			m_SampleEnt.GetComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(AssetManager::GetMaterial(AssetManager::MATERIAL_DEFAULT));
+			Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_MainEntities, m_SampleEnt.GetComponent<MaterialComponent>().MaterialID));
+		}
+
+		ImGui::PrettyDragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
+		ImGui::PrettyDragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
+
+		std::shared_ptr<Texture> tex    = AssetManager::GetTexture(material.AlbedoTextureID);
 		std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
+
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
 		if (ImGui::BeginCombo("Texture filtering", tex->Filter() == GL_NEAREST ? "Nearest" : "Linear"))
 		{
 			if (ImGui::Selectable("Nearest", tex->Filter() == GL_NEAREST))
@@ -259,6 +278,7 @@ void MaterialEditLayer::RenderPanel()
 		};
 		std::string preview = wrapToString.at(tex->Wrap());
 
+		ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
 		if (ImGui::BeginCombo("Texture wrapping", preview.c_str()))
 		{
 			for (const auto& [wrap, wrapStr] : wrapToString)
@@ -274,48 +294,88 @@ void MaterialEditLayer::RenderPanel()
 		}
 
 		static int32_t* idOfInterest = nullptr;
+		constexpr ImVec2 IMAGE_SIZE(64.0f, 64.0f);
+		constexpr float IMAGE_CELL_WIDTH = 96.0f;
 
-		if (ImGui::ImageButton("##Albedo", (ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		std::shared_ptr<Texture> texture = AssetManager::GetTexture(material.AlbedoTextureID);
+		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+		if (ImGui::ImageButton("##Albedo", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 		{
 			idOfInterest = &material.AlbedoTextureID;
 			ImGui::OpenPopup("available_textures_group");
 		}
+		ImGui::NextColumn();
+		ImGui::Text("Diffuse texture");
+		ImGui::Text(texture->Name().c_str());
+		ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
+		ImGui::Columns(1);
 
-		ImGui::SameLine();
-
-		if (ImGui::ImageButton("##Normal", (ImTextureID)(AssetManager::GetTexture(material.NormalTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		texture = AssetManager::GetTexture(material.NormalTextureID);
+		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+		if (ImGui::ImageButton("##Normal", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 		{
 			idOfInterest = &material.NormalTextureID;
 			ImGui::OpenPopup("available_textures_group");
 		}
+		ImGui::NextColumn();
+		ImGui::Text("Normal map");
+		ImGui::Text(texture->Name().c_str());
+		ImGui::Columns(1);
 
-		ImGui::SameLine();
-
-		if (ImGui::ImageButton("##Roughness", (ImTextureID)(AssetManager::GetTexture(material.RoughnessTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+		texture = AssetManager::GetTexture(material.RoughnessTextureID);
+		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+		if (ImGui::ImageButton("##Roughness", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 		{
 			idOfInterest = &material.RoughnessTextureID;
 			ImGui::OpenPopup("available_textures_group");
 		}
+		ImGui::NextColumn();
+		ImGui::Text("Roughness map");
+		ImGui::Text(texture->Name().c_str());
+		ImGui::DragFloat("Roughness", &material.RoughnessFactor, 0.05f, 0.0f, 1.0f);
+		ImGui::Columns(1);
 
-		if (ImGui::ImageButton("##Metallic", (ImTextureID)(AssetManager::GetTexture(material.MetallicTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		texture = AssetManager::GetTexture(material.MetallicTextureID);
+		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+		if (ImGui::ImageButton("##Metallic", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 		{
 			idOfInterest = &material.MetallicTextureID;
 			ImGui::OpenPopup("available_textures_group");
 		}
+		ImGui::NextColumn();
+		ImGui::Text("Metallic map");
+		ImGui::Text(texture->Name().c_str());
+		ImGui::DragFloat("Metallic", &material.MetallicFactor, 0.05f, 0.0f, 1.0f);
+		ImGui::Columns(1);
 
-		ImGui::SameLine();
-
-		if (ImGui::ImageButton("##AO", (ImTextureID)(AssetManager::GetTexture(material.AmbientOccTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+		texture = AssetManager::GetTexture(material.AmbientOccTextureID);
+		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+		if (ImGui::ImageButton("##AO", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 		{
 			idOfInterest = &material.AmbientOccTextureID;
 			ImGui::OpenPopup("available_textures_group");
 		}
+		ImGui::NextColumn();
+		ImGui::Text("AO map");
+		ImGui::Text(texture->Name().c_str());
+		ImGui::DragFloat("AO", &material.AmbientOccFactor, 0.05f, 0.0f, 1.0f);
+		ImGui::Columns(1);
+
+		ImGui::PopStyleColor(3);
 
 		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 10.0f, 10.0f });
 		if (ImGui::BeginPopup("available_textures_group"))
 		{
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 15.0f, 0.0f });
-
+			
 			uint8_t cnt = 1;
 			for (const auto& [id, texture] : AssetManager::AllTextures())
 			{
@@ -344,9 +404,9 @@ void MaterialEditLayer::RenderPanel()
 
 			float width = ImGui::GetContentRegionAvail().x;
 			float textWidth = ImGui::CalcTextSize("Add new texture").x;
-
+			
 			ImGui::SetCursorPosX(width / 2.0f - textWidth / 2.0f + 6.5f);
-			if (ImGui::Button("Add new texture"))
+			if (ImGui::PrettyButton("Add new texture"))
 			{
 				std::optional<std::string> path = OpenFileDialog(std::filesystem::current_path().string());
 
@@ -357,7 +417,7 @@ void MaterialEditLayer::RenderPanel()
 					ImGui::CloseCurrentPopup();
 				}
 			}
-
+			
 			ImGui::PopStyleVar();
 			ImGui::EndPopup();
 		}

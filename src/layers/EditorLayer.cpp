@@ -221,34 +221,30 @@ void EditorLayer::RenderScenePanel()
 	ImGui::PopStyleColor();
 	ImGui::NewLine();
 
-	if (ImGui::Button("New entity"))
+	if (ImGui::PrettyButton("New entity"))
 	{
 		ImGui::OpenPopup("new_entity_group");
 	}
 
-	if (ImGui::Button("Material editor"))
+	if (ImGui::PrettyButton("Material editor"))
 	{
 		Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities));
 	}
 
-	if (ImGui::Button("Reload shaders"))
+	if (ImGui::PrettyButton("Reload shaders"))
 	{
 		Renderer::ReloadShaders();
 	}
 
 	if (ImGui::BeginPopup("new_entity_group"))
 	{
-		auto [width, height] = ImGui::CalcTextSize("Empty entity");
-		width += ImGui::GetStyle().FramePadding.x * 2.0f;
-		height += ImGui::GetStyle().FramePadding.y * 2.0f;
-
-		if (ImGui::Button("Empty entity", { width, height }))
+		if (ImGui::MenuItem("Empty entity"))
 		{
 			m_SelectedEntity = m_Scene.SpawnEntity("Empty entity");
 			ImGui::CloseCurrentPopup();
 		}
 
-		if (ImGui::Button("Plane", { width, height }))
+		if (ImGui::MenuItem("Plane"))
 		{
 			m_SelectedEntity = m_Scene.SpawnEntity("Plane");
 			m_SelectedEntity.GetComponent<TransformComponent>().Rotation = { glm::half_pi<float>(), 0.0f, 0.0f};
@@ -257,7 +253,7 @@ void EditorLayer::RenderScenePanel()
 			ImGui::CloseCurrentPopup();
 		}
 
-		if (ImGui::Button("Cube", { width, height }))
+		if (ImGui::MenuItem("Cube"))
 		{
 			m_SelectedEntity = m_Scene.SpawnEntity("Cube");
 			m_SelectedEntity.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
@@ -265,7 +261,7 @@ void EditorLayer::RenderScenePanel()
 			ImGui::CloseCurrentPopup();
 		}
 
-		if (ImGui::Button("Sphere", { width, height }))
+		if (ImGui::MenuItem("Sphere"))
 		{
 			m_SelectedEntity = m_Scene.SpawnEntity("Sphere");
 			m_SelectedEntity.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
@@ -300,10 +296,10 @@ void EditorLayer::RenderScenePanel()
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
-		ImGui::DragFloat3("Position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
-		ImGui::DragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, 5.0f);
-		ImGui::DragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
-		ImGui::DragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
+		ImGui::PrettyDragFloat3("Position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
+		ImGui::PrettyDragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, 5.0f);
+		ImGui::PrettyDragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
+		ImGui::PrettyDragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::Checkbox("PBR", &isPBR);
 		ImGui::Checkbox("Wireframe", &m_DrawWireframe);
 		ImGui::Unindent(16.0f);
@@ -311,13 +307,13 @@ void EditorLayer::RenderScenePanel()
 		Renderer::SetPBR(isPBR);
 	}
 
-	ImGui::NewLine();
+	/*ImGui::NewLine();
 	float width = ImGui::GetContentRegionAvail().x;
 	ImGui::BeginChild("Picker", { width, width }, true);
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
 	ImGui::Image((ImTextureID)m_ScreenFB->GetColorAttachmentID(1), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
 	ImGui::PopStyleVar();
-	ImGui::EndChild();
+	ImGui::EndChild();*/
 
 	ImGui::End();
 }
@@ -447,9 +443,9 @@ void EditorLayer::RenderEntityData()
 	if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
-		ImGui::DragFloat3("Position", glm::value_ptr(transform.Position), 0.05f);
-		ImGui::DragFloat3("Rotation", glm::value_ptr(transform.Rotation), 0.05f);
-		ImGui::DragFloat3("Scale",    glm::value_ptr(transform.Scale),    0.05f);
+		ImGui::PrettyDragFloat3("Position", glm::value_ptr(transform.Position), 0.05f);
+		ImGui::PrettyDragFloat3("Rotation", glm::value_ptr(transform.Rotation), 0.05f);
+		ImGui::PrettyDragFloat3("Scale",    glm::value_ptr(transform.Scale),    0.05f);
 		ImGui::Unindent(16.0f);
 		ImGui::NewLine();
 	}
@@ -478,7 +474,7 @@ void EditorLayer::RenderEntityData()
 				ImGui::EndCombo();
 			}
 
-			if (ImGui::Button("Remove component"))
+			if (ImGui::PrettyButton("Remove component"))
 			{
 				m_SelectedEntity.RemoveComponent<MeshComponent>();
 			}
@@ -496,6 +492,8 @@ void EditorLayer::RenderEntityData()
 
 		if (ImGui::CollapsingHeader("Material", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			ImGui::Indent(16.0f);
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
 			if (ImGui::BeginCombo("##Material", material.Name.c_str()))
 			{
 				for (const auto& [id, mat] : AssetManager::AllMaterials())
@@ -511,27 +509,26 @@ void EditorLayer::RenderEntityData()
 
 			ImGui::SameLine();
 
-			if (ImGui::Button("Edit material"))
+			if (ImGui::PrettyButton("Edit"))
 			{
 				Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID));
 			}
 
-			if (ImGui::Button("New material"))
+			ImGui::SameLine();
+
+			if (ImGui::PrettyButton("New"))
 			{
 				m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(AssetManager::GetMaterial(AssetManager::MATERIAL_DEFAULT));
 				Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID));
 			}
 
-			ImGui::Indent(16.0f);
-			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
-			ImGui::DragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
-			ImGui::DragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
-			ImGui::DragFloat("Roughness", &material.RoughnessFactor, 0.001f, 0.0f, 1.0f);
-			ImGui::DragFloat("Metallic", &material.MetallicFactor, 0.001f, 0.0f, 1.0f);
-			ImGui::DragFloat("AO", &material.AmbientOccFactor, 0.001f, 0.0f, 1.0f);
+			ImGui::PrettyDragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
+			ImGui::PrettyDragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
 
 			std::shared_ptr<Texture> tex    = AssetManager::GetTexture(material.AlbedoTextureID);
 			std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
+
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
 			if (ImGui::BeginCombo("Texture filtering", tex->Filter() == GL_NEAREST ? "Nearest" : "Linear"))
 			{
 				if (ImGui::Selectable("Nearest", tex->Filter() == GL_NEAREST))
@@ -558,6 +555,7 @@ void EditorLayer::RenderEntityData()
 			};
 			std::string preview = wrapToString.at(tex->Wrap());
 
+			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
 			if (ImGui::BeginCombo("Texture wrapping", preview.c_str()))
 			{
 				for (const auto& [wrap, wrapStr] : wrapToString)
@@ -573,42 +571,82 @@ void EditorLayer::RenderEntityData()
 			}
 
 			static int32_t* idOfInterest = nullptr;
+			constexpr ImVec2 IMAGE_SIZE(64.0f, 64.0f);
+			constexpr float IMAGE_CELL_WIDTH = 96.0f;
 
-			if (ImGui::ImageButton("##Albedo", (ImTextureID)(AssetManager::GetTexture(material.AlbedoTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
+			std::shared_ptr<Texture> texture = AssetManager::GetTexture(material.AlbedoTextureID);
+			ImGui::Columns(2);
+			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+			if (ImGui::ImageButton("##Albedo", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 			{
 				idOfInterest = &material.AlbedoTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
+			ImGui::NextColumn();
+			ImGui::Text("Diffuse texture");
+			ImGui::Text(texture->Name().c_str());
+			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
+			ImGui::Columns(1);
 
-			ImGui::SameLine();
-
-			if (ImGui::ImageButton("##Normal", (ImTextureID)(AssetManager::GetTexture(material.NormalTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
+			texture = AssetManager::GetTexture(material.NormalTextureID);
+			ImGui::Columns(2);
+			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+			if (ImGui::ImageButton("##Normal", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 			{
 				idOfInterest = &material.NormalTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
+			ImGui::NextColumn();
+			ImGui::Text("Normal map");
+			ImGui::Text(texture->Name().c_str());
+			ImGui::Columns(1);
 
-			ImGui::SameLine();
-
-			if (ImGui::ImageButton("##Roughness", (ImTextureID)(AssetManager::GetTexture(material.RoughnessTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
+			ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+			texture = AssetManager::GetTexture(material.RoughnessTextureID);
+			ImGui::Columns(2);
+			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+			if (ImGui::ImageButton("##Roughness", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 			{
 				idOfInterest = &material.RoughnessTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
+			ImGui::NextColumn();
+			ImGui::Text("Roughness map");
+			ImGui::Text(texture->Name().c_str());
+			ImGui::DragFloat("Roughness", &material.RoughnessFactor, 0.05f, 0.0f, 1.0f);
+			ImGui::Columns(1);
 
-			if (ImGui::ImageButton("##Metallic", (ImTextureID)(AssetManager::GetTexture(material.MetallicTextureID)->GetID()), {64.0f, 64.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}))
+			texture = AssetManager::GetTexture(material.MetallicTextureID);
+			ImGui::Columns(2);
+			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+			if (ImGui::ImageButton("##Metallic", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 			{
 				idOfInterest = &material.MetallicTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
+			ImGui::NextColumn();
+			ImGui::Text("Metallic map");
+			ImGui::Text(texture->Name().c_str());
+			ImGui::DragFloat("Metallic", &material.MetallicFactor, 0.05f, 0.0f, 1.0f);
+			ImGui::Columns(1);
 
-			ImGui::SameLine();
-
-			if (ImGui::ImageButton("##AO", (ImTextureID)(AssetManager::GetTexture(material.AmbientOccTextureID)->GetID()), { 64.0f, 64.0f }, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			texture = AssetManager::GetTexture(material.AmbientOccTextureID);
+			ImGui::Columns(2);
+			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
+			if (ImGui::ImageButton("##AO", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
 			{
 				idOfInterest = &material.AmbientOccTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
+			ImGui::NextColumn();
+			ImGui::Text("AO map");
+			ImGui::Text(texture->Name().c_str());
+			ImGui::DragFloat("AO", &material.AmbientOccFactor, 0.05f, 0.0f, 1.0f);
+			ImGui::Columns(1);
+
+			ImGui::PopStyleColor(3);
 
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 10.0f, 10.0f });
 			if (ImGui::BeginPopup("available_textures_group"))
@@ -645,7 +683,7 @@ void EditorLayer::RenderEntityData()
 				float textWidth = ImGui::CalcTextSize("Add new texture").x;
 				
 				ImGui::SetCursorPosX(width / 2.0f - textWidth / 2.0f + 6.5f);
-				if (ImGui::Button("Add new texture"))
+				if (ImGui::PrettyButton("Add new texture"))
 				{
 					std::optional<std::string> path = OpenFileDialog(std::filesystem::current_path().string());
 
@@ -662,7 +700,7 @@ void EditorLayer::RenderEntityData()
 			}
 			ImGui::PopStyleVar();
 
-			if (ImGui::Button("Remove component"))
+			if (ImGui::PrettyButton("Remove component"))
 			{
 				m_SelectedEntity.RemoveComponent<MaterialComponent>();
 			}
@@ -682,9 +720,9 @@ void EditorLayer::RenderEntityData()
 		{
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
-			ImGui::DragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
+			ImGui::PrettyDragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
 
-			if (ImGui::Button("Remove component"))
+			if (ImGui::PrettyButton("Remove component"))
 			{
 				m_SelectedEntity.RemoveComponent<DirectionalLightComponent>();
 			}
@@ -702,13 +740,15 @@ void EditorLayer::RenderEntityData()
 
 		if (ImGui::CollapsingHeader("Point light", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			float labelWidth = ImGui::CalcTextSize("Quadratic attenuation").x * 1.25f;
+
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
-			ImGui::DragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
-			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
-			ImGui::DragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::PrettyDragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f", labelWidth);
+			ImGui::PrettyDragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f", labelWidth);
+			ImGui::PrettyDragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f", labelWidth);
 
-			if (ImGui::Button("Remove component"))
+			if (ImGui::PrettyButton("Remove component"))
 			{
 				m_SelectedEntity.RemoveComponent<PointLightComponent>();
 			}
@@ -726,15 +766,17 @@ void EditorLayer::RenderEntityData()
 
 		if (ImGui::CollapsingHeader("Spotlight", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			float labelWidth = ImGui::CalcTextSize("Quadratic attenuation").x * 1.25f;
+
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
-			ImGui::DragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
-			ImGui::DragFloat("Cutoff", &light.Cutoff, 0.01f, 0.0f, FLT_MAX, "%.3f");
-			ImGui::DragFloat("Edge smoothness", &light.EdgeSmoothness, 0.01f, 0.0f, light.Cutoff, "%.3f");
-			ImGui::DragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f");
-			ImGui::DragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::PrettyDragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f", labelWidth);
+			ImGui::PrettyDragFloat("Cutoff", &light.Cutoff, 0.01f, 0.0f, FLT_MAX, "%.3f", labelWidth);
+			ImGui::PrettyDragFloat("Edge smoothness", &light.EdgeSmoothness, 0.01f, 0.0f, light.Cutoff, "%.3f", labelWidth);
+			ImGui::PrettyDragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f", labelWidth);
+			ImGui::PrettyDragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f", labelWidth);
 
-			if (ImGui::Button("Remove component"))
+			if (ImGui::PrettyButton("Remove component"))
 			{
 				m_SelectedEntity.RemoveComponent<SpotLightComponent>();
 			}
@@ -748,7 +790,7 @@ void EditorLayer::RenderEntityData()
 	ImGui::Separator();
 	ImGui::NewLine();
 
-	if (ImGui::Button("Add new component"))
+	if (ImGui::PrettyButton("Add new component"))
 	{
 		ImGui::OpenPopup("add_component_group");
 	}
@@ -759,31 +801,31 @@ void EditorLayer::RenderEntityData()
 		width += ImGui::GetStyle().FramePadding.x * 2.0f;
 		height += ImGui::GetStyle().FramePadding.y * 2.0f;
 
-		if (!m_SelectedEntity.HasComponent<MaterialComponent>() && ImGui::Button("Material", { width, height }))
+		if (!m_SelectedEntity.HasComponent<MaterialComponent>() && ImGui::PrettyButton("Material", { width, height }))
 		{
 			m_SelectedEntity.AddComponent<MaterialComponent>();
 			ImGui::CloseCurrentPopup();
 		}
 
-		if (!m_SelectedEntity.HasComponent<MeshComponent>() && ImGui::Button("Mesh", { width, height }))
+		if (!m_SelectedEntity.HasComponent<MeshComponent>() && ImGui::PrettyButton("Mesh", { width, height }))
 		{
 			m_SelectedEntity.AddComponent<MeshComponent>();
 			ImGui::CloseCurrentPopup();
 		}
 
-		if (!m_SelectedEntity.HasComponent<DirectionalLightComponent>() && ImGui::Button("Directional light", { width, height }))
+		if (!m_SelectedEntity.HasComponent<DirectionalLightComponent>() && ImGui::PrettyButton("Directional light", { width, height }))
 		{
 			m_SelectedEntity.AddComponent<DirectionalLightComponent>();
 			ImGui::CloseCurrentPopup();
 		}
 
-		if (!m_SelectedEntity.HasComponent<PointLightComponent>() && ImGui::Button("Point light", { width, height }))
+		if (!m_SelectedEntity.HasComponent<PointLightComponent>() && ImGui::PrettyButton("Point light", { width, height }))
 		{
 			m_SelectedEntity.AddComponent<PointLightComponent>();
 			ImGui::CloseCurrentPopup();
 		}
 
-		if (!m_SelectedEntity.HasComponent<SpotLightComponent>() && ImGui::Button("Spotlight", { width, height }))
+		if (!m_SelectedEntity.HasComponent<SpotLightComponent>() && ImGui::PrettyButton("Spotlight", { width, height }))
 		{
 			m_SelectedEntity.AddComponent<SpotLightComponent>();
 			ImGui::CloseCurrentPopup();

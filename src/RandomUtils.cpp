@@ -82,7 +82,7 @@ std::optional<std::string> OpenFileDialog(const std::string& directory)
 	ofn.lpstrFile = szFile;
 	ofn.lpstrFile[0] = '\0';
 	ofn.nMaxFile = sizeof(ofn);
-	ofn.lpstrFilter = "All Files\0*.*\0";
+	ofn.lpstrFilter = "Image Files\0*.bmp;*.jpg;*.jpeg;*.png;*.gif\0All Files\0*.*\0";
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFileTitle = NULL;
 	ofn.nMaxFileTitle = 0;

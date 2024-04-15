@@ -126,7 +126,8 @@ void main()
 	
 	if(diffuseColor.a == 0.0)
 	{
-		discard;
+		gDefault = vec4(0.0);
+		return;
 	}
 
 	if(u_IsLightSource)

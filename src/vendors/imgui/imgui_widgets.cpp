@@ -1337,6 +1337,155 @@ void ImGui::Bullet()
     SameLine(0, style.FramePadding.x * 2.0f);
 }
 
+bool ImGui::PrettyButton(const char* label, const ImVec2& size)
+{
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 3.0f));
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+
+	bool pressed = ImGui::Button(label, size);
+
+	ImGui::PopStyleColor(3);
+	ImGui::PopStyleVar();
+
+	return pressed;
+}
+
+void ImGui::PrettyDragFloat(const char* label, float* v, float speed, float min, float max, const char* format, float labelWidth)
+{
+	ImGui::PushID(label);
+	ImGui::Columns(2);
+	ImGui::SetColumnWidth(0, labelWidth);
+	ImGui::Text(label);
+	ImGui::NextColumn();
+
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+	ImGui::PushItemWidth(ImGui::CalcItemWidth() + 3.0f * 22.0f);
+	ImGui::DragFloat("##Value", v, speed, min, max, format);
+	ImGui::PopStyleColor(3);
+
+	ImGui::Columns(1);
+	ImGui::PopItemWidth();
+	ImGui::PopID();
+}
+
+void ImGui::PrettyDragFloat2(const char* label, float* v, float speed, float min, float max, const char* format, float labelWidth)
+{
+	ImGui::PushID(label);
+	ImGui::Columns(2);
+	ImGui::SetColumnWidth(0, labelWidth);
+	ImGui::Text(label);
+	ImGui::NextColumn();
+
+	ImGui::PushItemWidth(ImGui::CalcItemWidth() / 2.0f + 11.0f);
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 4.0f));
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.25f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+
+	ImVec2 buttonSize(22.0f, 22.0f);
+
+	if (ImGui::Button("X", buttonSize))
+	{
+		v[0] = 0.0f;
+	}
+
+	ImGui::PopStyleColor(3);
+	ImGui::SameLine();
+	ImGui::DragFloat("##X", &v[0], speed, min, max, format);
+	ImGui::SameLine();
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+
+	if (ImGui::Button("Y", buttonSize))
+	{
+		v[1] = 0.0f;
+	}
+
+	ImGui::PopStyleColor(3);
+	ImGui::SameLine();
+	ImGui::DragFloat("##Y", &v[1], speed, min, max, format);
+
+	ImGui::PopStyleVar();
+	ImGui::PopStyleColor(3);
+	ImGui::PopItemWidth();
+	ImGui::Columns(1);
+	ImGui::PopID();
+}
+
+void ImGui::PrettyDragFloat3(const char* label, float v[3], float speed, float min, float max, const char* format, float labelWidth)
+{
+	ImGui::PushID(label);
+	ImGui::Columns(2);
+	ImGui::SetColumnWidth(0, labelWidth);
+	ImGui::Text(label);
+	ImGui::NextColumn();
+
+	ImGui::PushItemWidth(ImGui::CalcItemWidth() / 3.0f);
+	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 4.0f));
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.25f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+
+	ImVec2 buttonSize(22.0f, 22.0f);
+
+	if (ImGui::Button("X", buttonSize))
+	{
+		v[0] = 0.0f;
+	}
+
+	ImGui::PopStyleColor(3);
+	ImGui::SameLine();
+	ImGui::DragFloat("##X", &v[0], speed, min, max, format);
+	ImGui::SameLine();
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+
+	if (ImGui::Button("Y", buttonSize))
+	{
+		v[1] = 0.0f;
+	}
+
+	ImGui::PopStyleColor(3);
+	ImGui::SameLine();
+	ImGui::DragFloat("##Y", &v[1], speed, min, max, format);
+	ImGui::SameLine();
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.25f, 0.8f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.35f, 0.9f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.25f, 0.8f, 1.0f));
+
+	if (ImGui::Button("Z", buttonSize))
+	{
+		v[2] = 0.0f;
+	}
+
+	ImGui::PopStyleColor(3);
+	ImGui::SameLine();
+	ImGui::DragFloat("##Z", &v[2], speed, min, max, format);
+
+	ImGui::PopStyleVar();
+	ImGui::PopStyleColor(3);
+	ImGui::PopItemWidth();
+	ImGui::Columns(1);
+	ImGui::PopID();
+}
+
 //-------------------------------------------------------------------------
 // [SECTION] Widgets: Low-level Layout helpers
 //-------------------------------------------------------------------------
