@@ -809,5 +809,17 @@ void Renderer::StartBatch()
 void Renderer::NextBatch()
 {
 	Flush();
-	StartBatch();
+
+	s_Data.InstancesCount = 0;
+	for (auto& [meshID, data] : s_Data.MeshesData)
+	{
+		data.CurrentInstancesCount = 0;
+		data.Instances.clear();
+		data.Instances.reserve(s_Data.MaxInstancesOfType);
+	}
+
+	s_Data.MaterialsData.clear();
+	s_Data.LineVertexCount = 0;
+	s_Data.LineBufferPtr = s_Data.LineBufferBase;
+	s_Data.BoundTexturesCount = 1;
 }
