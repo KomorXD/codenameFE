@@ -71,6 +71,9 @@ Index of this file:
 #include <stddef.h>                 // ptrdiff_t, NULL
 #include <string.h>                 // memset, memmove, memcpy, strlen, strchr, strcpy, strcmp
 
+// MEEEE
+#include <functional>
+
 // Define attributes of all API symbols declarations (e.g. for DLL under Windows)
 // IMGUI_API is used for core imgui functions, IMGUI_IMPL_API is used for the default backends files (imgui_impl_xxx.h)
 // Using dear imgui via a shared library is not recommended: we don't guarantee backward nor forward ABI compatibility + this is a call-heavy library and function call overhead adds up.
@@ -547,6 +550,11 @@ namespace ImGui
 	void PrettyDragFloat(const char* label, float* v, float speed = 1.0f, float min = 0.0f, float max = 0.0f, const char* format = "%.3f", float labelWidth = 100.0f);
 	void PrettyDragFloat2(const char* label, float* v, float speed = 1.0f, float min = 0.0f, float max = 0.0f, const char* format = "%.3f", float labelWidth = 100.0f);
 	void PrettyDragFloat3(const char* label, float v[3], float speed = 1.0f, float min = 0.0f, float max = 0.0f, const char* format = "%.3f", float labelWidth = 100.0f);
+	void PrettyInputText(const char* label, char* buf, float labelWidth = 100.0f);
+
+	// Combo body function is passed, because it needs to happen before the table ends
+	void BeginPrettyCombo(const char* label, const char* preview, std::function<void(void)> comboBodyFunc, float labelWidth = 100.0f);
+	bool TextureFrame(const char* label, ImTextureID texID, std::function<void(void)> infoBodyFunc, float textureIconSize = 100.0f);
 
     // Widgets: Images
     // - Read about ImTextureID here: https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples

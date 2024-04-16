@@ -217,21 +217,21 @@ void EditorLayer::RenderScenePanel()
 		ImGui::PopID();
 	}
 	ImGui::EndChild();
-
 	ImGui::PopStyleColor();
-	ImGui::NewLine();
 
-	if (ImGui::PrettyButton("New entity"))
+	float buttonWidth = ImGui::GetContentRegionAvail().x / 3.0f;
+	ImVec2 buttonSize(buttonWidth, 0.0f);
+	if (ImGui::PrettyButton("New entity", buttonSize))
 	{
 		ImGui::OpenPopup("new_entity_group");
 	}
 
-	if (ImGui::PrettyButton("Material editor"))
+	if (ImGui::PrettyButton("Material editor", buttonSize))
 	{
 		Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities));
 	}
 
-	if (ImGui::PrettyButton("Reload shaders"))
+	if (ImGui::PrettyButton("Reload shaders", buttonSize))
 	{
 		Renderer::ReloadShaders();
 	}
@@ -272,27 +272,22 @@ void EditorLayer::RenderScenePanel()
 		ImGui::EndPopup();
 	}
 
-	ImGui::NewLine();
-
-	if (ImGui::BeginCombo("Gizmo mode", m_GizmoMode == ImGuizmo::WORLD ? "World" : "Local"))
-	{
-		if (ImGui::Selectable("World", m_GizmoMode == ImGuizmo::WORLD))
+	ImGui::BeginPrettyCombo("Gizmo mode", m_GizmoMode == ImGuizmo::WORLD ? "World" : "Local",
+		[this]()
 		{
-			m_GizmoMode = ImGuizmo::WORLD;
+			if (ImGui::Selectable("World", m_GizmoMode == ImGuizmo::WORLD))
+			{
+				m_GizmoMode = ImGuizmo::WORLD;
+			}
+
+			if (ImGui::Selectable("Local", m_GizmoMode == ImGuizmo::LOCAL))
+			{
+				m_GizmoMode = ImGuizmo::LOCAL;
+			}
 		}
-
-		if (ImGui::Selectable("Local", m_GizmoMode == ImGuizmo::LOCAL))
-		{
-			m_GizmoMode = ImGuizmo::LOCAL;
-		}
-
-		ImGui::EndCombo();
-	}
-
-	ImGui::NewLine();
+	);
 
 	static bool isPBR = true;
-
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
@@ -433,9 +428,8 @@ void EditorLayer::RenderEntityData()
 	char buf[64];
 	strcpy_s(buf, 64, tag.Tag.data());
 	ImGui::Indent(16.0f);
-	ImGui::InputText("Tag", buf, 64);
+	ImGui::PrettyInputText("Tag", buf, 64);
 	ImGui::Unindent(16.0f);
-	ImGui::NewLine();
 	tag.Tag = buf;
 
 	TransformComponent& transform = m_SelectedEntity.GetComponent<TransformComponent>();
@@ -447,7 +441,6 @@ void EditorLayer::RenderEntityData()
 		ImGui::PrettyDragFloat3("Rotation", glm::value_ptr(transform.Rotation), 0.05f);
 		ImGui::PrettyDragFloat3("Scale",    glm::value_ptr(transform.Scale),    0.05f);
 		ImGui::Unindent(16.0f);
-		ImGui::NewLine();
 	}
 	ImGui::PopID();
 
@@ -459,20 +452,20 @@ void EditorLayer::RenderEntityData()
 		if (ImGui::CollapsingHeader("Mesh", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::Indent(16.0f);
-			if (ImGui::BeginCombo("##MeshCombo", AssetManager::GetMesh(mesh.MeshID).Name.c_str()))
-			{
-				const std::unordered_map<int32_t, Mesh>& meshes = AssetManager::AllMeshes();
-
-				for (const auto& [id, meshData] : meshes)
+			ImGui::BeginPrettyCombo("Mesh", AssetManager::GetMesh(mesh.MeshID).Name.c_str(),
+				[this, &mesh]()
 				{
-					if (ImGui::Selectable(meshData.Name.c_str(), id == mesh.MeshID))
+					const std::unordered_map<int32_t, Mesh>& meshes = AssetManager::AllMeshes();
+
+					for (const auto& [id, meshData] : meshes)
 					{
-						mesh.MeshID = id;
+						if (ImGui::Selectable(meshData.Name.c_str(), id == mesh.MeshID))
+						{
+							mesh.MeshID = id;
+						}
 					}
 				}
-
-				ImGui::EndCombo();
-			}
+			);
 
 			if (ImGui::PrettyButton("Remove component"))
 			{
@@ -480,7 +473,6 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
-			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
@@ -494,57 +486,59 @@ void EditorLayer::RenderEntityData()
 		{
 			ImGui::Indent(16.0f);
 			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
-			if (ImGui::BeginCombo("##Material", material.Name.c_str()))
-			{
-				for (const auto& [id, mat] : AssetManager::AllMaterials())
+			ImGui::BeginPrettyCombo("Material", material.Name.c_str(),
+				[this]()
 				{
-					if (ImGui::Selectable(mat.Name.c_str(), id == m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID))
+					for (const auto& [id, mat] : AssetManager::AllMaterials())
 					{
-						m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID = id;
+						if (ImGui::Selectable(mat.Name.c_str(), id == m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID))
+						{
+							m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID = id;
+						}
 					}
 				}
+			);
 
-				ImGui::EndCombo();
-			}
+			float buttonWidth = ImGui::GetContentRegionAvail().x / 3.0f;
+			ImVec2 buttonSize(buttonWidth, 0.0f);
+			ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x / 2.0f - buttonWidth + 16.0f);
 
-			ImGui::SameLine();
-
-			if (ImGui::PrettyButton("Edit"))
+			if (ImGui::PrettyButton("Edit", buttonSize))
 			{
 				Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID));
 			}
 
 			ImGui::SameLine();
 
-			if (ImGui::PrettyButton("New"))
+			if (ImGui::PrettyButton("New", buttonSize))
 			{
 				m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(AssetManager::GetMaterial(AssetManager::MATERIAL_DEFAULT));
 				Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID));
 			}
 
+			ImGui::Separator();
 			ImGui::PrettyDragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
 			ImGui::PrettyDragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
 
-			std::shared_ptr<Texture> tex    = AssetManager::GetTexture(material.AlbedoTextureID);
+			std::shared_ptr<Texture> tex = AssetManager::GetTexture(material.AlbedoTextureID);
 			std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
 
-			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
-			if (ImGui::BeginCombo("Texture filtering", tex->Filter() == GL_NEAREST ? "Nearest" : "Linear"))
-			{
-				if (ImGui::Selectable("Nearest", tex->Filter() == GL_NEAREST))
+			ImGui::BeginPrettyCombo("Filtering", tex->Filter() == GL_NEAREST ? "Nearest" : "Linear",
+				[this, &tex, &normal]()
 				{
-					tex->SetFilter(GL_NEAREST);
-					normal->SetFilter(GL_NEAREST);
-				}
+					if (ImGui::Selectable("Nearest", tex->Filter() == GL_NEAREST))
+					{
+						tex->SetFilter(GL_NEAREST);
+						normal->SetFilter(GL_NEAREST);
+					}
 
-				if (ImGui::Selectable("Linear", tex->Filter() == GL_LINEAR))
-				{
-					tex->SetFilter(GL_LINEAR);
-					normal->SetFilter(GL_LINEAR);
+					if (ImGui::Selectable("Linear", tex->Filter() == GL_LINEAR))
+					{
+						tex->SetFilter(GL_LINEAR);
+						normal->SetFilter(GL_LINEAR);
+					}
 				}
-
-				ImGui::EndCombo();
-			}
+			);
 
 			const std::unordered_map<int32_t, std::string> wrapToString = {
 				{ GL_CLAMP_TO_EDGE,		   "Clamp to edge"		  },
@@ -555,98 +549,89 @@ void EditorLayer::RenderEntityData()
 			};
 			std::string preview = wrapToString.at(tex->Wrap());
 
-			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2.0f);
-			if (ImGui::BeginCombo("Texture wrapping", preview.c_str()))
-			{
-				for (const auto& [wrap, wrapStr] : wrapToString)
+			ImGui::BeginPrettyCombo("Wrapping", preview.c_str(),
+				[this, &tex, &normal, &wrapToString]()
 				{
-					if (ImGui::Selectable(wrapStr.c_str(), tex->Filter() == wrap))
+					for (const auto& [wrap, wrapStr] : wrapToString)
 					{
-						tex->SetWrap(wrap);
-						normal->SetWrap(wrap);
+						if (ImGui::Selectable(wrapStr.c_str(), tex->Filter() == wrap))
+						{
+							tex->SetWrap(wrap);
+							normal->SetWrap(wrap);
+						}
 					}
 				}
-
-				ImGui::EndCombo();
-			}
+			);
 
 			static int32_t* idOfInterest = nullptr;
-			constexpr ImVec2 IMAGE_SIZE(64.0f, 64.0f);
-			constexpr float IMAGE_CELL_WIDTH = 96.0f;
-
 			std::shared_ptr<Texture> texture = AssetManager::GetTexture(material.AlbedoTextureID);
-			ImGui::Columns(2);
-			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
-			if (ImGui::ImageButton("##Albedo", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			if (ImGui::TextureFrame("##Albedo", (ImTextureID)texture->GetID(),
+				[this, &texture, &material]()
+				{
+					ImGui::Text("Diffuse texture");
+					ImGui::Text(texture->Name().c_str());
+					ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
+				}
+			))
 			{
 				idOfInterest = &material.AlbedoTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
-			ImGui::NextColumn();
-			ImGui::Text("Diffuse texture");
-			ImGui::Text(texture->Name().c_str());
-			ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
-			ImGui::Columns(1);
 
 			texture = AssetManager::GetTexture(material.NormalTextureID);
-			ImGui::Columns(2);
-			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
-			if (ImGui::ImageButton("##Normal", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			if (ImGui::TextureFrame("##Normal", (ImTextureID)texture->GetID(),
+				[this, &texture, &material]()
+				{
+					ImGui::Text("Normal map");
+					ImGui::Text(texture->Name().c_str());
+				}
+			))
 			{
 				idOfInterest = &material.NormalTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
-			ImGui::NextColumn();
-			ImGui::Text("Normal map");
-			ImGui::Text(texture->Name().c_str());
-			ImGui::Columns(1);
 
-			ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-			ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
-			ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
 			texture = AssetManager::GetTexture(material.RoughnessTextureID);
-			ImGui::Columns(2);
-			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
-			if (ImGui::ImageButton("##Roughness", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			if (ImGui::TextureFrame("##Roughness", (ImTextureID)texture->GetID(),
+				[this, &texture, &material]()
+				{
+					ImGui::Text("Roughness map");
+					ImGui::Text(texture->Name().c_str());
+					ImGui::PrettyDragFloat("Roughness", &material.RoughnessFactor, 0.001f, 0.0f, 1.0f, "%.3f", 70.0f);
+				}
+			))
 			{
 				idOfInterest = &material.RoughnessTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
-			ImGui::NextColumn();
-			ImGui::Text("Roughness map");
-			ImGui::Text(texture->Name().c_str());
-			ImGui::DragFloat("Roughness", &material.RoughnessFactor, 0.05f, 0.0f, 1.0f);
-			ImGui::Columns(1);
 
 			texture = AssetManager::GetTexture(material.MetallicTextureID);
-			ImGui::Columns(2);
-			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
-			if (ImGui::ImageButton("##Metallic", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			if (ImGui::TextureFrame("##Metallic", (ImTextureID)texture->GetID(),
+				[this, &texture, &material]()
+				{
+					ImGui::Text("Metallic map");
+					ImGui::Text(texture->Name().c_str());
+					ImGui::PrettyDragFloat("Metallic", &material.MetallicFactor, 0.001f, 0.0f, 1.0f, "%.3f", 70.0f);
+				}
+			))
 			{
 				idOfInterest = &material.MetallicTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
-			ImGui::NextColumn();
-			ImGui::Text("Metallic map");
-			ImGui::Text(texture->Name().c_str());
-			ImGui::DragFloat("Metallic", &material.MetallicFactor, 0.05f, 0.0f, 1.0f);
-			ImGui::Columns(1);
 
 			texture = AssetManager::GetTexture(material.AmbientOccTextureID);
-			ImGui::Columns(2);
-			ImGui::SetColumnWidth(0, IMAGE_CELL_WIDTH);
-			if (ImGui::ImageButton("##AO", (ImTextureID)(texture->GetID()), IMAGE_SIZE, { 0.0f, 1.0f }, { 1.0f, 0.0f }))
+			if (ImGui::TextureFrame("##AO", (ImTextureID)texture->GetID(),
+				[this, &texture, &material]()
+				{
+					ImGui::Text("AO map");
+					ImGui::Text(texture->Name().c_str());
+					ImGui::PrettyDragFloat("AO", &material.AmbientOccFactor, 0.001f, 0.0f, 1.0f, "%.3f", 70.0f);
+				}
+			))
 			{
 				idOfInterest = &material.AmbientOccTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
-			ImGui::NextColumn();
-			ImGui::Text("AO map");
-			ImGui::Text(texture->Name().c_str());
-			ImGui::DragFloat("AO", &material.AmbientOccFactor, 0.05f, 0.0f, 1.0f);
-			ImGui::Columns(1);
-
-			ImGui::PopStyleColor(3);
 
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 10.0f, 10.0f });
 			if (ImGui::BeginPopup("available_textures_group"))
@@ -706,7 +691,6 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
-			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
@@ -728,7 +712,6 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
-			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
@@ -740,13 +723,11 @@ void EditorLayer::RenderEntityData()
 
 		if (ImGui::CollapsingHeader("Point light", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			float labelWidth = ImGui::CalcTextSize("Quadratic attenuation").x * 1.25f;
-
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
-			ImGui::PrettyDragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f", labelWidth);
-			ImGui::PrettyDragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f", labelWidth);
-			ImGui::PrettyDragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f", labelWidth);
+			ImGui::PrettyDragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
+			ImGui::PrettyDragFloat("Linear", &light.LinearTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::PrettyDragFloat("Quadratic", &light.QuadraticTerm, 0.00001f, 0.0f, FLT_MAX, "%.5f");
 
 			if (ImGui::PrettyButton("Remove component"))
 			{
@@ -754,7 +735,6 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
-			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
@@ -766,15 +746,13 @@ void EditorLayer::RenderEntityData()
 
 		if (ImGui::CollapsingHeader("Spotlight", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			float labelWidth = ImGui::CalcTextSize("Quadratic attenuation").x * 1.25f;
-
 			ImGui::Indent(16.0f);
 			ImGui::ColorEdit3("Color", glm::value_ptr(light.Color), ImGuiColorEditFlags_NoInputs);
-			ImGui::PrettyDragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f", labelWidth);
-			ImGui::PrettyDragFloat("Cutoff", &light.Cutoff, 0.01f, 0.0f, FLT_MAX, "%.3f", labelWidth);
-			ImGui::PrettyDragFloat("Edge smoothness", &light.EdgeSmoothness, 0.01f, 0.0f, light.Cutoff, "%.3f", labelWidth);
-			ImGui::PrettyDragFloat("Linear attenuation", &light.LinearTerm, 0.001f, 0.0f, FLT_MAX, "%.5f", labelWidth);
-			ImGui::PrettyDragFloat("Quadratic attenuation", &light.QuadraticTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f", labelWidth);
+			ImGui::PrettyDragFloat("Intensity", &light.Intensity, 0.001f, 0.0f, FLT_MAX, "%.3f");
+			ImGui::PrettyDragFloat("Cutoff", &light.Cutoff, 0.01f, 0.0f, FLT_MAX, "%.3f");
+			ImGui::PrettyDragFloat("Smoothness", &light.EdgeSmoothness, 0.01f, 0.0f, light.Cutoff, "%.3f");
+			ImGui::PrettyDragFloat("Linear", &light.LinearTerm, 0.0001f, 0.0f, FLT_MAX, "%.5f");
+			ImGui::PrettyDragFloat("Quadratic", &light.QuadraticTerm, 0.00001f, 0.0f, FLT_MAX, "%.5f");
 
 			if (ImGui::PrettyButton("Remove component"))
 			{
@@ -782,13 +760,12 @@ void EditorLayer::RenderEntityData()
 			}
 
 			ImGui::Unindent(16.0f);
-			ImGui::NewLine();
 		}
 	}
 	ImGui::PopID();
 
 	ImGui::Separator();
-	ImGui::NewLine();
+	ImGui::SetCursorPosX(ImGui::GetContentRegionAvail().x / 2.0f - ImGui::CalcTextSize("Add new component").x / 2.0f);
 
 	if (ImGui::PrettyButton("Add new component"))
 	{

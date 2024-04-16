@@ -268,6 +268,7 @@ void Application::SetWindowCallbacks()
 void Application::ApplyImGuiStyles()
 {
 	ImGuiStyle& style = ImGui::GetStyle();
+	style.ItemSpacing = ImVec2(10.0f, 10.0f);
 	style.Colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
 	style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
 	style.Colors[ImGuiCol_WindowBg] = ImVec4(0.08f, 0.08f, 0.08f, 1.00f);

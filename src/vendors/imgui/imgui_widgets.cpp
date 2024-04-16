@@ -1355,135 +1355,238 @@ bool ImGui::PrettyButton(const char* label, const ImVec2& size)
 void ImGui::PrettyDragFloat(const char* label, float* v, float speed, float min, float max, const char* format, float labelWidth)
 {
 	ImGui::PushID(label);
-	ImGui::Columns(2);
-	ImGui::SetColumnWidth(0, labelWidth);
-	ImGui::Text(label);
-	ImGui::NextColumn();
 
-	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-	ImGui::PushItemWidth(ImGui::CalcItemWidth() + 3.0f * 22.0f);
-	ImGui::DragFloat("##Value", v, speed, min, max, format);
-	ImGui::PopStyleColor(3);
+	if (ImGui::BeginTable("#Float1", 2))
+	{
+		ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+		ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthStretch);
 
-	ImGui::Columns(1);
-	ImGui::PopItemWidth();
+		ImGui::TableNextColumn();
+		ImGui::Text(label);
+
+		ImGui::TableNextColumn();
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+		ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+		ImGui::DragFloat("##Value", v, speed, min, max, format);
+		ImGui::PopStyleColor(3);
+		ImGui::PopItemWidth();
+
+		ImGui::EndTable();
+	}
+
 	ImGui::PopID();
 }
 
 void ImGui::PrettyDragFloat2(const char* label, float* v, float speed, float min, float max, const char* format, float labelWidth)
 {
 	ImGui::PushID(label);
-	ImGui::Columns(2);
-	ImGui::SetColumnWidth(0, labelWidth);
-	ImGui::Text(label);
-	ImGui::NextColumn();
-
-	ImGui::PushItemWidth(ImGui::CalcItemWidth() / 2.0f + 11.0f);
-	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 4.0f));
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.25f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
-
-	ImVec2 buttonSize(22.0f, 22.0f);
-
-	if (ImGui::Button("X", buttonSize))
+	
+	if (ImGui::BeginTable("#Float2", 2))
 	{
-		v[0] = 0.0f;
+		ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+		ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableNextColumn();
+		ImGui::Text(label);
+
+		ImGui::TableNextColumn();
+		ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x / 2.0f - 22.0f);
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 10.0f));
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.25f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+
+		ImVec2 buttonSize(22.0f, 22.0f);
+
+		if (ImGui::Button("X", buttonSize))
+		{
+			v[0] = 0.0f;
+		}
+
+		ImGui::PopStyleColor(3);
+		ImGui::SameLine();
+		ImGui::DragFloat("##X", &v[0], speed, min, max, format);
+		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+
+		if (ImGui::Button("Y", buttonSize))
+		{
+			v[1] = 0.0f;
+		}
+
+		ImGui::PopStyleColor(3);
+		ImGui::SameLine();
+		ImGui::DragFloat("##Y", &v[1], speed, min, max, format);
+
+		ImGui::PopStyleVar();
+		ImGui::PopStyleColor(3);
+		ImGui::PopItemWidth();
+
+		ImGui::EndTable();
 	}
 
-	ImGui::PopStyleColor(3);
-	ImGui::SameLine();
-	ImGui::DragFloat("##X", &v[0], speed, min, max, format);
-	ImGui::SameLine();
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
-
-	if (ImGui::Button("Y", buttonSize))
-	{
-		v[1] = 0.0f;
-	}
-
-	ImGui::PopStyleColor(3);
-	ImGui::SameLine();
-	ImGui::DragFloat("##Y", &v[1], speed, min, max, format);
-
-	ImGui::PopStyleVar();
-	ImGui::PopStyleColor(3);
-	ImGui::PopItemWidth();
-	ImGui::Columns(1);
 	ImGui::PopID();
 }
 
 void ImGui::PrettyDragFloat3(const char* label, float v[3], float speed, float min, float max, const char* format, float labelWidth)
 {
 	ImGui::PushID(label);
-	ImGui::Columns(2);
-	ImGui::SetColumnWidth(0, labelWidth);
-	ImGui::Text(label);
-	ImGui::NextColumn();
-
-	ImGui::PushItemWidth(ImGui::CalcItemWidth() / 3.0f);
-	ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 4.0f));
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.25f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
-
-	ImVec2 buttonSize(22.0f, 22.0f);
-
-	if (ImGui::Button("X", buttonSize))
+	
+	if (ImGui::BeginTable("#Float3", 2))
 	{
-		v[0] = 0.0f;
+		ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+		ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableNextColumn();
+		ImGui::Text(label);
+
+		ImGui::TableNextColumn();
+		ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x / 3.0f - 22.0f);
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 10.0f));
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.25f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+
+		ImVec2 buttonSize(22.0f, 22.0f);
+
+		if (ImGui::Button("X", buttonSize))
+		{
+			v[0] = 0.0f;
+		}
+
+		ImGui::PopStyleColor(3);
+		ImGui::SameLine();
+		ImGui::DragFloat("##X", &v[0], speed, min, max, format);
+		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+
+		if (ImGui::Button("Y", buttonSize))
+		{
+			v[1] = 0.0f;
+		}
+
+		ImGui::PopStyleColor(3);
+		ImGui::SameLine();
+		ImGui::DragFloat("##Y", &v[1], speed, min, max, format);
+		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.25f, 0.8f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.35f, 0.9f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.25f, 0.8f, 1.0f));
+
+		if (ImGui::Button("Z", buttonSize))
+		{
+			v[2] = 0.0f;
+		}
+
+		ImGui::PopStyleColor(3);
+		ImGui::SameLine();
+		ImGui::DragFloat("##Z", &v[2], speed, min, max, format);
+
+		ImGui::PopStyleVar();
+		ImGui::PopStyleColor(3);
+		ImGui::PopItemWidth();
+
+		ImGui::EndTable();
 	}
 
-	ImGui::PopStyleColor(3);
-	ImGui::SameLine();
-	ImGui::DragFloat("##X", &v[0], speed, min, max, format);
-	ImGui::SameLine();
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
-
-	if (ImGui::Button("Y", buttonSize))
-	{
-		v[1] = 0.0f;
-	}
-
-	ImGui::PopStyleColor(3);
-	ImGui::SameLine();
-	ImGui::DragFloat("##Y", &v[1], speed, min, max, format);
-	ImGui::SameLine();
-
-	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.25f, 0.8f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.35f, 0.9f, 1.0f));
-	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.25f, 0.8f, 1.0f));
-
-	if (ImGui::Button("Z", buttonSize))
-	{
-		v[2] = 0.0f;
-	}
-
-	ImGui::PopStyleColor(3);
-	ImGui::SameLine();
-	ImGui::DragFloat("##Z", &v[2], speed, min, max, format);
-
-	ImGui::PopStyleVar();
-	ImGui::PopStyleColor(3);
-	ImGui::PopItemWidth();
-	ImGui::Columns(1);
 	ImGui::PopID();
+}
+
+void ImGui::PrettyInputText(const char* label, char* buf, float labelWidth)
+{
+	ImGui::PushID(label);
+
+	if (ImGui::BeginTable("#Input", 2))
+	{
+		ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+		ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableNextColumn();
+		ImGui::Text(label);
+
+		ImGui::TableNextColumn();
+		ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+		ImGui::InputText("##MaterialName", buf, 64);
+		ImGui::PopStyleColor(3);
+		ImGui::PopItemWidth();
+
+		ImGui::EndTable();
+	}
+
+	ImGui::PopID();
+}
+
+void ImGui::BeginPrettyCombo(const char* label, const char* preview, std::function<void(void)> comboBodyFunc, float labelWidth)
+{
+	if (ImGui::BeginTable("#Combo", 2))
+	{
+		ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, labelWidth);
+		ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableNextColumn();
+		ImGui::Text(label);
+
+		ImGui::TableNextColumn();
+		ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+		ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+
+		char l[64]{ 0 };
+		strcat(l, "##");
+		strcat(l, label);
+		if (ImGui::BeginCombo(l, preview))
+		{
+			comboBodyFunc();
+			ImGui::EndCombo();
+		}
+
+		ImGui::PopStyleColor(3);
+		ImGui::PopItemWidth();
+		ImGui::EndTable();
+	}
+}
+
+bool ImGui::TextureFrame(const char* label, ImTextureID texID, std::function<void(void)> infoBodyFunc, float textureIconSize)
+{
+	bool texturePressed = false;
+
+	if (ImGui::BeginTable("#Texture", 2))
+	{
+		ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, textureIconSize);
+		ImGui::TableSetupColumn("Data", ImGuiTableColumnFlags_WidthStretch);
+
+		ImGui::TableNextColumn();
+		float iconSize = std::max(0.0f, textureIconSize - 32.0f);
+		texturePressed = ImGui::ImageButton(label, texID, ImVec2(iconSize, iconSize), { 0.0f, 1.0f }, { 1.0f, 0.0f });
+
+		ImGui::TableNextColumn();
+		infoBodyFunc();
+
+		ImGui::EndTable();
+	}
+
+	return texturePressed;
 }
 
 //-------------------------------------------------------------------------
