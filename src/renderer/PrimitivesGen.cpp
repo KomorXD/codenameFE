@@ -12,7 +12,7 @@ static void CalculateTangents(Vertex& v0, Vertex& v1, Vertex& v2)
 
 	float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
 	v0.Tangent = f * (deltaUV2.y * edge1 - deltaUV1.y * edge2);
-	v0.Bitangent = f * (-deltaUV2.x * edge1 + deltaUV1.x * edge2);
+	v0.Bitangent = f * (deltaUV2.x * edge1 - deltaUV1.x * edge2);
 
 	glm::vec3 normal = glm::normalize(v0.Normal);
 	v0.Tangent = glm::normalize(v0.Tangent - normal * glm::dot(normal, v0.Tangent));
@@ -28,9 +28,9 @@ VertexData QuadMeshData()
 {
     std::vector<Vertex> vertices =
     {
-		{{  0.5f, -0.5f,  0.0f }, {  0.0f,  0.0f, -1.0f }, {}, {}, { 0.0f, 0.0f }}, // Bottom-right
-		{{ -0.5f, -0.5f,  0.0f }, {  0.0f,  0.0f, -1.0f }, {}, {}, { 1.0f, 0.0f }}, // Bottom-left
-		{{ -0.5f,  0.5f,  0.0f }, {  0.0f,  0.0f, -1.0f }, {}, {}, { 1.0f, 1.0f }}, // Top-left
+        {{  0.5f, -0.5f,  0.0f }, {  0.0f,  0.0f, -1.0f }, {}, {}, { 0.0f, 0.0f }}, // Bottom-right
+        {{ -0.5f, -0.5f,  0.0f }, {  0.0f,  0.0f, -1.0f }, {}, {}, { 1.0f, 0.0f }}, // Bottom-left
+        {{ -0.5f,  0.5f,  0.0f }, {  0.0f,  0.0f, -1.0f }, {}, {}, { 1.0f, 1.0f }}, // Top-left
 		{{  0.5f,  0.5f,  0.0f }, {  0.0f,  0.0f, -1.0f }, {}, {}, { 0.0f, 1.0f }}, // Top-right
     };
 

@@ -15,10 +15,14 @@ layout (std140, binding = 0) uniform Matrices
 	mat4 u_View;
 };
 
+uniform vec3 u_ViewPos = vec3(0.0);
+
 out VS_OUT
 {
 	vec3 worldPos;
 	mat3 TBN;
+	vec3 tangentWorldPos;
+	vec3 tangentViewPos;
 	vec2 textureUV;
 	flat float materialSlot;
 	flat float entityID;
@@ -26,15 +30,18 @@ out VS_OUT
 
 void main()
 {
-	vec3 T = normalize(vec3(a_Transform * vec4(a_Tangent,   0.0)));
-	vec3 B = normalize(vec3(a_Transform * vec4(a_Bitangent, 0.0)));
-	vec3 N = normalize(vec3(a_Transform * vec4(a_Normal,    0.0)));
+	vec3 T = normalize(mat3(a_Transform) * a_Tangent);
+	vec3 B = normalize(mat3(a_Transform) * a_Bitangent);
+	vec3 N = normalize(mat3(a_Transform) * a_Normal);
+	mat3 TBN = transpose(mat3(T, B, N));
 
-	vs_out.worldPos		= (a_Transform * vec4(a_Pos, 1.0)).xyz;
-	vs_out.TBN			= mat3(T, B, N);
-	vs_out.textureUV	= a_TextureUV;
-	vs_out.materialSlot	= a_MaterialSlot;
-	vs_out.entityID		= a_EntityID;
+	vs_out.worldPos		   = (a_Transform * vec4(a_Pos, 1.0)).xyz;
+	vs_out.TBN			   = TBN;
+	vs_out.tangentWorldPos = TBN * vs_out.worldPos;
+	vs_out.tangentViewPos  = TBN * u_ViewPos;
+	vs_out.textureUV	   = a_TextureUV;
+	vs_out.materialSlot	   = a_MaterialSlot;
+	vs_out.entityID		   = a_EntityID;
 
 	gl_Position = u_Projection * u_View * a_Transform * vec4(a_Pos, 1.0);
 }

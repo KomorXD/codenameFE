@@ -89,6 +89,9 @@ struct MaterialsBufferData
 	int32_t AlbedoTextureSlot;
 	int32_t NormalTextureSlot;
 
+	int32_t HeightTextureSlot;
+	float HeightFactor;
+
 	int32_t RoughnessTextureSlot;
 	float RoughnessFactor;
 
@@ -97,6 +100,8 @@ struct MaterialsBufferData
 
 	int32_t AmbientOccTextureSlot;
 	float AmbientOccFactor;
+
+	float Padding[2];
 };
 
 static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& rhs)
@@ -106,6 +111,8 @@ static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& 
 		&& lhs.TextureOffset == rhs.TextureOffset
 		&& lhs.AlbedoTextureID == rhs.AlbedoTextureSlot
 		&& lhs.NormalTextureID == rhs.NormalTextureSlot
+		&& lhs.HeightTextureID == rhs.HeightTextureSlot
+		&& lhs.HeightFactor == rhs.HeightFactor
 		&& lhs.RoughnessTextureID == rhs.RoughnessTextureSlot
 		&& lhs.RoughnessFactor == rhs.RoughnessFactor
 		&& lhs.MetallicTextureID == rhs.MetallicTextureSlot
@@ -122,6 +129,8 @@ static MaterialsBufferData MaterialToBuffer(const Material& material)
 		.TextureOffset = material.TextureOffset,
 		.AlbedoTextureSlot = material.AlbedoTextureID,
 		.NormalTextureSlot = material.NormalTextureID,
+		.HeightTextureSlot = material.HeightTextureID,
+		.HeightFactor = material.HeightFactor,
 		.RoughnessTextureSlot = material.RoughnessTextureID,
 		.RoughnessFactor = material.RoughnessFactor,
 		.MetallicTextureSlot = material.MetallicTextureID,
@@ -154,7 +163,6 @@ struct RendererData
 	LineVertex* LineBufferPtr   = nullptr;
 
 	std::shared_ptr<Shader>	DefaultShader;
-	std::shared_ptr<Shader>	PBRShader;
 	std::shared_ptr<Shader> CurrentShader;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
@@ -298,25 +306,23 @@ void Renderer::Init()
 			s_Data.DefaultShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
 		}
 
-		s_Data.PBRShader = std::make_shared<Shader>("resources/shaders/Default.vert", "resources/shaders/PBR.frag");
-		s_Data.PBRShader->Bind();
-		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
-		{
-			s_Data.PBRShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
-		}
-
 		uint8_t whitePixel[] = { 255, 255, 255, 255 };
-		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1, "Default");
+		std::shared_ptr<Texture> defaultAlbedo = std::make_shared<Texture>(whitePixel, 1, 1, "Default white");
 		AssetManager::AddTexture(defaultAlbedo, AssetManager::TEXTURE_WHITE);
 
 		uint8_t normalPixel[] = { 127, 127, 255, 255 };
 		std::shared_ptr<Texture> defaultNormal = std::make_shared<Texture>(normalPixel, 1, 1, "Default normal");
 		AssetManager::AddTexture(defaultNormal, AssetManager::TEXTURE_NORMAL);
 
+		uint8_t blackPixel[] = { 0, 0, 0, 255 };
+		std::shared_ptr<Texture> defaultBlack = std::make_shared<Texture>(blackPixel, 1, 1, "Default black");
+		AssetManager::AddTexture(defaultBlack, AssetManager::TEXTURE_BLACK);
+
 		Material mat{};
 		mat.Name = "Default material";
 		mat.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
 		mat.NormalTextureID = AssetManager::TEXTURE_NORMAL;
+		mat.HeightTextureID = AssetManager::TEXTURE_BLACK;
 		AssetManager::AddMaterial(mat, AssetManager::MATERIAL_DEFAULT);
 
 		s_Data.CurrentShader = s_Data.DefaultShader;
@@ -393,7 +399,6 @@ void Renderer::Shutdown()
 	s_Data.LineShader = nullptr;
 
 	s_Data.DefaultShader = nullptr;
-	s_Data.PBRShader = nullptr;
 	s_Data.CurrentShader = nullptr;
 
 	s_Data.MatricesBuffer = nullptr;
@@ -405,7 +410,6 @@ void Renderer::ReloadShaders()
 {
 	s_Data.LineShader->ReloadShader();
 	s_Data.DefaultShader->ReloadShader();
-	s_Data.PBRShader->ReloadShader();
 }
 
 void Renderer::OnWindowResize(const Viewport& newViewport)
@@ -554,12 +558,14 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 
 	std::shared_ptr<Texture> albedo	   = AssetManager::GetTexture(material.AlbedoTextureID);
 	std::shared_ptr<Texture> normal	   = AssetManager::GetTexture(material.NormalTextureID);
+	std::shared_ptr<Texture> height	   = AssetManager::GetTexture(material.HeightTextureID);
 	std::shared_ptr<Texture> roughness = AssetManager::GetTexture(material.RoughnessTextureID);
 	std::shared_ptr<Texture> metallic  = AssetManager::GetTexture(material.MetallicTextureID);
 	std::shared_ptr<Texture> ao		   = AssetManager::GetTexture(material.AmbientOccTextureID);
 
 	int32_t albedoIdx	 = -1;
 	int32_t normalIdx	 = -1;
+	int32_t heightIdx	 = -1;
 	int32_t roughnessIdx = -1;
 	int32_t metallicIdx  = -1;
 	int32_t aoIdx		 = -1;
@@ -573,6 +579,11 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 		if (s_Data.TextureBindings[i] == normal->GetID())
 		{
 			normalIdx = i;
+		}
+
+		if (s_Data.TextureBindings[i] == height->GetID())
+		{
+			heightIdx = i;
 		}
 
 		if (s_Data.TextureBindings[i] == roughness->GetID())
@@ -605,6 +616,13 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 		++s_Data.BoundTexturesCount;
 	}
 
+	if (heightIdx == -1)
+	{
+		s_Data.TextureBindings[s_Data.BoundTexturesCount] = height->GetID();
+		heightIdx = s_Data.BoundTexturesCount;
+		++s_Data.BoundTexturesCount;
+	}
+
 	if (roughnessIdx == -1)
 	{
 		s_Data.TextureBindings[s_Data.BoundTexturesCount] = roughness->GetID();
@@ -631,8 +649,8 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	{
 		MaterialsBufferData& matData = s_Data.MaterialsData[i];
 		bool sameTextures = matData.AlbedoTextureSlot == albedoIdx && matData.NormalTextureSlot == normalIdx
-			&& matData.RoughnessTextureSlot == roughnessIdx && matData.MetallicTextureSlot == metallicIdx
-			&& matData.AmbientOccTextureSlot == aoIdx;
+			&& matData.HeightTextureSlot == heightIdx && matData.RoughnessTextureSlot == roughnessIdx
+			&& matData.MetallicTextureSlot == metallicIdx && matData.AmbientOccTextureSlot == aoIdx;
 
 		if (MaterialToBufferCmp(material, s_Data.MaterialsData[i]) && sameTextures)
 		{
@@ -647,6 +665,7 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 		s_Data.MaterialsData.push_back(MaterialToBuffer(material));
 		s_Data.MaterialsData.back().AlbedoTextureSlot	  = albedoIdx;
 		s_Data.MaterialsData.back().NormalTextureSlot	  = normalIdx;
+		s_Data.MaterialsData.back().HeightTextureSlot	  = heightIdx;
 		s_Data.MaterialsData.back().RoughnessTextureSlot  = roughnessIdx;
 		s_Data.MaterialsData.back().MetallicTextureSlot   = metallicIdx;
 		s_Data.MaterialsData.back().AmbientOccTextureSlot = aoIdx;
@@ -768,11 +787,6 @@ void Renderer::EnableFaceCulling()
 void Renderer::DisableFaceCulling()
 {
 	GLCall(glDisable(GL_CULL_FACE));
-}
-
-void Renderer::SetPBR(bool flag)
-{
-	s_Data.CurrentShader = flag ? s_Data.PBRShader : s_Data.DefaultShader;
 }
 
 void Renderer::SetWireframe(bool enabled)

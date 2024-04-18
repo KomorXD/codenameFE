@@ -44,13 +44,6 @@ EditorLayer::EditorLayer()
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->Unbind();
 
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/container_diffuse.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/container_specular.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/rustediron2_basecolor.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/rustediron2_normal.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/rustediron2_roughness.png"));
-	AssetManager::AddTexture(std::make_shared<Texture>("resources/textures/rustediron2_metallic.png"));
-
 	Material mat{};
 	mat.Color = { 1.0f, 0.0f, 0.0f, 1.0f };
 	
@@ -287,7 +280,6 @@ void EditorLayer::RenderScenePanel()
 		}
 	);
 
-	static bool isPBR = true;
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
@@ -295,11 +287,8 @@ void EditorLayer::RenderScenePanel()
 		ImGui::PrettyDragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, 5.0f);
 		ImGui::PrettyDragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::PrettyDragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
-		ImGui::Checkbox("PBR", &isPBR);
 		ImGui::Checkbox("Wireframe", &m_DrawWireframe);
 		ImGui::Unindent(16.0f);
-
-		Renderer::SetPBR(isPBR);
 	}
 
 	/*ImGui::NewLine();
@@ -588,6 +577,20 @@ void EditorLayer::RenderEntityData()
 			))
 			{
 				idOfInterest = &material.NormalTextureID;
+				ImGui::OpenPopup("available_textures_group");
+			}
+
+			texture = AssetManager::GetTexture(material.HeightTextureID);
+			if (ImGui::TextureFrame("##Height", (ImTextureID)texture->GetID(),
+				[this, &texture, &material]()
+				{
+					ImGui::Text("Height map");
+					ImGui::Text(texture->Name().c_str());
+					ImGui::PrettyDragFloat("Height", &material.HeightFactor, 0.001f, 0.0f, FLT_MAX, "%.3f", 70.0f);
+				}
+			))
+			{
+				idOfInterest = &material.HeightTextureID;
 				ImGui::OpenPopup("available_textures_group");
 			}
 

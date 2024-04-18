@@ -23,6 +23,9 @@ struct Material
 	int32_t AlbedoTextureID = 1;
 	int32_t NormalTextureID = 2;
 
+	int32_t HeightTextureID = 3;
+	float HeightFactor = 0.1f;
+
 	int32_t RoughnessTextureID = 1;
 	float RoughnessFactor = 0.5f;
 
@@ -70,6 +73,7 @@ public:
 
 	static constexpr int32_t TEXTURE_WHITE  = 1;
 	static constexpr int32_t TEXTURE_NORMAL = 2;
+	static constexpr int32_t TEXTURE_BLACK  = 3;
 
 
 	static int32_t AddMaterial(Material material);

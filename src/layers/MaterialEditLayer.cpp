@@ -298,6 +298,20 @@ void MaterialEditLayer::RenderPanel()
 			ImGui::OpenPopup("available_textures_group");
 		}
 
+		texture = AssetManager::GetTexture(material.HeightTextureID);
+		if (ImGui::TextureFrame("##Height", (ImTextureID)texture->GetID(),
+			[this, &texture, &material]()
+			{
+				ImGui::Text("Height map");
+				ImGui::Text(texture->Name().c_str());
+				ImGui::PrettyDragFloat("Height", &material.HeightFactor, 0.001f, 0.0f, FLT_MAX, "%.3f", 70.0f);
+			}
+		))
+		{
+			idOfInterest = &material.HeightTextureID;
+			ImGui::OpenPopup("available_textures_group");
+		}
+
 		texture = AssetManager::GetTexture(material.RoughnessTextureID);
 		if (ImGui::TextureFrame("##Roughness", (ImTextureID)texture->GetID(),
 			[this, &texture, &material]()

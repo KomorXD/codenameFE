@@ -32,17 +32,27 @@ struct Material
 	int albedoTextureSlot;
 	int normalTextureSlot;
 
+	int heightTextureSlot;
+	float heightFactor;
+
 	int	roughnessTextureSlot;
 	float roughnessFactor;
 
 	int metallicTextureSlot;
 	float metallicFactor;
+
+	int ambientOccTextureSlot;
+	float ambientOccFactor;
+
+	vec2 padding;
 };
 
 in VS_OUT
 {
 	vec3 worldPos;
 	mat3 TBN;
+	vec3 tangentWorldPos;
+	vec3 tangentViewPos;
 	vec2 textureUV;
 	flat float materialSlot;
 	flat float entityID;
@@ -64,10 +74,75 @@ layout(std140, binding = 2) uniform Materials
 	Material materialsData[128];
 } materials;
 
-uniform vec3 u_ViewPos = vec3(0.0);
 uniform bool u_IsLightSource = false;
-uniform float u_AmbientStrength = 0.1;
 uniform sampler2D u_Textures[24];
+
+const float PI = 3.14159265359;
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
+{
+	return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float distGGX(vec3 N, vec3 H, float roughness)
+{
+	float a	  = roughness = roughness;
+	float a2  = a * a;
+	float NH  = max(dot(N, H), 0.0);
+	float NH2 = NH * NH;
+	float denom = (NH2 * (a2 - 1.0) + 1.0);
+	denom = PI * denom * denom;
+
+	return a2 / denom;
+}
+
+float geoSchlickGGX(float NV, float roughness)
+{
+	float r = roughness + 1.0;
+	float k = (r * r) / 8.0;
+	float denom = NV * (1.0 - k) + k;
+
+	return NV / denom;
+}
+
+float geoSmith(vec3 N, vec3 V, vec3 L, float roughness)
+{
+	float NV = max(dot(N, V), 0.0);
+	float NL = max(dot(N, L), 0.0);
+
+	float ggx2 = geoSchlickGGX(NV, roughness);
+	float ggx1 = geoSchlickGGX(NL, roughness);
+
+	return ggx1 * ggx2;
+}
+
+vec2 parallaxMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightScale)
+{
+	const float minLayers = 8.0;
+	const float maxLayers = 64.0;
+	float layers = mix(maxLayers, minLayers, max(dot(vec3(0.0, 0.0, 1.0), viewDir), 0.0));
+
+	float layerDepth = 1.0 / layers;
+	float currentDepth = 0.0;
+	vec2 p = vec2(viewDir.x, -viewDir.y) * heightScale;
+	vec2 deltaCoords = p / layers;
+
+	vec2 currentCoords = texCoords;
+	float depthMapValue = texture(depthMap, currentCoords).r;
+	while(currentDepth < depthMapValue)
+	{
+		currentCoords -= deltaCoords;
+		depthMapValue = texture(depthMap, currentCoords).r;
+		currentDepth += layerDepth;
+	}
+
+	vec2 prevCoords = currentCoords + deltaCoords;
+	float afterDepth = depthMapValue - currentDepth;
+	float beforeDepth = texture(depthMap, prevCoords).r - currentDepth + layerDepth;
+	float weight = afterDepth / (afterDepth - beforeDepth);
+
+	return prevCoords * weight + currentCoords * (1.0 - weight);
+}
 
 void main()
 {
@@ -79,16 +154,16 @@ void main()
 	float g = float(gInt) / 255.0;
 	float b = float(bInt) / 255.0;
 	gPicker = vec4(r, g, b, 1.0);
-
-	Material mat = materials.materialsData[int(fs_in.materialSlot)];
-	vec4 diffuseColor = texture(u_Textures[mat.albedoTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset) * mat.color;
-	vec3 normal = texture(u_Textures[mat.normalTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).rgb;
-	normal = normal * 2.0 - 1.0;
-	normal = normalize(fs_in.TBN * normal);
 	
+	Material mat = materials.materialsData[int(fs_in.materialSlot)];
+	vec3 V = normalize(fs_in.tangentViewPos - fs_in.tangentWorldPos);
+	vec2 texCoords = parallaxMapUV(fs_in.textureUV * mat.tilingFactor + mat.texOffset, V, u_Textures[mat.heightTextureSlot], mat.heightFactor);
+
+	vec4 diffuseColor = texture(u_Textures[mat.albedoTextureSlot], texCoords * mat.tilingFactor + mat.texOffset) * mat.color;
 	if(diffuseColor.a == 0.0)
 	{
-		discard;
+		gDefault = vec4(0.0);
+		return;
 	}
 
 	if(u_IsLightSource)
@@ -96,65 +171,103 @@ void main()
 		gDefault = diffuseColor;
 		return;
 	}
-
-	vec3 totalDirectional = vec3(0.0);
+	
+	float roughness = texture(u_Textures[mat.roughnessTextureSlot], texCoords * mat.tilingFactor + mat.texOffset).r * mat.roughnessFactor;
+	float metallic = texture(u_Textures[mat.metallicTextureSlot], texCoords * mat.tilingFactor + mat.texOffset).r * mat.metallicFactor;
+	float AO = texture(u_Textures[mat.ambientOccTextureSlot], texCoords * mat.tilingFactor + mat.texOffset).r * mat.ambientOccFactor;
+	vec3 N = texture(u_Textures[mat.normalTextureSlot], texCoords * mat.tilingFactor + mat.texOffset).rgb;
+	N = N * 2.0 - 1.0;
+	
+	vec3 Lo = vec3(0.0);
+	vec3 F0 = mix(vec3(0.04), diffuseColor.rgb, metallic);
 	for(int i = 0; i < lights.dirLightsCount; i++)
 	{
 		DirectionalLight light = lights.dirLights[i];
-		totalDirectional += max(dot(normal, -light.direction.xyz), 0.0) * light.color.rgb;
+		vec3 radiance = light.color.rgb;
+		vec3 L = fs_in.TBN * light.direction.xyz;
+		vec3 H = normalize(V + L);
+
+		float NDF = distGGX(N, H, roughness);
+		float G	  = geoSmith(N, V, L, roughness);
+		vec3 F	  = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+
+		float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+		vec3 specular = NDF * G * F / denom;
+		vec3 kS = F;
+		vec3 kD = vec3(1.0) - kS;
+		kD *= 1.0 - metallic;
+		
+		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
 	}
 
-	vec3 totalDiffuse = vec3(0.0);
-	vec3 totalSpecular = vec3(0.0);
 	for(int i = 0; i < lights.pointLightsCount; i++)
 	{
 		PointLight pointLight = lights.pointLights[i];
 		vec3 position	= pointLight.positionAndLin.xyz;
+		vec3 tangentPos = fs_in.TBN * position;
 		vec3 color		= pointLight.colorAndQuad.xyz;
 		float linear	= pointLight.positionAndLin.w;
 		float quadratic = pointLight.colorAndQuad.w;
-		
-		vec3 lightDir = normalize(position - fs_in.worldPos);
-		float fragToLightDist = length(position - fs_in.worldPos);
-		float attenuation = 1.0 / (1.0 + linear * fragToLightDist + quadratic * fragToLightDist * fragToLightDist);
-		
-		vec3 viewDir = normalize(u_ViewPos - fs_in.worldPos);
-		vec3 halfway = normalize(lightDir + viewDir);
 
-		totalDiffuse += max(dot(normal, lightDir), 0.0) * color * attenuation * step(0.0, dot(normal, lightDir));
-		totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * color * attenuation * step(0.0, dot(normal, lightDir));
+		vec3 L = normalize(tangentPos - fs_in.tangentWorldPos);
+		vec3 H = normalize(V + L);
+		float dist = length(position - fs_in.worldPos);
+		float attenuation = 1.0 / (1.0 + linear * dist + quadratic * dist * dist);
+		vec3 radiance = color * attenuation;
+
+		float NDF = distGGX(N, H, roughness);
+		float G	  = geoSmith(N, V, L, roughness);
+		vec3 F	  = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+
+		float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+		vec3 specular = NDF * G * F / denom;
+		vec3 kS = F;
+		vec3 kD = vec3(1.0) - kS;
+		kD *= 1.0 - metallic;
+		
+		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
 	}
-
+	
+	vec3 totalDiffuse = vec3(0.0);
+	vec3 totalSpecular = vec3(0.0);
 	for(int i = 0; i < lights.spotLightsCount; i++)
 	{
 		SpotLight spotLight = lights.spotLights[i];
 		vec3 position	  = spotLight.positionAndCutoff.xyz;
+		vec3 tangentPos	  = fs_in.TBN * position;
 		vec3 direction	  = spotLight.directionAndOuterCutoff.xyz;
 		vec3 color		  = spotLight.colorAndLin.xyz;
 		float cutoff	  = spotLight.positionAndCutoff.w;
 		float outerCutoff = spotLight.directionAndOuterCutoff.w;
 		float linear	  = spotLight.colorAndLin.w;
 		float quadratic	  = spotLight.quadraticTerm.x;
-
-		vec3 lightDir = normalize(position - fs_in.worldPos);
-		float theta = dot(lightDir, normalize(-direction));
+		
+		vec3 L = normalize(position - fs_in.worldPos);
+		float theta = dot(L, normalize(-direction));
 		float epsilon = abs(cutoff - outerCutoff) + 0.0001;
 		float intensity = clamp((theta - outerCutoff) / epsilon, 0.0, 1.0);
 
 		if(theta > cutoff)
 		{
-			float fragToLightDist = length(position - fs_in.worldPos);
-			float attenuation = 1.0 / (1.0 + linear * fragToLightDist + quadratic * fragToLightDist * fragToLightDist);
-		
-			vec3 viewDir = normalize(u_ViewPos - fs_in.worldPos);
-			vec3 halfway = normalize(lightDir + viewDir);
+			vec3 H = normalize(V + L);
+			float dist = length(position - fs_in.worldPos);
+			float attenuation = 1.0 / (1.0 + linear * dist + quadratic * dist * dist);
+			vec3 radiance = color * attenuation;
 
-			totalDiffuse += max(dot(normal, lightDir), 0.0) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
-			totalSpecular += pow(max(dot(normal, halfway), 0.0), 32.0) * color * attenuation * step(0.0, dot(normal, lightDir)) * intensity;
+			float NDF = distGGX(N, H, roughness);
+			float G	  = geoSmith(N, V, L, roughness);
+			vec3 F	  = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+
+			float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+			vec3 specular = NDF * G * F / denom;
+			vec3 kS = F;
+			vec3 kD = vec3(1.0) - kS;
+			kD *= 1.0 - metallic;
+		
+			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity;
 		}
 	}
-
-	float specularFactor = texture(u_Textures[mat.roughnessTextureSlot], fs_in.textureUV * mat.tilingFactor + mat.texOffset).r;
-	gDefault.rgb = (u_AmbientStrength + totalDirectional + totalDiffuse + totalSpecular * specularFactor) * diffuseColor.rgb;
+	
+	gDefault.rgb = 0.04 * AO * diffuseColor.rgb + Lo;
 	gDefault.a = diffuseColor.a;
 }
