@@ -18,7 +18,7 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [x] Material management
  - [x] Utilizing UBOs to pass light sources' and materials' data
  - [x] PBR
- - [ ] Parallax mapping
+ - [x] Parallax mapping
  - [ ] Environment maps + IBL
  - [ ] Uploading custom models (+ making sure they have normals and tangents, or calculating them)
  - [ ] Bloom (+ compute shaders)
@@ -34,6 +34,11 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
 ### Editor - basically poor Unity-based styled editor
 #### Current state with pretty PBR lightning (yet to add parallax mapping, then it gets fun!!!!!!)
 ![Editor preview](https://github.com/KomorXD/codenameFE/assets/51238441/e3424585-96a6-412f-86bd-e1133190fedb)
+
+#### Parallax mapping (bad on spheres and not the most performant rn)!!!!!!!!!!!!!
+Without height map | With height map
+:-----------------:|:-----------------:
+![No parallax](https://github.com/KomorXD/codenameFE/assets/51238441/89a17be3-f603-4172-9bbe-13952cdc7942)|![Parallax](https://github.com/KomorXD/codenameFE/assets/51238441/66137e00-290b-4e71-a0f8-58edbe7b0c57)
 
 ### Might happen, we will see
  - Mesh editor
