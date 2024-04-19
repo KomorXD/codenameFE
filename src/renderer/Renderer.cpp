@@ -4,6 +4,7 @@
 #include "Renderer.hpp"
 #include "../Logger.hpp"
 #include "../Timer.hpp"
+#include "../Clock.hpp"
 #include "Camera.hpp"
 #include "PrimitivesGen.hpp"
 #include "AssetManager.hpp"
@@ -147,6 +148,9 @@ struct RendererData
 	static constexpr uint32_t MaxIndices   = MaxQuads * 6;
 	static constexpr uint32_t MaxInstances = MaxQuads / 4;
 	static constexpr uint32_t MaxInstancesOfType = MaxInstances / 5;
+
+	RendererStats Stats;
+	Clock RenderClock;
 
 	uint32_t InstancesCount = 0;
 	std::unordered_map<int32_t, MeshBufferData> MeshesData;
@@ -384,6 +388,8 @@ void Renderer::Init()
 		s_Data.MaterialsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(MaterialsBufferData));
 		s_Data.MaterialsBuffer->BindBufferRange(2, 0, 128 * sizeof(MaterialsBufferData));
 	}
+
+	memset(&s_Data.Stats, 0, sizeof(RendererStats));
 }
 
 void Renderer::Shutdown()
@@ -497,6 +503,18 @@ void Renderer::Flush()
 		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
 		GLCall(glEnable(GL_CULL_FACE));
 	}
+}
+
+void Renderer::ResetStats()
+{
+	s_Data.RenderClock.Restart();
+	memset(&s_Data.Stats, 0, sizeof(RendererStats));
+}
+
+RendererStats Renderer::Stats()
+{
+	s_Data.Stats.RenderTimeInMS = s_Data.RenderClock.GetElapsedTime();
+	return s_Data.Stats;
 }
 
 void Renderer::ClearColor(const glm::vec4& color)
@@ -674,6 +692,8 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 	{
 		instance.MaterialSlot = (float)materialIdx;
 	}
+
+	s_Data.Stats.ObjectsRendered++;
 }
 
 void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t primitiveType)
@@ -682,6 +702,8 @@ void Renderer::DrawIndexed(const std::shared_ptr<Shader>& shader, const std::sha
 	shader->Bind();
 
 	GLCall(glDrawElements(primitiveType, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr));
+
+	s_Data.Stats.DrawCalls++;
 }
 
 void Renderer::DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType)
@@ -690,6 +712,8 @@ void Renderer::DrawIndexedInstanced(const std::shared_ptr<Shader>& shader, const
 	shader->Bind();
 
 	GLCall(glDrawElementsInstanced(primitiveType, vao->GetIndexBuffer()->GetCount(), GL_UNSIGNED_INT, nullptr, instances));
+
+	s_Data.Stats.DrawCalls++;
 }
 
 void Renderer::DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType)
@@ -698,6 +722,8 @@ void Renderer::DrawArrays(const std::shared_ptr<Shader>& shader, const std::shar
 	shader->Bind();
 
 	GLCall(glDrawArrays(primitiveType, 0, vertexCount));
+
+	s_Data.Stats.DrawCalls++;
 }
 
 void Renderer::DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType)
@@ -706,6 +732,8 @@ void Renderer::DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const 
 	shader->Bind();
 
 	GLCall(glDrawArraysInstanced(primitiveType, 0, vao->VertexCount(), instances));
+
+	s_Data.Stats.DrawCalls++;
 }
 
 void Renderer::DrawScreenQuad()

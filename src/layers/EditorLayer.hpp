@@ -4,6 +4,7 @@
 #include "../renderer/Camera.hpp"
 #include "../scenes/Scene.hpp"
 #include "../scenes/Entity.hpp"
+#include "../renderer/Renderer.hpp"
 
 #include <memory>
 
@@ -46,4 +47,6 @@ private:
 
 	std::unique_ptr<Framebuffer> m_MainFB;
 	std::unique_ptr<Framebuffer> m_ScreenFB;
+
+	RendererStats m_Stats{};
 };

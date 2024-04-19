@@ -3,7 +3,6 @@
 
 #include "../Application.hpp"
 #include "../Timer.hpp"
-#include "../renderer/Renderer.hpp"
 #include "../Logger.hpp"
 #include "../scenes/Entity.hpp"
 #include "../renderer/AssetManager.hpp"
@@ -291,19 +290,75 @@ void EditorLayer::RenderScenePanel()
 		ImGui::Unindent(16.0f);
 	}
 
-	/*ImGui::NewLine();
-	float width = ImGui::GetContentRegionAvail().x;
-	ImGui::BeginChild("Picker", { width, width }, true);
-	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
-	ImGui::Image((ImTextureID)m_ScreenFB->GetColorAttachmentID(1), ImGui::GetContentRegionAvail(), { 0.0f, 1.0f }, { 1.0f, 0.0f });
-	ImGui::PopStyleVar();
-	ImGui::EndChild();*/
+	ImGui::NewLine();
+
+	if (ImGui::CollapsingHeader("Stats", ImGuiTreeNodeFlags_DefaultOpen) && ImGui::BeginTable("Stats", 2))
+	{
+		ImGui::Indent(16.0f);
+
+		ImGui::TableSetupColumn("Stat", ImGuiTableColumnFlags_WidthStretch);
+		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+		const Application const* app = Application::Instance();
+
+		ImGui::TableNextColumn();
+		ImGui::Text("Frame time");
+		ImGui::TableNextColumn();
+		ImGui::Text("%ums", app->FPS());
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("FPS");
+		ImGui::TableNextColumn();
+		ImGui::Text("%u", 1000 / (app->FPS() + 1));
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Events time");
+		ImGui::TableNextColumn();
+		ImGui::Text("%ums", app->EventsTime());
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Update time");
+		ImGui::TableNextColumn();
+		ImGui::Text("%ums", app->UpdateTime());
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Render time");
+		ImGui::TableNextColumn();
+		ImGui::Text("%ums", app->RenderTime());
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Draw calls");
+		ImGui::TableNextColumn();
+		ImGui::Text("%u", m_Stats.DrawCalls);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Rendered meshes");
+		ImGui::TableNextColumn();
+		ImGui::Text("%u", m_Stats.ObjectsRendered);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Render time");
+		ImGui::TableNextColumn();
+		ImGui::Text("%ums", m_Stats.RenderTimeInMS);
+
+		ImGui::EndTable();
+		ImGui::Unindent(16.0f);
+	}
 
 	ImGui::End();
 }
 
 void EditorLayer::RenderViewport()
 {
+	Renderer::ResetStats();
+
 	m_MainFB->Bind();
 	m_MainFB->FillDrawBuffers();
 	Renderer::ClearColor(m_BgColor);
@@ -398,6 +453,8 @@ void EditorLayer::RenderViewport()
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT2));
 	Renderer::DrawScreenQuad();
 	m_ScreenFB->Unbind();
+
+	m_Stats = Renderer::Stats();
 }
 
 void EditorLayer::RenderEntityData()

@@ -19,7 +19,7 @@ public:
 	void Stop();
 	void Restart();
 
-	float GetElapsedTime() const;
+	uint32_t GetElapsedTime() const;
 };
 
 #ifdef TARGET_WINDOWS

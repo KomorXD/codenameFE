@@ -1,44 +1,29 @@
-#include "Timer.hpp"
-#include "Logger.hpp"
+#include "Clock.hpp"
 
-Timer::Timer(const std::string& taskName)
-	: m_Name(taskName)
+Clock::Clock()
 {
-	LOG_INFO("Started {}.", m_Name);
 	m_StartTS = std::chrono::steady_clock::now();
 }
 
-Timer::~Timer()
-{
-	float result = 0.0f;
-
-	if (m_IsRunning)
-	{
-		result = std::chrono::duration<float>(std::chrono::steady_clock::now() - m_StartTS).count() * 1000.0f;
-	}
-
-	LOG_INFO("{} finished after {:.2f}ms.", m_Name, result + m_AccumulatedTime);
-}
-
-void Timer::Start()
+void Clock::Start()
 {
 	m_IsRunning = true;
 	m_StartTS = std::chrono::steady_clock::now();
 }
 
-void Timer::Stop()
+void Clock::Stop()
 {
 	m_AccumulatedTime += std::chrono::duration<float>(std::chrono::steady_clock::now() - m_StartTS).count() * 1000.0f;
 	m_IsRunning = false;
 }
 
-void Timer::Restart()
+void Clock::Restart()
 {
 	m_AccumulatedTime = 0.0f;
 	Start();
 }
 
-uint32_t Timer::GetElapsedTime() const
+uint32_t Clock::GetElapsedTime() const
 {
 	if (!m_IsRunning)
 	{

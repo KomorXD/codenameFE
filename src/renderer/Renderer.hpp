@@ -18,6 +18,13 @@ struct Viewport
 	int32_t Height = 0;
 };
 
+struct RendererStats
+{
+	uint32_t DrawCalls = 0;
+	uint32_t ObjectsRendered = 0;
+	uint32_t RenderTimeInMS = 0;
+};
+
 class Renderer
 {
 public:
@@ -31,6 +38,9 @@ public:
 	static void SceneBegin(Camera& camera);
 	static void SceneEnd();
 	static void Flush();
+
+	static void ResetStats();
+	static RendererStats Stats();
 
 	static void ClearColor(const glm::vec4& color);
 	static void Clear(uint32_t bitfield = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);

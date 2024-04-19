@@ -135,6 +135,8 @@ void Application::Run()
 		currTime = glfwGetTime();
 		timestep = currTime - prevTime;
 
+		m_FrameTimeInMS = static_cast<uint32_t>(timestep * 1000.0f);
+
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
@@ -142,13 +144,20 @@ void Application::Run()
 		ImGui::PushFont(font);
 
 		Event ev{};
+		m_EventsTimer.Restart();
 		while (m_EventQueue.PollEvents(ev))
 		{
 			m_Layers.top()->OnEvent(ev);
 		}
+		m_EventsTimeInMS = m_EventsTimer.GetElapsedTime();
 
+		m_UpdateTimer.Restart();
 		m_Layers.top()->OnUpdate((float)timestep);
+		m_UpdateTimeInMS = m_UpdateTimer.GetElapsedTime();
+
+		m_RenderTimer.Restart();
 		m_Layers.top()->OnRender();
+		m_RenderTimeInMS = m_RenderTimer.GetElapsedTime();
 
 		ImGui::PopFont();
 		ImGui::Render();
