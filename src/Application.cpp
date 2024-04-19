@@ -157,7 +157,6 @@ void Application::Run()
 
 		m_RenderTimer.Restart();
 		m_Layers.top()->OnRender();
-		m_RenderTimeInMS = m_RenderTimer.GetElapsedTime();
 
 		ImGui::PopFont();
 		ImGui::Render();
@@ -165,6 +164,7 @@ void Application::Run()
 
 		glfwPollEvents();
 		glfwSwapBuffers(m_Window);
+		m_RenderTimeInMS = m_RenderTimer.GetElapsedTime();
 	}
 }
 
