@@ -39,7 +39,6 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
 Without height map | With height map
 :-----------------:|:-----------------:
 ![No parallax](https://github.com/KomorXD/codenameFE/assets/51238441/34d75101-f604-4057-a7b0-e5270e2d729e)|![Parallax](https://github.com/KomorXD/codenameFE/assets/51238441/e7d36372-0315-437a-8b6b-70f3c1a29fc9)
-![No parallax](https://github.com/KomorXD/codenameFE/assets/51238441/89a17be3-f603-4172-9bbe-13952cdc7942)|![Parallax](https://github.com/KomorXD/codenameFE/assets/51238441/66137e00-290b-4e71-a0f8-58edbe7b0c57)
 
 ### Might happen, we will see
  - Mesh editor
