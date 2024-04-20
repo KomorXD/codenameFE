@@ -44,32 +44,43 @@ EditorLayer::EditorLayer()
 	m_ScreenFB->Unbind();
 
 	Material mat{};
+	mat.Name = "Red";
 	mat.Color = { 1.0f, 0.0f, 0.0f, 1.0f };
-	
-	for (int32_t i = 0; i <= 10; i++)
+	int32_t matID = AssetManager::AddMaterial(mat);
+
+	constexpr float LINE_SIZE = 5;
+	for (int32_t i = 0; i < LINE_SIZE; i++)
 	{
-		for (int32_t j = 0; j <= 10; j++)
-		{
-			mat.RoughnessFactor = (float)i / 10;
-			mat.MetallicFactor  = (float)j / 10;
-
-			Entity sphere = m_Scene.SpawnEntity("Sphere #" + std::to_string(i * 10 + j));
-			sphere.GetComponent<TransformComponent>().Position = glm::vec3(i * 2.5f - 10.0f, 0.0f, j * 2.5f - 10.0f);
-			sphere.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
-
-			int32_t matID = AssetManager::AddMaterial(mat);
-			sphere.AddComponent<MaterialComponent>().MaterialID = matID;
-			AssetManager::GetMaterial(matID).Name = "Sphere red material #" + std::to_string(i * 10 + j);
-		}
+		Entity plane = m_Scene.SpawnEntity("Plane #" + std::to_string(i + 1));
+		plane.GetComponent<TransformComponent>().Position = { -5.0f, 0.0f, -LINE_SIZE + i * 2.0f };
+		plane.GetComponent<TransformComponent>().Rotation = { glm::half_pi<float>(), 0.0f, 0.0f };
+		plane.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_PLANE;
+		plane.AddComponent<MaterialComponent>().MaterialID = matID;
 	}
-
+	
+	for (int32_t i = 0; i < LINE_SIZE; i++)
+	{
+		Entity cube = m_Scene.SpawnEntity("Cube #" + std::to_string(i + 1));
+		cube.GetComponent<TransformComponent>().Position = { 0.0f, 0.0f, -LINE_SIZE + i * 2.0f };
+		cube.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
+		cube.AddComponent<MaterialComponent>().MaterialID = matID;
+	}
+	
+	for (int32_t i = 0; i < LINE_SIZE; i++)
+	{
+		Entity sphere = m_Scene.SpawnEntity("Sphere #" + std::to_string(i + 1));
+		sphere.GetComponent<TransformComponent>().Position = { 5.0f, 0.0f, -LINE_SIZE + i * 2.0f };
+		sphere.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
+		sphere.AddComponent<MaterialComponent>().MaterialID = matID;
+	}
+	
 	mat.Color = { 1.0f, 1.0f, 0.0f, 1.0f };
 	Entity light = m_Scene.SpawnEntity("Light source");
 	light.GetComponent<TransformComponent>().Position = { 0.0f, 10.0f, 0.0f };
 	light.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
 	light.AddComponent<PointLightComponent>();
 
-	int32_t matID = AssetManager::AddMaterial(mat);
+	matID = AssetManager::AddMaterial(mat);
 	light.AddComponent<MaterialComponent>().MaterialID = matID;
 	AssetManager::GetMaterial(matID).Name = "Light yellow material";
 }
@@ -566,22 +577,32 @@ void EditorLayer::RenderEntityData()
 			ImGui::PrettyDragFloat2("Tiling factor", glm::value_ptr(material.TilingFactor), 0.01f, 0.0f, FLT_MAX);
 			ImGui::PrettyDragFloat2("Texture offset", glm::value_ptr(material.TextureOffset), 0.01f, -FLT_MAX, FLT_MAX);
 
-			std::shared_ptr<Texture> tex = AssetManager::GetTexture(material.AlbedoTextureID);
-			std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
+			std::shared_ptr<Texture> textures[] = {
+				AssetManager::GetTexture(material.AlbedoTextureID),
+				AssetManager::GetTexture(material.NormalTextureID),
+				AssetManager::GetTexture(material.HeightTextureID),
+				AssetManager::GetTexture(material.RoughnessTextureID),
+				AssetManager::GetTexture(material.MetallicTextureID),
+				AssetManager::GetTexture(material.AmbientOccTextureID)
+			};
 
-			ImGui::BeginPrettyCombo("Filtering", tex->Filter() == GL_NEAREST ? "Nearest" : "Linear",
-				[this, &tex, &normal]()
+			ImGui::BeginPrettyCombo("Filtering", textures[0]->Filter() == GL_NEAREST ? "Nearest" : "Linear",
+				[this, &textures]()
 				{
-					if (ImGui::Selectable("Nearest", tex->Filter() == GL_NEAREST))
+					if (ImGui::Selectable("Nearest", textures[0]->Filter() == GL_NEAREST))
 					{
-						tex->SetFilter(GL_NEAREST);
-						normal->SetFilter(GL_NEAREST);
+						for (auto& tex : textures)
+						{
+							tex->SetFilter(GL_NEAREST);
+						}
 					}
 
-					if (ImGui::Selectable("Linear", tex->Filter() == GL_LINEAR))
+					if (ImGui::Selectable("Linear", textures[0]->Filter() == GL_LINEAR))
 					{
-						tex->SetFilter(GL_LINEAR);
-						normal->SetFilter(GL_LINEAR);
+						for (auto& tex : textures)
+						{
+							tex->SetFilter(GL_LINEAR);
+						}
 					}
 				}
 			);
@@ -593,17 +614,19 @@ void EditorLayer::RenderEntityData()
 				{ GL_MIRROR_CLAMP_TO_EDGE, "Mirror clamp to edge" },
 				{ GL_MIRRORED_REPEAT,	   "Mirrorer repeat"	  }
 			};
-			std::string preview = wrapToString.at(tex->Wrap());
+			std::string preview = wrapToString.at(textures[0]->Wrap());
 
 			ImGui::BeginPrettyCombo("Wrapping", preview.c_str(),
-				[this, &tex, &normal, &wrapToString]()
+				[this, &textures, &wrapToString]()
 				{
 					for (const auto& [wrap, wrapStr] : wrapToString)
 					{
-						if (ImGui::Selectable(wrapStr.c_str(), tex->Filter() == wrap))
+						if (ImGui::Selectable(wrapStr.c_str(), textures[0]->Wrap() == wrap))
 						{
-							tex->SetWrap(wrap);
-							normal->SetWrap(wrap);
+							for (auto& tex : textures)
+							{
+								tex->SetWrap(wrap);
+							}
 						}
 					}
 				}
