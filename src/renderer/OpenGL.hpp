@@ -269,7 +269,7 @@ private:
 	int32_t	 m_Height = 0;
 	int32_t	 m_BPP	  = 0;
 
-	int32_t m_Filter = GL_NEAREST;
+	int32_t m_Filter = GL_LINEAR;
 	int32_t m_Wrap   = GL_REPEAT;
 	
 	std::string	m_Path;

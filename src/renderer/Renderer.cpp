@@ -452,7 +452,6 @@ void Renderer::SceneEnd()
 
 void Renderer::Flush()
 {
-	s_Data.LightsBuffer->Bind();
 	s_Data.LightsBuffer->SetData(s_Data.DirLightsData.data(), s_Data.DirLightsData.size() * sizeof(DirLightBufferData));
 	uint32_t offset = 128 * sizeof(DirLightBufferData);
 
@@ -473,7 +472,6 @@ void Renderer::Flush()
 	count = s_Data.SpotLightsData.size();
 	s_Data.LightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
-	s_Data.MaterialsBuffer->Bind();
 	s_Data.MaterialsBuffer->SetData(s_Data.MaterialsData.data(), s_Data.MaterialsData.size() * sizeof(MaterialsBufferData));
 
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
@@ -670,7 +668,7 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 			&& matData.HeightTextureSlot == heightIdx && matData.RoughnessTextureSlot == roughnessIdx
 			&& matData.MetallicTextureSlot == metallicIdx && matData.AmbientOccTextureSlot == aoIdx;
 
-		if (MaterialToBufferCmp(material, s_Data.MaterialsData[i]) && sameTextures)
+		if (MaterialToBufferCmp(material, matData) && sameTextures)
 		{
 			materialIdx = i;
 			break;
