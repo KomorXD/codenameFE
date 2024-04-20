@@ -305,6 +305,7 @@ void MaterialEditLayer::RenderPanel()
 				ImGui::Text("Height map");
 				ImGui::Text(texture->Name().c_str());
 				ImGui::PrettyDragFloat("Height", &material.HeightFactor, 0.001f, 0.0f, FLT_MAX, "%.3f", 70.0f);
+				ImGui::Checkbox("Depth map", &material.IsDepthMap);
 			}
 		))
 		{

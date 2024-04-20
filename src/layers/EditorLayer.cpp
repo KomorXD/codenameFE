@@ -42,47 +42,6 @@ EditorLayer::EditorLayer()
 	m_ScreenFB->AddColorAttachment(GL_RGBA8);
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->Unbind();
-
-	Material mat{};
-	mat.Name = "Red";
-	mat.Color = { 1.0f, 0.0f, 0.0f, 1.0f };
-	int32_t matID = AssetManager::AddMaterial(mat);
-
-	constexpr float LINE_SIZE = 5;
-	for (int32_t i = 0; i < LINE_SIZE; i++)
-	{
-		Entity plane = m_Scene.SpawnEntity("Plane #" + std::to_string(i + 1));
-		plane.GetComponent<TransformComponent>().Position = { -5.0f, 0.0f, -LINE_SIZE + i * 2.0f };
-		plane.GetComponent<TransformComponent>().Rotation = { glm::half_pi<float>(), 0.0f, 0.0f };
-		plane.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_PLANE;
-		plane.AddComponent<MaterialComponent>().MaterialID = matID;
-	}
-	
-	for (int32_t i = 0; i < LINE_SIZE; i++)
-	{
-		Entity cube = m_Scene.SpawnEntity("Cube #" + std::to_string(i + 1));
-		cube.GetComponent<TransformComponent>().Position = { 0.0f, 0.0f, -LINE_SIZE + i * 2.0f };
-		cube.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_CUBE;
-		cube.AddComponent<MaterialComponent>().MaterialID = matID;
-	}
-	
-	for (int32_t i = 0; i < LINE_SIZE; i++)
-	{
-		Entity sphere = m_Scene.SpawnEntity("Sphere #" + std::to_string(i + 1));
-		sphere.GetComponent<TransformComponent>().Position = { 5.0f, 0.0f, -LINE_SIZE + i * 2.0f };
-		sphere.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
-		sphere.AddComponent<MaterialComponent>().MaterialID = matID;
-	}
-	
-	mat.Color = { 1.0f, 1.0f, 0.0f, 1.0f };
-	Entity light = m_Scene.SpawnEntity("Light source");
-	light.GetComponent<TransformComponent>().Position = { 0.0f, 10.0f, 0.0f };
-	light.AddComponent<MeshComponent>().MeshID = AssetManager::MESH_SPHERE;
-	light.AddComponent<PointLightComponent>();
-
-	matID = AssetManager::AddMaterial(mat);
-	light.AddComponent<MaterialComponent>().MaterialID = matID;
-	AssetManager::GetMaterial(matID).Name = "Light yellow material";
 }
 
 void EditorLayer::OnAttach()
@@ -667,6 +626,7 @@ void EditorLayer::RenderEntityData()
 					ImGui::Text("Height map");
 					ImGui::Text(texture->Name().c_str());
 					ImGui::PrettyDragFloat("Height", &material.HeightFactor, 0.001f, 0.0f, FLT_MAX, "%.3f", 70.0f);
+					ImGui::Checkbox("Depth map", &material.IsDepthMap);
 				}
 			))
 			{

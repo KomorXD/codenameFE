@@ -34,6 +34,7 @@ struct Material
 
 	int heightTextureSlot;
 	float heightFactor;
+	int isDepthMap;
 
 	int	roughnessTextureSlot;
 	float roughnessFactor;
@@ -44,7 +45,7 @@ struct Material
 	int ambientOccTextureSlot;
 	float ambientOccFactor;
 
-	vec2 padding;
+	float padding;
 };
 
 in VS_OUT
@@ -116,7 +117,40 @@ float geoSmith(vec3 N, vec3 V, vec3 L, float roughness)
 	return ggx1 * ggx2;
 }
 
-vec2 parallaxMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightScale)
+vec2 heightMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightScale)
+{
+	if(heightScale <= 0.0)
+	{
+		return texCoords;
+	}
+
+	const float minLayers = 8.0;
+	const float maxLayers = 64.0;
+	float layers = mix(maxLayers, minLayers, max(dot(vec3(0.0, 0.0, 1.0), viewDir), 0.0));
+
+	float layerDepth = 1.0 / layers;
+	float currentDepth = 0.0;
+	vec2 p = vec2(viewDir.x, -viewDir.y) * heightScale;
+	vec2 deltaCoords = p / layers;
+
+	vec2 currentCoords = texCoords;
+	float depthMapValue = texture(depthMap, currentCoords).r;
+	while(currentDepth < depthMapValue)
+	{
+		currentCoords -= deltaCoords;
+		depthMapValue = texture(depthMap, currentCoords).r;
+		currentDepth += layerDepth;
+	}
+
+	vec2 prevCoords = currentCoords + deltaCoords;
+	float afterDepth = depthMapValue - currentDepth;
+	float beforeDepth = texture(depthMap, prevCoords).r - currentDepth + layerDepth;
+	float weight = afterDepth / (afterDepth - beforeDepth);
+
+	return prevCoords * weight + currentCoords * (1.0 - weight);
+}
+
+vec2 depthMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightScale)
 {
 	if(heightScale <= 0.0)
 	{
@@ -162,7 +196,23 @@ void main()
 	
 	Material mat = materials.materialsData[int(fs_in.materialSlot)];
 	vec3 V = normalize(fs_in.tangentViewPos - fs_in.tangentWorldPos);
-	vec2 texCoords = parallaxMapUV(fs_in.textureUV * mat.tilingFactor + mat.texOffset, V, u_Textures[mat.heightTextureSlot], mat.heightFactor);
+
+	vec2 texCoords = fs_in.textureUV * mat.tilingFactor + mat.texOffset;
+	if(bool(mat.isDepthMap))
+	{
+		texCoords = depthMapUV(texCoords, V, u_Textures[mat.heightTextureSlot], mat.heightFactor);
+	}
+	else
+	{
+		texCoords = heightMapUV(texCoords, V, u_Textures[mat.heightTextureSlot], mat.heightFactor);
+	}
+
+	if(texCoords.x < 0.0 || texCoords.y < 0.0 
+		|| texCoords.x > mat.tilingFactor.x + mat.texOffset.x 
+		|| texCoords.y > mat.tilingFactor.y + mat.texOffset.y)
+	{
+		discard;
+	}
 
 	vec4 diffuseColor = texture(u_Textures[mat.albedoTextureSlot], texCoords) * mat.color;
 	if(diffuseColor.a == 0.0)

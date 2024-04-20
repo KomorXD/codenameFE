@@ -25,6 +25,7 @@ struct Material
 
 	int32_t HeightTextureID = 3;
 	float HeightFactor = 0.0f;
+	bool IsDepthMap = false;
 
 	int32_t RoughnessTextureID = 1;
 	float RoughnessFactor = 0.5f;
