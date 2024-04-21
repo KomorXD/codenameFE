@@ -42,6 +42,10 @@ EditorLayer::EditorLayer()
 	m_ScreenFB->AddColorAttachment(GL_RGBA8);
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->Unbind();
+
+	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/lol.hdr");
+	hdrEnvMap->SetWrap(GL_CLAMP_TO_EDGE);
+	m_Skybox = Renderer::CreateEnvCubemap(hdrEnvMap, { 4096, 4096 });
 }
 
 void EditorLayer::OnAttach()
@@ -357,6 +361,7 @@ void EditorLayer::RenderViewport()
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0x00);
 	m_MainFB->ClearColorAttachment(1);
+	Renderer::DrawSkybox(m_Skybox);
 	m_Scene.Render(m_EditorCamera);
 	Renderer::SetWireframe(false);
 
