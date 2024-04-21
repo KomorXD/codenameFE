@@ -736,6 +736,7 @@ static struct TexFormatInfo
 	int32_t InternalFormat;
 	int32_t Format;
 	int32_t Type;
+	int32_t BPP;
 };
 
 static TexFormatInfo FormatInfo(TextureFormat format)
@@ -748,21 +749,25 @@ static TexFormatInfo FormatInfo(TextureFormat format)
 		formatInfo.InternalFormat = GL_RGBA8;
 		formatInfo.Format = GL_RGBA;
 		formatInfo.Type = GL_UNSIGNED_BYTE;
+		formatInfo.BPP = 4;
 		break;
 	case TextureFormat::RGB8:
 		formatInfo.InternalFormat = GL_RGB8;
 		formatInfo.Format = GL_RGB;
 		formatInfo.Type = GL_UNSIGNED_BYTE;
+		formatInfo.BPP = 3;
 		break;
 	case TextureFormat::RGBA16F:
 		formatInfo.InternalFormat = GL_RGBA16F;
 		formatInfo.Format = GL_RGBA;
 		formatInfo.Type = GL_FLOAT;
+		formatInfo.BPP = 4;
 		break;
 	case TextureFormat::RGB16F:
 		formatInfo.InternalFormat = GL_RGB16F;
 		formatInfo.Format = GL_RGB;
 		formatInfo.Type = GL_FLOAT;
+		formatInfo.BPP = 3;
 		break;
 	default:
 		ASSERT(true && "Invalid format enum");
@@ -775,8 +780,17 @@ static TexFormatInfo FormatInfo(TextureFormat format)
 Texture::Texture(const std::string& path, TextureFormat format)
 	: m_ID(0), m_Width(0), m_Height(0), m_BPP(0), m_Path(path)
 {
+	auto [internalFormat, pixelFormat, type, BPP] = FormatInfo(format);
+	void* buffer = nullptr;
 	stbi_set_flip_vertically_on_load(1);
-	uint8_t* buffer = stbi_load(path.c_str(), &m_Width, &m_Height, &m_BPP, 4);
+	if (format == TextureFormat::RGBA16F || format == TextureFormat::RGB16F)
+	{
+		buffer = stbi_loadf(path.c_str(), &m_Width, &m_Height, &m_BPP, BPP);
+	}
+	else
+	{
+		buffer = stbi_load(path.c_str(), &m_Width, &m_Height, &m_BPP, BPP);
+	}
 
 	GLCall(glGenTextures(1, &m_ID));
 	GLCall(glBindTexture(GL_TEXTURE_2D, m_ID));
@@ -786,7 +800,6 @@ Texture::Texture(const std::string& path, TextureFormat format)
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 
-	auto [internalFormat, pixelFormat, type] = FormatInfo(format);
 	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, m_Width, m_Height, 0, pixelFormat, type, buffer));
 	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
@@ -800,7 +813,7 @@ Texture::Texture(const std::string& path, TextureFormat format)
 	m_Name = texturePath.filename().string();
 }
 
-Texture::Texture(const uint8_t* data, int32_t width, int32_t height, const std::string& name, TextureFormat format)
+Texture::Texture(const void* data, int32_t width, int32_t height, const std::string& name, TextureFormat format)
 	: m_ID(0), m_Width(width), m_Height(height), m_BPP(0), m_Path(""), m_Name(name)
 {
 	GLCall(glGenTextures(1, &m_ID));
@@ -811,7 +824,7 @@ Texture::Texture(const uint8_t* data, int32_t width, int32_t height, const std::
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
 	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
 
-	auto [internalFormat, pixelFormat, type] = FormatInfo(format);
+	auto [internalFormat, pixelFormat, type, BPP] = FormatInfo(format);
 	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, m_Width, m_Height, 0, pixelFormat, type, data));
 	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));

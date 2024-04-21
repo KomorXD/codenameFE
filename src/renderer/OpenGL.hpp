@@ -253,7 +253,7 @@ class Texture
 {
 public:
 	Texture(const std::string& path, TextureFormat format = TextureFormat::RGBA8);
-	Texture(const uint8_t* data, int32_t width, int32_t height, const std::string& name, TextureFormat format = TextureFormat::RGBA8);
+	Texture(const void* data, int32_t width, int32_t height, const std::string& name, TextureFormat format = TextureFormat::RGBA8);
 	~Texture();
 
 	void SetFilter(int32_t filter);
