@@ -43,7 +43,7 @@ EditorLayer::EditorLayer()
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->Unbind();
 
-	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/lol.hdr");
+	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/lol.hdr", TextureFormat::RGB16F);
 	hdrEnvMap->SetWrap(GL_CLAMP_TO_EDGE);
 	m_Skybox = Renderer::CreateEnvCubemap(hdrEnvMap, { 1024, 1024 });
 }
