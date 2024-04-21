@@ -253,6 +253,17 @@ void EditorLayer::RenderScenePanel()
 		}
 	);
 
+	if (ImGui::PrettyButton("Add environment map"))
+	{
+		std::optional<std::string> fileOpt = OpenFileDialog(std::filesystem::current_path().string());
+		if (fileOpt.has_value())
+		{
+			std::shared_ptr<Texture> hdrFile = std::make_shared<Texture>(fileOpt.value(), TextureFormat::RGB16F);
+			hdrFile->SetWrap(GL_CLAMP_TO_EDGE);
+			m_Skybox = Renderer::CreateEnvCubemap(hdrFile, { 1024, 1024 });
+		}
+	}
+
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);

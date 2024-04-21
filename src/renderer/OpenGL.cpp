@@ -756,6 +756,19 @@ CubemapFramebuffer::CubemapFramebuffer(const glm::uvec2& bufferSize)
 	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 
+	GLCall(glGenTextures(1, &m_IrradianceMapID));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_IrradianceMapID));
+	for (uint32_t i = 0; i < 6; i++)
+	{
+		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, bufferSize.x, bufferSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
+	}
+
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 }
 
@@ -771,6 +784,12 @@ CubemapFramebuffer::~CubemapFramebuffer()
 	{
 		GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
 		GLCall(glDeleteTextures(1, &m_CubemapID));
+	}
+	
+	if(m_IrradianceMapID != 0)
+	{
+		GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+		GLCall(glDeleteTextures(1, &m_IrradianceMapID));
 	}
 	
 	if (m_ID != 0)
@@ -797,7 +816,13 @@ void CubemapFramebuffer::BindCubemap(uint32_t slot) const
 	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_CubemapID));
 }
 
-void CubemapFramebuffer::UnbindCubemap() const
+void CubemapFramebuffer::BindIrradianceMap(uint32_t slot) const
+{
+	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_IrradianceMapID));
+}
+
+void CubemapFramebuffer::UnbindMaps() const
 {
 	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
 }
@@ -805,6 +830,7 @@ void CubemapFramebuffer::UnbindCubemap() const
 void CubemapFramebuffer::SetCubemapFaceTarget(uint32_t faceIdx) const
 {
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_CubemapID, 0));
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_IrradianceMapID, 0));
 }
 
 static struct TexFormatInfo

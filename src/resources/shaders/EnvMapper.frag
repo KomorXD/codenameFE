@@ -1,6 +1,7 @@
 #version 430 core
 
-out vec4 fragColor;
+layout (location = 0) out vec4 gDefault;
+layout (location = 1) out vec4 gIrradiance;
 
 in vec3 localPos;
 
@@ -18,8 +19,34 @@ vec2 sampleEquiMap(vec3 N)
 
 void main()
 {
-	vec2 uv = sampleEquiMap(normalize(localPos));
+	vec3 N = normalize(localPos);
+	vec2 uv = sampleEquiMap(N);
 	vec3 color = texture(u_EquirectangularEnvMap, uv).rgb;
 
-	fragColor = vec4(color, 1.0);
+	gDefault = vec4(color, 1.0);
+
+	vec3 irradiance = vec3(0.0);
+	vec3 up = vec3(0.0, 1.0, 0.0);
+	vec3 right = normalize(cross(up, N));
+	up = normalize(cross(N, right));
+
+	const float PI = 3.14159265359;
+	float dPhi = 0.025;
+	float dTheta = 0.025;
+	int samples = 0;
+	for(float phi = 0.0; phi < 2.0 * PI; phi += dPhi)
+	{
+		for(float theta = 0.0; theta < 0.5 * PI; theta += dTheta)
+		{
+			vec3 tangentSample = vec3(sin(theta) * cos(phi),  sin(theta) * sin(phi), cos(theta));
+			vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * N;
+			vec2 sampleUV = sampleEquiMap(sampleVec);
+
+			irradiance += texture(u_EquirectangularEnvMap, sampleUV).rgb * cos(theta) * sin(theta);
+			samples++;
+		}
+	}
+
+	irradiance = PI * irradiance * (1.0 / float(samples));
+	gIrradiance = vec4(irradiance, 1.0);
 }

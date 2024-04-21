@@ -800,6 +800,8 @@ std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<T
 	s_Data.EnvMapShader->Bind();
 	s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
 
+	GLenum buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	GLCall(glDrawBuffers(2, buffers));
 	cfb->Bind();
 	for (uint32_t i = 0; i < 6; i++)
 	{
@@ -819,6 +821,10 @@ void Renderer::DrawSkybox(std::shared_ptr<CubemapFramebuffer> cfb)
 	GLCall(glDepthFunc(GL_LEQUAL));
 	DrawArrays(s_Data.SkyboxShader, s_Data.EnvMapVertexArray, 36);
 	GLCall(glDepthFunc(GL_LESS));
+
+	cfb->BindIrradianceMap();
+	s_Data.CurrentShader->Bind();
+	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", 0);
 }
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)

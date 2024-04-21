@@ -250,13 +250,15 @@ public:
 	void Bind() const;
 	void Unbind() const;
 	void BindCubemap(uint32_t slot = 0) const;
-	void UnbindCubemap() const;
+	void BindIrradianceMap(uint32_t slot = 0) const;
+	void UnbindMaps() const;
 	void SetCubemapFaceTarget(uint32_t faceIdx) const;
 
 private:
 	uint32_t m_ID = 0;
 	uint32_t m_RenderbufferID = 0;
 	uint32_t m_CubemapID = 0;
+	uint32_t m_IrradianceMapID = 0;
 	glm::uvec2 m_BufferSize{};
 };
 

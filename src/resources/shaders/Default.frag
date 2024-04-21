@@ -76,6 +76,7 @@ layout(std140, binding = 3) uniform Materials
 } materials;
 
 uniform bool u_IsLightSource = false;
+uniform samplerCube u_IrradianceMap;
 uniform sampler2D u_Textures[24];
 
 const float PI = 3.14159265359;
@@ -83,6 +84,11 @@ const float PI = 3.14159265359;
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
 	return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
 float distGGX(vec3 N, vec3 H, float roughness)
@@ -207,9 +213,9 @@ void main()
 		texCoords = heightMapUV(texCoords, V, u_Textures[mat.heightTextureSlot], mat.heightFactor);
 	}
 
-	if(texCoords.x < 0.0 || texCoords.y < 0.0 
-		|| texCoords.x > mat.tilingFactor.x + mat.texOffset.x 
-		|| texCoords.y > mat.tilingFactor.y + mat.texOffset.y)
+	if(texCoords.x < -0.1 || texCoords.y < -0.1
+		|| texCoords.x > mat.tilingFactor.x + mat.texOffset.x + 0.1 
+		|| texCoords.y > mat.tilingFactor.y + mat.texOffset.y + 0.1)
 	{
 		discard;
 	}
@@ -322,7 +328,13 @@ void main()
 			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity;
 		}
 	}
+
+	vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, mat.roughnessFactor);
+	vec3 kD = 1.0 - kS;
+	vec3 irradiance = texture(u_IrradianceMap, N).rgb;
+	vec3 diffuse = irradiance * diffuseColor.rgb;
+	vec3 ambient = kD * diffuse * AO;
 	
-	gDefault.rgb = 0.04 * AO * diffuseColor.rgb + Lo;
+	gDefault.rgb = ambient + Lo;
 	gDefault.a = diffuseColor.a;
 }
