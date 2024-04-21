@@ -16,7 +16,7 @@ out VS_OUT
 
 void main()
 {
-	vs_out.color	   = a_Color;
+	vs_out.color = a_Color;
 
 	gl_Position = u_Projection * u_View * vec4(a_Pos, 1.0);
 }

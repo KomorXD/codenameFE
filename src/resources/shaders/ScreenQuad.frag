@@ -6,7 +6,13 @@ in vec2 textureUV;
 
 uniform sampler2D u_ScreenTexture;
 uniform bool u_BlurEnabled = false;
-uniform float u_Exposure = 1.0;
+
+layout (std140, binding = 1) uniform Camera
+{
+	vec4 position;
+	float exposure;
+	float gamma;
+} u_Camera;
 
 const float offset = 1.0 / 300.0;
 vec2 offsets[9] = vec2[](
@@ -31,8 +37,8 @@ void main()
     if(!u_BlurEnabled)
     {
 		vec3 color = texture(u_ScreenTexture, textureUV).rgb;		
-		vec3 mapped = vec3(1.0) - exp(-color * u_Exposure);
-		mapped = pow(mapped, vec3(1.0 / 2.2));
+		vec3 mapped = vec3(1.0) - exp(-color * u_Camera.exposure);
+		mapped = pow(mapped, vec3(1.0 / u_Camera.gamma));
 		gOut = vec4(mapped, 1.0);
 
 		return;
@@ -50,7 +56,7 @@ void main()
         color += sampleTex[i] * kernel[i];
     }
 	
-	vec3 mapped = vec3(1.0) - exp(-color * u_Exposure);
-	mapped = pow(mapped, vec3(1.0 / 2.2));
+	vec3 mapped = vec3(1.0) - exp(-color * u_Camera.exposure);
+	mapped = pow(mapped, vec3(1.0 / u_Camera.gamma));
     gOut = vec4(mapped, 1.0);
 }

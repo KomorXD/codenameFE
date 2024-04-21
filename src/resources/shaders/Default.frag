@@ -59,7 +59,7 @@ in VS_OUT
 	flat float entityID;
 } fs_in;
 
-layout(std140, binding = 1) uniform Lights
+layout(std140, binding = 2) uniform Lights
 {
 	DirectionalLight dirLights[128];
 	PointLight pointLights[128];
@@ -70,7 +70,7 @@ layout(std140, binding = 1) uniform Lights
 	int spotLightsCount;
 } lights;
 
-layout(std140, binding = 2) uniform Materials
+layout(std140, binding = 3) uniform Materials
 {
 	Material materialsData[128];
 } materials;

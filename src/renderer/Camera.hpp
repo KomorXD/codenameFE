@@ -28,6 +28,7 @@ public:
 
 	glm::vec3 Position = glm::vec3(0.0f);
 	float Exposure = 1.0f;
+	float Gamma = 2.2f;
 
 private:
 	void UpdateProjection();

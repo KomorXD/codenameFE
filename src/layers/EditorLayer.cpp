@@ -45,7 +45,7 @@ EditorLayer::EditorLayer()
 
 	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/lol.hdr");
 	hdrEnvMap->SetWrap(GL_CLAMP_TO_EDGE);
-	m_Skybox = Renderer::CreateEnvCubemap(hdrEnvMap, { 4096, 4096 });
+	m_Skybox = Renderer::CreateEnvCubemap(hdrEnvMap, { 1024, 1024 });
 }
 
 void EditorLayer::OnAttach()
@@ -257,7 +257,8 @@ void EditorLayer::RenderScenePanel()
 	{
 		ImGui::Indent(16.0f);
 		ImGui::PrettyDragFloat3("Position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
-		ImGui::PrettyDragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, 5.0f);
+		ImGui::PrettyDragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, FLT_MAX);
+		ImGui::PrettyDragFloat("Brightness", &m_EditorCamera.Gamma, 0.001f, 0.0f, FLT_MAX);
 		ImGui::PrettyDragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::PrettyDragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::Checkbox("Wireframe", &m_DrawWireframe);
@@ -360,8 +361,8 @@ void EditorLayer::RenderViewport()
 	Renderer::SetWireframe(m_DrawWireframe);
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0x00);
-	m_MainFB->ClearColorAttachment(1);
 	Renderer::DrawSkybox(m_Skybox);
+	m_MainFB->ClearColorAttachment(1);
 	m_Scene.Render(m_EditorCamera);
 	Renderer::SetWireframe(false);
 

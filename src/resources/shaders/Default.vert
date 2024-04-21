@@ -15,7 +15,12 @@ layout (std140, binding = 0) uniform Matrices
 	mat4 u_View;
 };
 
-uniform vec3 u_ViewPos = vec3(0.0);
+layout (std140, binding = 1) uniform Camera
+{
+	vec4 position;
+	float exposure;
+	float gamma;
+} u_Camera;
 
 out VS_OUT
 {
@@ -38,7 +43,7 @@ void main()
 	vs_out.worldPos		   = (a_Transform * vec4(a_Pos, 1.0)).xyz;
 	vs_out.TBN			   = TBN;
 	vs_out.tangentWorldPos = TBN * vs_out.worldPos;
-	vs_out.tangentViewPos  = TBN * u_ViewPos;
+	vs_out.tangentViewPos  = TBN * u_Camera.position.xyz;
 	vs_out.textureUV	   = a_TextureUV;
 	vs_out.materialSlot	   = a_MaterialSlot;
 	vs_out.entityID		   = a_EntityID;

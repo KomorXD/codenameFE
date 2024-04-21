@@ -172,6 +172,7 @@ struct RendererData
 	std::shared_ptr<Shader> CurrentShader;
 
 	std::shared_ptr<UniformBuffer> MatricesBuffer;
+	std::shared_ptr<UniformBuffer> CameraBuffer;
 	std::shared_ptr<UniformBuffer> LightsBuffer;
 	std::shared_ptr<UniformBuffer> MaterialsBuffer;
 
@@ -402,13 +403,16 @@ void Renderer::Init()
 		s_Data.MatricesBuffer = std::make_shared<UniformBuffer>(nullptr, 2 * sizeof(glm::mat4));
 		s_Data.MatricesBuffer->BindBufferRange(0, 0, 2 * sizeof(glm::mat4));
 
+		s_Data.CameraBuffer = std::make_shared<UniformBuffer>(nullptr, sizeof(glm::vec4) + 2 * sizeof(float));
+		s_Data.CameraBuffer->BindBufferRange(1, 0, sizeof(glm::vec4) + 2 * sizeof(float));
+
 		s_Data.LightsBuffer = std::make_shared<UniformBuffer>(nullptr,
 			3 * sizeof(int32_t) + 128 * (sizeof(DirLightBufferData) + sizeof(PointLightBufferData) + sizeof(SpotLightBufferData)));
-		s_Data.LightsBuffer->BindBufferRange(1, 0,
+		s_Data.LightsBuffer->BindBufferRange(2, 0,
 			3 * sizeof(int32_t) + 128 * (sizeof(DirLightBufferData) + sizeof(PointLightBufferData) + sizeof(SpotLightBufferData)));
 
 		s_Data.MaterialsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(MaterialsBufferData));
-		s_Data.MaterialsBuffer->BindBufferRange(2, 0, 128 * sizeof(MaterialsBufferData));
+		s_Data.MaterialsBuffer->BindBufferRange(3, 0, 128 * sizeof(MaterialsBufferData));
 	}
 
 	memset(&s_Data.Stats, 0, sizeof(RendererStats));
@@ -435,6 +439,7 @@ void Renderer::Shutdown()
 	s_Data.CurrentShader = nullptr;
 
 	s_Data.MatricesBuffer = nullptr;
+	s_Data.CameraBuffer = nullptr;
 	s_Data.LightsBuffer = nullptr;
 	s_Data.MaterialsBuffer = nullptr;
 }
@@ -463,11 +468,10 @@ void Renderer::SceneBegin(Camera& camera)
 	s_Data.MatricesBuffer->SetData(glm::value_ptr(projection), sizeof(glm::mat4));
 	s_Data.MatricesBuffer->SetData(glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4));
 
-	s_Data.ScreenQuadShader->Bind();
-	s_Data.ScreenQuadShader->SetUniform1f("u_Exposure", camera.Exposure);
-
-	s_Data.CurrentShader->Bind();
-	s_Data.CurrentShader->SetUniform3f("u_ViewPos", camera.Position);
+	s_Data.CameraBuffer->Bind();
+	s_Data.CameraBuffer->SetData(glm::value_ptr(camera.Position), sizeof(glm::vec3));
+	s_Data.CameraBuffer->SetData(&camera.Exposure, sizeof(float), sizeof(glm::vec4));
+	s_Data.CameraBuffer->SetData(&camera.Gamma, sizeof(float), sizeof(glm::vec4) + sizeof(float));
 
 	StartBatch();
 }
