@@ -56,6 +56,9 @@ public:
 	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawScreenQuad();
 
+	static std::shared_ptr<CubemapFramebuffer> CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize = { 512, 512 });
+	static void DrawSkybox(std::shared_ptr<CubemapFramebuffer> cfb);
+
 	static void AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light);
 	static void AddPointLight(const glm::vec3& position, const PointLightComponent& light);
 	static void AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light);

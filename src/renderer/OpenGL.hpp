@@ -241,6 +241,25 @@ private:
 	std::vector<ColorAttachmentData> m_ColorAttachments;
 };
 
+class CubemapFramebuffer
+{
+public:
+	CubemapFramebuffer(const glm::uvec2& bufferSize);
+	~CubemapFramebuffer();
+
+	void Bind() const;
+	void Unbind() const;
+	void BindCubemap(uint32_t slot = 0) const;
+	void UnbindCubemap() const;
+	void SetCubemapFaceTarget(uint32_t faceIdx) const;
+
+private:
+	uint32_t m_ID = 0;
+	uint32_t m_RenderbufferID = 0;
+	uint32_t m_CubemapID = 0;
+	glm::uvec2 m_BufferSize{};
+};
+
 enum class TextureFormat
 {
 	RGBA8,

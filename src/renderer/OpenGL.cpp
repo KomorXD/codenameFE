@@ -731,6 +731,82 @@ bool Framebuffer::IsComplete() const
 	return complete;
 }
 
+CubemapFramebuffer::CubemapFramebuffer(const glm::uvec2& bufferSize)
+	: m_BufferSize(bufferSize)
+{
+	GLCall(glGenFramebuffers(1, &m_ID));
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
+
+	GLCall(glGenRenderbuffers(1, &m_RenderbufferID));
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
+
+	GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, bufferSize.x, bufferSize.y));
+	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
+
+	GLCall(glGenTextures(1, &m_CubemapID));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_CubemapID));
+	for (uint32_t i = 0; i < 6; i++)
+	{
+		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, bufferSize.x, bufferSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
+	}
+
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+}
+
+CubemapFramebuffer::~CubemapFramebuffer()
+{
+	if (m_RenderbufferID != 0)
+	{
+		GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+		GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
+	}
+	
+	if(m_CubemapID != 0)
+	{
+		GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+		GLCall(glDeleteTextures(1, &m_CubemapID));
+	}
+	
+	if (m_ID != 0)
+	{
+		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+		GLCall(glDeleteFramebuffers(1, &m_ID));
+	}
+}
+
+void CubemapFramebuffer::Bind() const
+{
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
+	GLCall(glViewport(0, 0, m_BufferSize.x, m_BufferSize.y));
+}
+
+void CubemapFramebuffer::Unbind() const
+{
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+}
+
+void CubemapFramebuffer::BindCubemap(uint32_t slot) const
+{
+	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_CubemapID));
+}
+
+void CubemapFramebuffer::UnbindCubemap() const
+{
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+}
+
+void CubemapFramebuffer::SetCubemapFaceTarget(uint32_t faceIdx) const
+{
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_CubemapID, 0));
+}
+
 static struct TexFormatInfo
 {
 	int32_t InternalFormat;

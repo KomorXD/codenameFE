@@ -156,6 +156,11 @@ struct RendererData
 	std::shared_ptr<VertexBuffer> ScreenQuadVertexBuffer;
 	std::shared_ptr<Shader>		  ScreenQuadShader;
 
+	std::shared_ptr<VertexArray>  EnvMapVertexArray;
+	std::shared_ptr<VertexBuffer> EnvMapVertexBuffer;
+	std::shared_ptr<Shader>		  EnvMapShader;
+	std::shared_ptr<Shader>		  SkyboxShader;
+
 	std::shared_ptr<VertexArray>  LineVertexArray;
 	std::shared_ptr<VertexBuffer> LineVertexBuffer;
 	std::shared_ptr<Shader>		  LineShader;
@@ -298,7 +303,7 @@ void Renderer::Init()
 	}
 
 	{
-		SCOPE_PROFILE("Default shader init + default textures");
+		SCOPE_PROFILE("Shaders init + default textures");
 
 		s_Data.DefaultShader = std::make_shared<Shader>("resources/shaders/Default.vert", "resources/shaders/Default.frag");
 		s_Data.DefaultShader->Bind();
@@ -357,6 +362,26 @@ void Renderer::Init()
 	}
 
 	{
+		SCOPE_PROFILE("Environment map init");
+
+		std::vector<float> vertices = SkyboxMeshData();
+		s_Data.EnvMapVertexArray = std::make_shared<VertexArray>();
+		s_Data.EnvMapVertexBuffer = std::make_shared<VertexBuffer>(vertices.data(), vertices.size() * sizeof(float));
+
+		VertexBufferLayout layout;
+		layout.Push<float>(3); // Position
+
+		s_Data.EnvMapVertexArray->AddVertexBuffer(s_Data.EnvMapVertexBuffer, layout);
+		s_Data.EnvMapShader = std::make_shared<Shader>("resources/shaders/EnvMapper.vert", "resources/shaders/EnvMapper.frag");
+		s_Data.EnvMapShader->Bind();
+		s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
+
+		s_Data.SkyboxShader = std::make_shared<Shader>("resources/shaders/Skybox.vert", "resources/shaders/Skybox.frag");
+		s_Data.SkyboxShader->Bind();
+		s_Data.SkyboxShader->SetUniform1i("u_Cubemap", 0);
+	}
+
+	{
 		SCOPE_PROFILE("Line data init");
 
 		s_Data.LineVertexArray = std::make_shared<VertexArray>();
@@ -400,6 +425,11 @@ void Renderer::Shutdown()
 	s_Data.LineVertexArray = nullptr;
 	s_Data.LineVertexBuffer = nullptr;
 	s_Data.LineShader = nullptr;
+
+	s_Data.EnvMapVertexArray = nullptr;
+	s_Data.EnvMapVertexBuffer = nullptr;
+	s_Data.EnvMapShader = nullptr;
+	s_Data.SkyboxShader = nullptr;
 
 	s_Data.DefaultShader = nullptr;
 	s_Data.CurrentShader = nullptr;
@@ -744,6 +774,47 @@ void Renderer::DrawScreenQuad()
 	GLCall(glDisable(GL_DEPTH_TEST));
 	DrawArrays(s_Data.ScreenQuadShader, s_Data.ScreenQuadVertexArray, 6);
 	GLCall(glEnable(GL_DEPTH_TEST));
+}
+
+std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
+{
+	std::shared_ptr<CubemapFramebuffer> cfb = std::make_shared<CubemapFramebuffer>(faceSize);
+	glm::mat4 captureProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
+	glm::mat4 captureViews[] = {
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+	};
+
+	s_Data.MatricesBuffer->Bind();
+	s_Data.MatricesBuffer->SetData(glm::value_ptr(captureProj), sizeof(glm::mat4));
+
+	hdrEnvMap->Bind();
+	s_Data.EnvMapShader->Bind();
+	s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
+
+	cfb->Bind();
+	for (uint32_t i = 0; i < 6; i++)
+	{
+		s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
+		cfb->SetCubemapFaceTarget(i);
+		Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		DrawArrays(s_Data.EnvMapShader, s_Data.EnvMapVertexArray, 36);
+	}
+	cfb->Unbind();
+
+	return cfb;
+}
+
+void Renderer::DrawSkybox(std::shared_ptr<CubemapFramebuffer> cfb)
+{
+	cfb->BindCubemap();
+	GLCall(glDepthFunc(GL_LEQUAL));
+	DrawArrays(s_Data.SkyboxShader, s_Data.EnvMapVertexArray, 36);
+	GLCall(glDepthFunc(GL_LESS));
 }
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)

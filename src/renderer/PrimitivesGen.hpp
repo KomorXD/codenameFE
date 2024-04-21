@@ -21,3 +21,4 @@ struct VertexData
 VertexData QuadMeshData();
 VertexData CubeMeshData();
 VertexData SphereMeshData();
+std::vector<float> SkyboxMeshData();
