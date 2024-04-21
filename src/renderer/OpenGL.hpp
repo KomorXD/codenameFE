@@ -241,11 +241,19 @@ private:
 	std::vector<ColorAttachmentData> m_ColorAttachments;
 };
 
+enum class TextureFormat
+{
+	RGBA8,
+	RGB8,
+	RGBA16F,
+	RGB16F
+};
+
 class Texture
 {
 public:
-	Texture(const std::string& path);
-	Texture(const uint8_t* data, int32_t width, int32_t height, const std::string& name);
+	Texture(const std::string& path, TextureFormat format = TextureFormat::RGBA8);
+	Texture(const uint8_t* data, int32_t width, int32_t height, const std::string& name, TextureFormat format = TextureFormat::RGBA8);
 	~Texture();
 
 	void SetFilter(int32_t filter);
