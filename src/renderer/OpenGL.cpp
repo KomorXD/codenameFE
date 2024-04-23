@@ -622,6 +622,7 @@ void Framebuffer::Unbind() const
 void Framebuffer::Resize(const glm::uvec2& bufferSize)
 {
 	bool multisampled = m_Samples > 1;
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
 
 	if (multisampled)
 	{
@@ -630,6 +631,8 @@ void Framebuffer::Resize(const glm::uvec2& bufferSize)
 			GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, id));
 			GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, format, bufferSize.x, bufferSize.y, GL_TRUE));
 		}
+
+		GLCall(glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_Samples, GL_DEPTH24_STENCIL8, bufferSize.x, bufferSize.y));
 	}
 	else
 	{
@@ -638,6 +641,8 @@ void Framebuffer::Resize(const glm::uvec2& bufferSize)
 			GLCall(glBindTexture(GL_TEXTURE_2D, id));
 			GLCall(glTexImage2D(GL_TEXTURE_2D, 0, format, bufferSize.x, bufferSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
 		}
+
+		GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, bufferSize.x, bufferSize.y));
 	}
 
 	m_BufferSize = bufferSize;
@@ -743,58 +748,92 @@ CubemapFramebuffer::CubemapFramebuffer(const glm::uvec2& bufferSize)
 	GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, bufferSize.x, bufferSize.y));
 	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
 
+	// Cubemap
 	GLCall(glGenTextures(1, &m_CubemapID));
 	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_CubemapID));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 	for (uint32_t i = 0; i < 6; i++)
 	{
 		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, bufferSize.x, bufferSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
 	}
 
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-
+	// Irradiance map
 	GLCall(glGenTextures(1, &m_IrradianceMapID));
 	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_IrradianceMapID));
-	for (uint32_t i = 0; i < 6; i++)
-	{
-		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, bufferSize.x, bufferSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
-	}
-
 	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
 	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
 	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
 	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	for (uint32_t i = 0; i < 6; i++)
+	{
+		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, bufferSize.x, bufferSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
+	}
+
+	// Prefilter map
+	GLCall(glGenTextures(1, &m_PrefilterID));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_PrefilterID));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	for (uint32_t i = 0; i < 6; i++)
+	{
+		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0, GL_RGB, GL_FLOAT, nullptr));
+	}
+	GLCall(glGenerateMipmap(GL_TEXTURE_CUBE_MAP));
+
+	// BRDF map
+	GLCall(glGenTextures(1, &m_BRDF_ID));
+	GLCall(glBindTexture(GL_TEXTURE_2D, m_BRDF_ID));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, bufferSize.x, bufferSize.y, 0, GL_RG, GL_FLOAT, nullptr));
 
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 }
 
 CubemapFramebuffer::~CubemapFramebuffer()
 {
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
 	if (m_RenderbufferID != 0)
 	{
-		GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 		GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
 	}
 	
 	if(m_CubemapID != 0)
 	{
-		GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
 		GLCall(glDeleteTextures(1, &m_CubemapID));
 	}
 	
-	if(m_IrradianceMapID != 0)
+	if (m_IrradianceMapID != 0)
 	{
-		GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
 		GLCall(glDeleteTextures(1, &m_IrradianceMapID));
+	}
+	
+	if(m_PrefilterID != 0)
+	{
+		GLCall(glDeleteTextures(1, &m_PrefilterID));
+	}
+	
+	if(m_BRDF_ID != 0)
+	{
+		GLCall(glDeleteTextures(1, &m_BRDF_ID));
 	}
 	
 	if (m_ID != 0)
 	{
-		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 		GLCall(glDeleteFramebuffers(1, &m_ID));
 	}
 }
@@ -802,12 +841,14 @@ CubemapFramebuffer::~CubemapFramebuffer()
 void CubemapFramebuffer::Bind() const
 {
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
 	GLCall(glViewport(0, 0, m_BufferSize.x, m_BufferSize.y));
 }
 
 void CubemapFramebuffer::Unbind() const
 {
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 }
 
 void CubemapFramebuffer::BindCubemap(uint32_t slot) const
@@ -822,15 +863,46 @@ void CubemapFramebuffer::BindIrradianceMap(uint32_t slot) const
 	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_IrradianceMapID));
 }
 
+void CubemapFramebuffer::BindPrefilterMap(uint32_t slot) const
+{
+	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
+	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_PrefilterID));
+}
+
+void CubemapFramebuffer::BindBRDF_Map(uint32_t slot) const
+{
+	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
+	GLCall(glBindTexture(GL_TEXTURE_2D, m_BRDF_ID));
+}
+
 void CubemapFramebuffer::UnbindMaps() const
 {
 	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+}
+
+void CubemapFramebuffer::ResizeRenderbuffer(const glm::uvec2& bufferSize)
+{
+	GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, bufferSize.x, bufferSize.y));
+	GLCall(glViewport(0, 0, bufferSize.x, bufferSize.y));
+
+	m_BufferSize = bufferSize;
 }
 
 void CubemapFramebuffer::SetCubemapFaceTarget(uint32_t faceIdx) const
 {
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_CubemapID, 0));
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_IrradianceMapID, 0));
+}
+
+void CubemapFramebuffer::SetPrefilterFaceTarget(uint32_t faceIdx, uint32_t mipmapLevel) const
+{
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_PrefilterID, mipmapLevel));
+}
+
+void CubemapFramebuffer::SetBRDF_Target() const
+{
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_BRDF_ID, 0));
 }
 
 static struct TexFormatInfo

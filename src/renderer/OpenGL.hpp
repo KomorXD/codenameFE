@@ -251,14 +251,25 @@ public:
 	void Unbind() const;
 	void BindCubemap(uint32_t slot = 0) const;
 	void BindIrradianceMap(uint32_t slot = 0) const;
+	void BindPrefilterMap(uint32_t slot = 0) const;
+	void BindBRDF_Map(uint32_t slot = 0) const;
 	void UnbindMaps() const;
+
+	void ResizeRenderbuffer(const glm::uvec2& bufferSize);
+
 	void SetCubemapFaceTarget(uint32_t faceIdx) const;
+	void SetPrefilterFaceTarget(uint32_t faceIdx, uint32_t mipmapLevel) const;
+	void SetBRDF_Target() const;
+
+	inline glm::uvec2 BufferSize() const { return m_BufferSize; }
 
 private:
 	uint32_t m_ID = 0;
 	uint32_t m_RenderbufferID = 0;
 	uint32_t m_CubemapID = 0;
 	uint32_t m_IrradianceMapID = 0;
+	uint32_t m_PrefilterID = 0;
+	uint32_t m_BRDF_ID = 0;
 	glm::uvec2 m_BufferSize{};
 };
 

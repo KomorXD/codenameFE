@@ -159,6 +159,8 @@ struct RendererData
 	std::shared_ptr<VertexArray>  EnvMapVertexArray;
 	std::shared_ptr<VertexBuffer> EnvMapVertexBuffer;
 	std::shared_ptr<Shader>		  EnvMapShader;
+	std::shared_ptr<Shader>		  PrefilterShader;
+	std::shared_ptr<Shader>		  BRDF_Shader;
 	std::shared_ptr<Shader>		  SkyboxShader;
 
 	std::shared_ptr<VertexArray>  LineVertexArray;
@@ -182,7 +184,7 @@ struct RendererData
 	std::vector<MaterialsBufferData>  MaterialsData;
 
 	uint32_t BoundTexturesCount = 1;
-	std::array<int32_t, 24> TextureBindings;
+	std::array<int32_t, 64> TextureBindings;
 };
 
 static RendererData s_Data{};
@@ -270,6 +272,7 @@ void Renderer::Init()
 	GLCall(glStencilFunc(GL_NOTEQUAL, 1, 0xFF));
 	GLCall(glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE));
 	GLCall(glStencilMask(0x00));
+	GLCall(glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS));
 
 	PrintDriversInfo();
 
@@ -377,6 +380,13 @@ void Renderer::Init()
 		s_Data.EnvMapShader->Bind();
 		s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
 
+		s_Data.PrefilterShader = std::make_shared<Shader>("resources/shaders/EnvMapper.vert", "resources/shaders/EnvPrefilter.frag");
+		s_Data.PrefilterShader->Bind();
+		s_Data.PrefilterShader->SetUniform1i("u_EnvironmentMap", 0);
+
+		s_Data.BRDF_Shader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BRDF.frag");
+		s_Data.BRDF_Shader->Bind();
+
 		s_Data.SkyboxShader = std::make_shared<Shader>("resources/shaders/Skybox.vert", "resources/shaders/Skybox.frag");
 		s_Data.SkyboxShader->Bind();
 		s_Data.SkyboxShader->SetUniform1i("u_Cubemap", 0);
@@ -433,6 +443,8 @@ void Renderer::Shutdown()
 	s_Data.EnvMapVertexArray = nullptr;
 	s_Data.EnvMapVertexBuffer = nullptr;
 	s_Data.EnvMapShader = nullptr;
+	s_Data.PrefilterShader = nullptr;
+	s_Data.BRDF_Shader = nullptr;
 	s_Data.SkyboxShader = nullptr;
 
 	s_Data.DefaultShader = nullptr;
@@ -507,6 +519,7 @@ void Renderer::Flush()
 
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
+		// Offset by 1 to account for BRDF map
 		GLCall(glActiveTexture(GL_TEXTURE0 + i));
 		GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
 	}
@@ -796,13 +809,13 @@ std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<T
 	s_Data.MatricesBuffer->Bind();
 	s_Data.MatricesBuffer->SetData(glm::value_ptr(captureProj), sizeof(glm::mat4));
 
+	cfb->Bind();
 	hdrEnvMap->Bind();
 	s_Data.EnvMapShader->Bind();
 	s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
 
-	GLenum buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-	GLCall(glDrawBuffers(2, buffers));
-	cfb->Bind();
+	GLenum irradianceBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	GLCall(glDrawBuffers(2, irradianceBuffers));
 	for (uint32_t i = 0; i < 6; i++)
 	{
 		s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
@@ -810,6 +823,35 @@ std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<T
 		Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		DrawArrays(s_Data.EnvMapShader, s_Data.EnvMapVertexArray, 36);
 	}
+	cfb->BindCubemap();
+	GLCall(glGenerateMipmap(GL_TEXTURE_CUBE_MAP));
+	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
+
+	constexpr uint32_t MIPMAP_LEVELS = 5;
+	s_Data.PrefilterShader->Bind();
+	for (uint32_t mip = 0; mip < MIPMAP_LEVELS; mip++)
+	{
+		uint32_t mipW = 128 / (mip + 1);
+		uint32_t mipH = 128 / (mip + 1);
+		cfb->ResizeRenderbuffer({ mipW, mipH });
+
+		float roughness = (float)mip / (float)(MIPMAP_LEVELS - 1);
+		s_Data.PrefilterShader->SetUniform1f("u_Roughness", roughness);
+
+		for (uint32_t i = 0; i < 6; i++)
+		{
+			s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
+			cfb->SetPrefilterFaceTarget(i, mip);
+			Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			DrawArrays(s_Data.PrefilterShader, s_Data.EnvMapVertexArray, 36);
+		}
+	}
+
+	cfb->ResizeRenderbuffer(faceSize);
+	cfb->SetBRDF_Target();
+	Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	DrawArrays(s_Data.BRDF_Shader, s_Data.ScreenQuadVertexArray, 6);
+	cfb->UnbindMaps();
 	cfb->Unbind();
 
 	return cfb;
@@ -822,9 +864,13 @@ void Renderer::DrawSkybox(std::shared_ptr<CubemapFramebuffer> cfb)
 	DrawArrays(s_Data.SkyboxShader, s_Data.EnvMapVertexArray, 36);
 	GLCall(glDepthFunc(GL_LESS));
 
-	cfb->BindIrradianceMap();
+	cfb->BindIrradianceMap(50);
+	cfb->BindPrefilterMap(51);
+	cfb->BindBRDF_Map(52);
 	s_Data.CurrentShader->Bind();
-	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", 0);
+	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", 50);
+	s_Data.CurrentShader->SetUniform1i("u_PrefilterMap", 51);
+	s_Data.CurrentShader->SetUniform1i("u_BRDF_LUT", 52);
 }
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
@@ -929,7 +975,7 @@ void Renderer::StartBatch()
 	s_Data.SpotLightsData.clear();
 	s_Data.MaterialsData.clear();
 
-	s_Data.BoundTexturesCount = 1;
+	s_Data.BoundTexturesCount = 0;
 }
 
 void Renderer::NextBatch()
@@ -947,5 +993,5 @@ void Renderer::NextBatch()
 	s_Data.MaterialsData.clear();
 	s_Data.LineVertexCount = 0;
 	s_Data.LineBufferPtr = s_Data.LineBufferBase;
-	s_Data.BoundTexturesCount = 1;
+	s_Data.BoundTexturesCount = 0;
 }
