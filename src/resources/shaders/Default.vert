@@ -25,6 +25,8 @@ layout (std140, binding = 1) uniform Camera
 out VS_OUT
 {
 	vec3 worldPos;
+	vec3 viewPos;
+	vec3 normal;
 	mat3 TBN;
 	vec3 tangentWorldPos;
 	vec3 tangentViewPos;
@@ -41,6 +43,8 @@ void main()
 	mat3 TBN = transpose(mat3(T, B, N));
 
 	vs_out.worldPos		   = (a_Transform * vec4(a_Pos, 1.0)).xyz;
+	vs_out.viewPos		   = u_Camera.position.xyz;
+	vs_out.normal		   = a_Normal;
 	vs_out.TBN			   = TBN;
 	vs_out.tangentWorldPos = TBN * vs_out.worldPos;
 	vs_out.tangentViewPos  = TBN * u_Camera.position.xyz;

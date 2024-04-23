@@ -51,6 +51,8 @@ struct Material
 in VS_OUT
 {
 	vec3 worldPos;
+	vec3 viewPos;
+	vec3 normal;
 	mat3 TBN;
 	vec3 tangentWorldPos;
 	vec3 tangentViewPos;
@@ -77,7 +79,9 @@ layout(std140, binding = 3) uniform Materials
 
 uniform bool u_IsLightSource = false;
 uniform samplerCube u_IrradianceMap;
-uniform sampler2D u_Textures[24];
+uniform samplerCube u_PrefilterMap;
+uniform sampler2D u_BRDF_LUT;
+uniform sampler2D u_Textures[64];
 
 const float PI = 3.14159265359;
 
@@ -93,7 +97,7 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 
 float distGGX(vec3 N, vec3 H, float roughness)
 {
-	float a	  = roughness = roughness;
+	float a	  = roughness * roughness;
 	float a2  = a * a;
 	float NH  = max(dot(N, H), 0.0);
 	float NH2 = NH * NH;
@@ -105,8 +109,8 @@ float distGGX(vec3 N, vec3 H, float roughness)
 
 float geoSchlickGGX(float NV, float roughness)
 {
-	float r = roughness + 1.0;
-	float k = (r * r) / 8.0;
+	float a = roughness + 1.0;
+	float k = (a * a) / 8.0;
 	float denom = NV * (1.0 - k) + k;
 
 	return NV / denom;
@@ -329,11 +333,23 @@ void main()
 		}
 	}
 
-	vec3 kS = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, mat.roughnessFactor);
+	const float MAX_REFL_LOD = 4.0;
+	V = normalize(fs_in.viewPos - fs_in.worldPos);
+	N = fs_in.normal;
+
+	vec3 R = reflect(-V, N);
+	vec3 prefilteredColor = textureLod(u_PrefilterMap, R, roughness * MAX_REFL_LOD).rgb;
+	vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+	vec2 envBRDF = texture(u_BRDF_LUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+	vec3 kS = F;
 	vec3 kD = 1.0 - kS;
+	kD *= 1.0 - metallic;
+
 	vec3 irradiance = texture(u_IrradianceMap, N).rgb;
 	vec3 diffuse = irradiance * diffuseColor.rgb;
-	vec3 ambient = kD * diffuse * AO;
+	vec3 ambient = (kD * diffuse + specular) * AO;
 	
 	gDefault.rgb = ambient + Lo;
 	gDefault.a = diffuseColor.a;
