@@ -20,6 +20,10 @@ EditorLayer::EditorLayer()
 
 	m_GizmoMode = ImGuizmo::WORLD;
 
+	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/lol.hdr", TextureFormat::RGB16F);
+	hdrEnvMap->SetWrap(GL_CLAMP_TO_EDGE);
+	m_Skybox = Renderer::CreateEnvCubemap(hdrEnvMap, { 1024, 1024 });
+
 	const WindowSpec& spec = Application::Instance()->Spec();
 	Event dummyEv{};
 	dummyEv.Type = Event::WindowResized;
@@ -42,10 +46,6 @@ EditorLayer::EditorLayer()
 	m_ScreenFB->AddColorAttachment(GL_RGBA8);
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->Unbind();
-
-	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/lol.hdr", TextureFormat::RGB16F);
-	hdrEnvMap->SetWrap(GL_CLAMP_TO_EDGE);
-	m_Skybox = Renderer::CreateEnvCubemap(hdrEnvMap, { 1024, 1024 });
 }
 
 void EditorLayer::OnAttach()
@@ -273,6 +273,7 @@ void EditorLayer::RenderScenePanel()
 		ImGui::PrettyDragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::PrettyDragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::Checkbox("Wireframe", &m_DrawWireframe);
+		ImGui::Checkbox("Grid", &m_DrawGrid);
 		ImGui::Unindent(16.0f);
 	}
 
@@ -378,33 +379,36 @@ void EditorLayer::RenderViewport()
 	Renderer::SetWireframe(false);
 
 	// Grid
-	constexpr float distance = 100.0f;
-	constexpr float offset = 2.0f;
-	constexpr glm::vec4 lineColor(glm::vec3(0.22f), 1.0f);
-	constexpr glm::vec4 darkLineColor(glm::vec3(0.11f), 1.0f);
-	constexpr glm::vec4 mainAxisLineColor(0.98f, 0.24f, 0.0f, 1.0f);
-	glm::vec3 cameraPos = m_EditorCamera.Position;
-	int32_t xOffset = cameraPos.x / (int32_t)offset;
-	int32_t zOffset = cameraPos.z / (int32_t)offset;
-
-	Renderer::SceneBegin(m_EditorCamera);
-	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
-	for (float x = -distance + xOffset * offset; x <= distance + xOffset * offset; x += offset)
+	if (m_DrawGrid)
 	{
-		glm::vec4 color = (x == 0.0f ? mainAxisLineColor : ((int32_t)x % 10 == 0 ? darkLineColor : lineColor));
+		constexpr float distance = 100.0f;
+		constexpr float offset = 2.0f;
+		constexpr glm::vec4 lineColor(glm::vec3(0.22f), 1.0f);
+		constexpr glm::vec4 darkLineColor(glm::vec3(0.11f), 1.0f);
+		constexpr glm::vec4 mainAxisLineColor(0.98f, 0.24f, 0.0f, 1.0f);
+		glm::vec3 cameraPos = m_EditorCamera.Position;
+		int32_t xOffset = cameraPos.x / (int32_t)offset;
+		int32_t zOffset = cameraPos.z / (int32_t)offset;
 
-		Renderer::DrawLine({ x, 0.0f, -distance + zOffset * offset },
-			{ x, 0.0f, distance + zOffset * offset }, color);
+		Renderer::SceneBegin(m_EditorCamera);
+		GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
+		for (float x = -distance + xOffset * offset; x <= distance + xOffset * offset; x += offset)
+		{
+			glm::vec4 color = (x == 0.0f ? mainAxisLineColor : ((int32_t)x % 10 == 0 ? darkLineColor : lineColor));
+
+			Renderer::DrawLine({ x, 0.0f, -distance + zOffset * offset },
+				{ x, 0.0f, distance + zOffset * offset }, color);
+		}
+
+		for (float z = -distance + zOffset * offset; z <= distance + zOffset * offset; z += offset)
+		{
+			glm::vec4 color = (z == 0.0f ? mainAxisLineColor : ((int32_t)z % 10 == 0 ? darkLineColor : lineColor));
+
+			Renderer::DrawLine({ -distance + xOffset * offset, 0.0f, z },
+				{ distance + xOffset * offset, 0.0f, z }, color);
+		}
+		Renderer::SceneEnd();
 	}
-
-	for (float z = -distance + zOffset * offset; z <= distance + zOffset * offset; z += offset)
-	{
-		glm::vec4 color = (z == 0.0f ? mainAxisLineColor : ((int32_t)z % 10 == 0 ? darkLineColor : lineColor));
-
-		Renderer::DrawLine({ -distance + xOffset * offset, 0.0f, z },
-			{ distance + xOffset * offset, 0.0f, z }, color);
-	}
-	Renderer::SceneEnd();
 
 	// Render selected entity outline
 	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())

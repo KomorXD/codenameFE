@@ -41,6 +41,7 @@ private:
 	bool m_IsGizmoUsed  = false;
 
 	bool m_DrawWireframe = false;
+	bool m_DrawGrid = true;
 
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;
