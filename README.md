@@ -19,7 +19,7 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [x] Utilizing UBOs to pass light sources' and materials' data
  - [x] PBR
  - [x] Parallax mapping
- - [ ] Environment maps + IBL
+ - [x] Environment maps + Diffuse and Specular IBL
  - [ ] Uploading custom models (+ making sure they have normals and tangents, or calculating them)
  - [ ] Bloom (+ compute shaders)
  - [ ] SSAO
@@ -32,8 +32,13 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [ ] Whatever comes to my mind next
 
 ### Editor - basically poor Unity-based styled editor
-#### Current state with pretty PBR lightning (yet to add parallax mapping, then it gets fun!!!!!!)
+#### Current state with pretty PBR lightning!!!!!!!!!!
 ![Editor preview](https://github.com/KomorXD/codenameFE/assets/51238441/e3424585-96a6-412f-86bd-e1133190fedb)
+
+#### IBL Diffuse and specular environment maps :OOOOOOOOOOOOOO
+Sample 1 | Sample2
+:-----------------:|:-----------------:
+![Balls 1](https://github.com/KomorXD/codenameFE/assets/51238441/efc0444e-5460-4531-9db1-9c4906cdd7c8)|![Balls 2](https://github.com/KomorXD/codenameFE/assets/51238441/bb86d354-d171-4dbb-89b2-d9e533e11633)
 
 #### Parallax mapping (bad on spheres)!!!!!!!!!!!!!
 Without height map | With height map
