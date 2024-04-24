@@ -252,14 +252,12 @@ public:
 	void BindCubemap(uint32_t slot = 0) const;
 	void BindIrradianceMap(uint32_t slot = 0) const;
 	void BindPrefilterMap(uint32_t slot = 0) const;
-	void BindBRDF_Map(uint32_t slot = 0) const;
 	void UnbindMaps() const;
 
 	void ResizeRenderbuffer(const glm::uvec2& bufferSize);
 
 	void SetCubemapFaceTarget(uint32_t faceIdx) const;
 	void SetPrefilterFaceTarget(uint32_t faceIdx, uint32_t mipmapLevel) const;
-	void SetBRDF_Target() const;
 
 	inline glm::uvec2 BufferSize() const { return m_BufferSize; }
 
@@ -269,7 +267,6 @@ private:
 	uint32_t m_CubemapID = 0;
 	uint32_t m_IrradianceMapID = 0;
 	uint32_t m_PrefilterID = 0;
-	uint32_t m_BRDF_ID = 0;
 	glm::uvec2 m_BufferSize{};
 };
 
@@ -278,7 +275,8 @@ enum class TextureFormat
 	RGBA8,
 	RGB8,
 	RGBA16F,
-	RGB16F
+	RGB16F,
+	RG16F
 };
 
 class Texture
@@ -286,6 +284,7 @@ class Texture
 public:
 	Texture(const std::string& path, TextureFormat format = TextureFormat::RGBA8);
 	Texture(const void* data, int32_t width, int32_t height, const std::string& name, TextureFormat format = TextureFormat::RGBA8);
+	Texture(uint32_t id, const std::string& name, TextureFormat format);
 	~Texture();
 
 	void SetFilter(int32_t filter);

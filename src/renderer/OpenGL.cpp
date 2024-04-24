@@ -788,15 +788,6 @@ CubemapFramebuffer::CubemapFramebuffer(const glm::uvec2& bufferSize)
 	}
 	GLCall(glGenerateMipmap(GL_TEXTURE_CUBE_MAP));
 
-	// BRDF map
-	GLCall(glGenTextures(1, &m_BRDF_ID));
-	GLCall(glBindTexture(GL_TEXTURE_2D, m_BRDF_ID));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-	GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, bufferSize.x, bufferSize.y, 0, GL_RG, GL_FLOAT, nullptr));
-
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
 }
 
@@ -825,11 +816,6 @@ CubemapFramebuffer::~CubemapFramebuffer()
 	if(m_PrefilterID != 0)
 	{
 		GLCall(glDeleteTextures(1, &m_PrefilterID));
-	}
-	
-	if(m_BRDF_ID != 0)
-	{
-		GLCall(glDeleteTextures(1, &m_BRDF_ID));
 	}
 	
 	if (m_ID != 0)
@@ -869,12 +855,6 @@ void CubemapFramebuffer::BindPrefilterMap(uint32_t slot) const
 	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_PrefilterID));
 }
 
-void CubemapFramebuffer::BindBRDF_Map(uint32_t slot) const
-{
-	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
-	GLCall(glBindTexture(GL_TEXTURE_2D, m_BRDF_ID));
-}
-
 void CubemapFramebuffer::UnbindMaps() const
 {
 	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
@@ -898,11 +878,6 @@ void CubemapFramebuffer::SetCubemapFaceTarget(uint32_t faceIdx) const
 void CubemapFramebuffer::SetPrefilterFaceTarget(uint32_t faceIdx, uint32_t mipmapLevel) const
 {
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_PrefilterID, mipmapLevel));
-}
-
-void CubemapFramebuffer::SetBRDF_Target() const
-{
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_BRDF_ID, 0));
 }
 
 static struct TexFormatInfo
@@ -942,6 +917,12 @@ static TexFormatInfo FormatInfo(TextureFormat format)
 		formatInfo.Format = GL_RGB;
 		formatInfo.Type = GL_FLOAT;
 		formatInfo.BPP = 3;
+		break;
+	case TextureFormat::RG16F:
+		formatInfo.InternalFormat = GL_RG16F;
+		formatInfo.Format = GL_RG;
+		formatInfo.Type = GL_FLOAT;
+		formatInfo.BPP = 2;
 		break;
 	default:
 		ASSERT(true && "Invalid format enum");
@@ -1002,6 +983,19 @@ Texture::Texture(const void* data, int32_t width, int32_t height, const std::str
 	GLCall(glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, m_Width, m_Height, 0, pixelFormat, type, data));
 	GLCall(glGenerateMipmap(GL_TEXTURE_2D));
 	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+}
+
+Texture::Texture(uint32_t id, const std::string& name, TextureFormat format)
+	: m_ID(id), m_Path(""), m_Name(name)
+{
+	ASSERT(id > 0 && "Invalid ID");
+
+	GLCall(glBindTexture(GL_TEXTURE_2D, m_ID));
+	GLCall(glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &m_Width));
+	GLCall(glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &m_Height));
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+
+	m_BPP = FormatInfo(format).BPP;
 }
 
 Texture::~Texture()

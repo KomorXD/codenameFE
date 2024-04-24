@@ -160,8 +160,8 @@ struct RendererData
 	std::shared_ptr<VertexBuffer> EnvMapVertexBuffer;
 	std::shared_ptr<Shader>		  EnvMapShader;
 	std::shared_ptr<Shader>		  PrefilterShader;
-	std::shared_ptr<Shader>		  BRDF_Shader;
 	std::shared_ptr<Shader>		  SkyboxShader;
+	std::shared_ptr<Texture>	  BRDF_Map;
 
 	std::shared_ptr<VertexArray>  LineVertexArray;
 	std::shared_ptr<VertexBuffer> LineVertexBuffer;
@@ -384,9 +384,6 @@ void Renderer::Init()
 		s_Data.PrefilterShader->Bind();
 		s_Data.PrefilterShader->SetUniform1i("u_EnvironmentMap", 0);
 
-		s_Data.BRDF_Shader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BRDF.frag");
-		s_Data.BRDF_Shader->Bind();
-
 		s_Data.SkyboxShader = std::make_shared<Shader>("resources/shaders/Skybox.vert", "resources/shaders/Skybox.frag");
 		s_Data.SkyboxShader->Bind();
 		s_Data.SkyboxShader->SetUniform1i("u_Cubemap", 0);
@@ -425,6 +422,43 @@ void Renderer::Init()
 		s_Data.MaterialsBuffer->BindBufferRange(3, 0, 128 * sizeof(MaterialsBufferData));
 	}
 
+	{
+		SCOPE_PROFILE("Creating BRDF map");
+
+		
+		GLuint fbo{};
+		GLuint rbo{};
+		GLCall(glGenFramebuffers(1, &fbo));
+		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
+		GLCall(glGenRenderbuffers(1, &rbo));
+		GLCall(glBindRenderbuffer(GL_RENDERBUFFER, rbo));
+		GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512));
+		GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rbo));
+
+		GLuint brdfTex{};
+		GLCall(glGenTextures(1, &brdfTex));
+		GLCall(glBindTexture(GL_TEXTURE_2D, brdfTex));
+		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+
+		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfTex, 0));
+		GLCall(glViewport(0, 0, 512, 512)); 
+		
+		std::shared_ptr<Shader> brdfShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BRDF.frag");
+		brdfShader->Bind();
+		Clear();
+		DrawArrays(brdfShader, s_Data.ScreenQuadVertexArray, 6);
+		s_Data.BRDF_Map = std::make_shared<Texture>((uint32_t)brdfTex, "BRDF Map", TextureFormat::RG16F);
+
+		GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+		GLCall(glDeleteRenderbuffers(1, &rbo));
+		GLCall(glDeleteFramebuffers(1, &fbo));
+	}
+
 	memset(&s_Data.Stats, 0, sizeof(RendererStats));
 }
 
@@ -444,8 +478,9 @@ void Renderer::Shutdown()
 	s_Data.EnvMapVertexBuffer = nullptr;
 	s_Data.EnvMapShader = nullptr;
 	s_Data.PrefilterShader = nullptr;
-	s_Data.BRDF_Shader = nullptr;
 	s_Data.SkyboxShader = nullptr;
+
+	s_Data.BRDF_Map = nullptr;
 
 	s_Data.DefaultShader = nullptr;
 	s_Data.CurrentShader = nullptr;
@@ -846,11 +881,7 @@ std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<T
 			DrawArrays(s_Data.PrefilterShader, s_Data.EnvMapVertexArray, 36);
 		}
 	}
-
-	cfb->ResizeRenderbuffer(faceSize);
-	cfb->SetBRDF_Target();
-	Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	DrawArrays(s_Data.BRDF_Shader, s_Data.ScreenQuadVertexArray, 6);
+	
 	cfb->UnbindMaps();
 	cfb->Unbind();
 
@@ -866,7 +897,7 @@ void Renderer::DrawSkybox(std::shared_ptr<CubemapFramebuffer> cfb)
 
 	cfb->BindIrradianceMap(50);
 	cfb->BindPrefilterMap(51);
-	cfb->BindBRDF_Map(52);
+	s_Data.BRDF_Map->Bind(52);
 	s_Data.CurrentShader->Bind();
 	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", 50);
 	s_Data.CurrentShader->SetUniform1i("u_PrefilterMap", 51);
