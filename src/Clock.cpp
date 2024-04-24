@@ -23,12 +23,12 @@ void Clock::Restart()
 	Start();
 }
 
-uint32_t Clock::GetElapsedTime() const
+float Clock::GetElapsedTime() const
 {
 	if (!m_IsRunning)
 	{
 		return static_cast<uint32_t>(m_AccumulatedTime);
 	}
 
-	return static_cast<uint32_t>(m_AccumulatedTime + std::chrono::duration<float>(std::chrono::steady_clock::now() - m_StartTS).count() * 1000.0f);
+	return m_AccumulatedTime + std::chrono::duration<float>(std::chrono::steady_clock::now() - m_StartTS).count() * 1000.0f;
 }

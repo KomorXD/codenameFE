@@ -32,10 +32,10 @@ public:
 	inline GLFWwindow* Window()		const { return m_Window; }
 	inline const WindowSpec& Spec() const { return m_Spec;	 }
 
-	inline uint32_t FPS() const { return m_FrameTimeInMS; }
-	inline uint32_t EventsTime() const { return m_EventsTimeInMS; }
-	inline uint32_t UpdateTime() const { return m_UpdateTimeInMS; }
-	inline uint32_t RenderTime() const { return m_RenderTimeInMS; }
+	inline float FrameTime()  const { return m_FrameTimeInMS;  }
+	inline float EventsTime() const { return m_EventsTimeInMS; }
+	inline float UpdateTime() const { return m_UpdateTimeInMS; }
+	inline float RenderTime() const { return m_RenderTimeInMS; }
 
 	inline static Application* Instance() { return s_Instance; }
 
@@ -47,16 +47,16 @@ private:
 	GLFWwindow* m_Window = nullptr;
 	EventQueue m_EventQueue;
 
-	uint32_t m_FrameTimeInMS;
+	float m_FrameTimeInMS;
 
 	Clock m_EventsTimer;
-	uint32_t m_EventsTimeInMS;
-
+	float m_EventsTimeInMS;
+	
 	Clock m_UpdateTimer;
-	uint32_t m_UpdateTimeInMS;
+	float m_UpdateTimeInMS;
 
 	Clock m_RenderTimer;
-	uint32_t m_RenderTimeInMS;
+	float m_RenderTimeInMS;
 
 	std::stack<std::unique_ptr<Layer>> m_Layers;
 	std::unique_ptr<Layer> m_NextLayer;

@@ -135,7 +135,7 @@ void Application::Run()
 		currTime = glfwGetTime();
 		timestep = currTime - prevTime;
 
-		m_FrameTimeInMS = static_cast<uint32_t>(timestep * 1000.0f);
+		m_FrameTimeInMS = timestep * 1000.0f;
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();

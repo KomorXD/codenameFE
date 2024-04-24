@@ -291,31 +291,31 @@ void EditorLayer::RenderScenePanel()
 		ImGui::TableNextColumn();
 		ImGui::Text("Frame time");
 		ImGui::TableNextColumn();
-		ImGui::Text("%ums", app->FPS());
+		ImGui::Text("%.2fms", app->FrameTime());
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("FPS");
 		ImGui::TableNextColumn();
-		ImGui::Text("%u", 1000 / (app->FPS() + 1));
+		ImGui::Text("%u", static_cast<uint32_t>(1000.0f / app->FrameTime()));
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("Events time");
 		ImGui::TableNextColumn();
-		ImGui::Text("%ums", app->EventsTime());
+		ImGui::Text("%.2fms", app->EventsTime());
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("Update time");
 		ImGui::TableNextColumn();
-		ImGui::Text("%ums", app->UpdateTime());
+		ImGui::Text("%.2fms", app->UpdateTime());
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("Render time");
 		ImGui::TableNextColumn();
-		ImGui::Text("%ums", app->RenderTime());
+		ImGui::Text("%.2fms", app->RenderTime());
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
@@ -328,12 +328,6 @@ void EditorLayer::RenderScenePanel()
 		ImGui::Text("Rendered meshes");
 		ImGui::TableNextColumn();
 		ImGui::Text("%u", m_Stats.ObjectsRendered);
-
-		ImGui::TableNextRow();
-		ImGui::TableNextColumn();
-		ImGui::Text("Render time");
-		ImGui::TableNextColumn();
-		ImGui::Text("%ums", m_Stats.RenderTimeInMS);
 
 		ImGui::EndTable();
 		ImGui::Unindent(16.0f);

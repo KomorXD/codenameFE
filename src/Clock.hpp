@@ -16,5 +16,5 @@ public:
 	void Stop();
 	void Restart();
 
-	uint32_t GetElapsedTime() const;
+	float GetElapsedTime() const;
 };
