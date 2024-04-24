@@ -31,8 +31,8 @@ void main()
 	up = normalize(cross(N, right));
 
 	const float PI = 3.14159265359;
-	float dPhi = 0.025;
-	float dTheta = 0.025;
+	float dPhi = 0.05;
+	float dTheta = 0.05;
 	int samples = 0;
 	for(float phi = 0.0; phi < 2.0 * PI; phi += dPhi)
 	{

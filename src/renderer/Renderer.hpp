@@ -22,7 +22,6 @@ struct RendererStats
 {
 	uint32_t DrawCalls = 0;
 	uint32_t ObjectsRendered = 0;
-	uint32_t RenderTimeInMS = 0;
 };
 
 class Renderer

@@ -111,16 +111,10 @@ static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& 
 	return lhs.Color == rhs.Color
 		&& lhs.TilingFactor == rhs.TilingFactor
 		&& lhs.TextureOffset == rhs.TextureOffset
-		&& lhs.AlbedoTextureID == rhs.AlbedoTextureSlot
-		&& lhs.NormalTextureID == rhs.NormalTextureSlot
-		&& lhs.HeightTextureID == rhs.HeightTextureSlot
 		&& lhs.HeightFactor == rhs.HeightFactor
 		&& lhs.IsDepthMap == rhs.IsDepthMap
-		&& lhs.RoughnessTextureID == rhs.RoughnessTextureSlot
 		&& lhs.RoughnessFactor == rhs.RoughnessFactor
-		&& lhs.MetallicTextureID == rhs.MetallicTextureSlot
 		&& lhs.MetallicFactor == rhs.MetallicFactor
-		&& lhs.AmbientOccTextureID == rhs.AmbientOccTextureSlot
 		&& lhs.AmbientOccFactor == rhs.AmbientOccFactor;
 }
 
@@ -147,7 +141,6 @@ struct RendererData
 	static constexpr uint32_t MaxInstancesOfType = MaxInstances / 5;
 
 	RendererStats Stats;
-	Clock RenderClock;
 
 	uint32_t InstancesCount = 0;
 	std::unordered_map<int32_t, MeshBufferData> MeshesData;
@@ -183,7 +176,7 @@ struct RendererData
 	std::vector<SpotLightBufferData>  SpotLightsData;
 	std::vector<MaterialsBufferData>  MaterialsData;
 
-	uint32_t BoundTexturesCount = 1;
+	uint32_t BoundTexturesCount = 0;
 	std::array<int32_t, 64> TextureBindings;
 };
 
@@ -554,7 +547,6 @@ void Renderer::Flush()
 
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
-		// Offset by 1 to account for BRDF map
 		GLCall(glActiveTexture(GL_TEXTURE0 + i));
 		GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
 	}
@@ -584,13 +576,11 @@ void Renderer::Flush()
 
 void Renderer::ResetStats()
 {
-	s_Data.RenderClock.Restart();
 	memset(&s_Data.Stats, 0, sizeof(RendererStats));
 }
 
 RendererStats Renderer::Stats()
 {
-	s_Data.Stats.RenderTimeInMS = s_Data.RenderClock.GetElapsedTime();
 	return s_Data.Stats;
 }
 
@@ -636,126 +626,85 @@ void Renderer::DrawCube(const glm::mat4& transform, const glm::vec4& color)
 void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh, const Material& material, int32_t entityID)
 {
 	if (s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount >= s_Data.MaxInstancesOfType
-		|| s_Data.InstancesCount >= s_Data.MaxInstances
-		|| s_Data.BoundTexturesCount >= s_Data.TextureBindings.size() - 1
-		|| s_Data.MaterialsData.size() >= 127)
+		|| s_Data.InstancesCount >= s_Data.MaxInstances)
 	{
 		NextBatch();
 	}
 
-	std::vector<MeshInstance>& instances = s_Data.MeshesData[mesh.MeshID].Instances;
-	MeshInstance& instance = instances.emplace_back();
-	instance.Transform = transform;
-	instance.EntityID = (float)entityID + 1.0f;
-	
-	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;
-	s_Data.InstancesCount++;
+	std::shared_ptr<Texture> textures[] = {
+		AssetManager::GetTexture(material.AlbedoTextureID),
+		AssetManager::GetTexture(material.NormalTextureID),
+		AssetManager::GetTexture(material.HeightTextureID),
+		AssetManager::GetTexture(material.RoughnessTextureID),
+		AssetManager::GetTexture(material.MetallicTextureID),
+		AssetManager::GetTexture(material.AmbientOccTextureID)
+	};
+	int32_t textureIdxs[] = { -1, -1, -1, -1, -1, -1 };
+	size_t newTextures = 0;
 
-	std::shared_ptr<Texture> albedo	= AssetManager::GetTexture(material.AlbedoTextureID);
-	int32_t albedoIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	// Check for a duplicate in existing texture bindings
+	for (size_t i = 0; i < 6; i++)
 	{
-		if (s_Data.TextureBindings[i] == albedo->GetID())
+		for (size_t j = 0; j < (size_t)s_Data.BoundTexturesCount; j++)
 		{
-			albedoIdx = i;
+			if (s_Data.TextureBindings[j] == textures[i]->GetID())
+			{
+				textureIdxs[i] = j;
+				break;
+			}
+		}
+
+		if (textureIdxs[i] == -1)
+		{
+			newTextures++;
 		}
 	}
-	if(albedoIdx == -1)
+	if (s_Data.BoundTexturesCount + newTextures >= s_Data.TextureBindings.size())
 	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = albedo->GetID();
-		albedoIdx = s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
+		NextBatch();
 	}
 
-	std::shared_ptr<Texture> normal = AssetManager::GetTexture(material.NormalTextureID);
-	int32_t normalIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
+	// Check for duplicates in this material's textures
+	newTextures = 0;
+	for (size_t i = 0; i < 6; i++)
 	{
-		if (s_Data.TextureBindings[i] == normal->GetID())
+		if (textureIdxs[i] != -1)
 		{
-			normalIdx = i;
+			continue;
+		}
+
+		bool doAddNew = true;
+		for (uint32_t j = s_Data.BoundTexturesCount - newTextures; j < s_Data.BoundTexturesCount; j++)
+		{
+			if (s_Data.TextureBindings[j] == textures[i]->GetID())
+			{
+				textureIdxs[i] = j;
+				doAddNew = false;
+			}
+		}
+
+		if (doAddNew)
+		{
+			s_Data.TextureBindings[s_Data.BoundTexturesCount] = textures[i]->GetID();
+			textureIdxs[i] = s_Data.BoundTexturesCount++;
+			newTextures++;
 		}
 	}
-	if (normalIdx == -1)
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = normal->GetID();
-		normalIdx = s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
 
-	std::shared_ptr<Texture> height = AssetManager::GetTexture(material.HeightTextureID);
-	int32_t heightIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == height->GetID())
-		{
-			heightIdx = i;
-		}
-	}
-	if (heightIdx == -1)
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = height->GetID();
-		heightIdx = s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
-	std::shared_ptr<Texture> roughness = AssetManager::GetTexture(material.RoughnessTextureID);
-	int32_t roughnessIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == roughness->GetID())
-		{
-			roughnessIdx = i;
-		}
-	}
-	if (roughnessIdx == -1)
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = roughness->GetID();
-		roughnessIdx = s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
-	std::shared_ptr<Texture> metallic = AssetManager::GetTexture(material.MetallicTextureID);
-	int32_t metallicIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == metallic->GetID())
-		{
-			metallicIdx = i;
-		}
-	}
-	if (metallicIdx == -1)
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = metallic->GetID();
-		metallicIdx = s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
-	std::shared_ptr<Texture> ao = AssetManager::GetTexture(material.AmbientOccTextureID);
-	int32_t aoIdx = -1;
-	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
-	{
-		if (s_Data.TextureBindings[i] == ao->GetID())
-		{
-			aoIdx = i;
-		}
-	}
-	if (aoIdx == -1)
-	{
-		s_Data.TextureBindings[s_Data.BoundTexturesCount] = ao->GetID();
-		aoIdx = s_Data.BoundTexturesCount;
-		++s_Data.BoundTexturesCount;
-	}
-
+	// Check for a duplicate material in their buffer
 	int32_t materialIdx = -1;
 	for (int32_t i = 0; i < s_Data.MaterialsData.size(); i++)
 	{
-		MaterialsBufferData& matData = s_Data.MaterialsData[i];
-		bool sameTextures = matData.AlbedoTextureSlot == albedoIdx && matData.NormalTextureSlot == normalIdx
-			&& matData.HeightTextureSlot == heightIdx && matData.RoughnessTextureSlot == roughnessIdx
-			&& matData.MetallicTextureSlot == metallicIdx && matData.AmbientOccTextureSlot == aoIdx;
+		MaterialsBufferData& mbd = s_Data.MaterialsData[i];
+		bool areTexturesTheSame = 
+			mbd.AlbedoTextureSlot	  == textureIdxs[0] &&
+			mbd.NormalTextureSlot	  == textureIdxs[1] &&
+			mbd.HeightTextureSlot	  == textureIdxs[2] &&
+			mbd.RoughnessTextureSlot  == textureIdxs[3] &&
+			mbd.MetallicTextureSlot	  == textureIdxs[4] &&
+			mbd.AmbientOccTextureSlot == textureIdxs[5];
 
-		if (MaterialToBufferCmp(material, matData))
+		if (MaterialToBufferCmp(material, mbd) && areTexturesTheSame)
 		{
 			materialIdx = i;
 			break;
@@ -764,20 +713,28 @@ void Renderer::SubmitMesh(const glm::mat4& transform, const MeshComponent& mesh,
 
 	if (materialIdx == -1)
 	{
-		instance.MaterialSlot = (float)s_Data.MaterialsData.size();
+		if (s_Data.MaterialsData.size() >= 127)
+		{
+			NextBatch();
+		}
+
+		materialIdx = s_Data.MaterialsData.size();
 		s_Data.MaterialsData.push_back(MaterialToBuffer(material));
-		s_Data.MaterialsData.back().AlbedoTextureSlot	  = albedoIdx;
-		s_Data.MaterialsData.back().NormalTextureSlot	  = normalIdx;
-		s_Data.MaterialsData.back().HeightTextureSlot	  = heightIdx;
-		s_Data.MaterialsData.back().RoughnessTextureSlot  = roughnessIdx;
-		s_Data.MaterialsData.back().MetallicTextureSlot   = metallicIdx;
-		s_Data.MaterialsData.back().AmbientOccTextureSlot = aoIdx;
-	}
-	else
-	{
-		instance.MaterialSlot = (float)materialIdx;
+		s_Data.MaterialsData.back().AlbedoTextureSlot = textureIdxs[0];
+		s_Data.MaterialsData.back().NormalTextureSlot = textureIdxs[1];
+		s_Data.MaterialsData.back().HeightTextureSlot = textureIdxs[2];
+		s_Data.MaterialsData.back().RoughnessTextureSlot = textureIdxs[3];
+		s_Data.MaterialsData.back().MetallicTextureSlot = textureIdxs[4];
+		s_Data.MaterialsData.back().AmbientOccTextureSlot = textureIdxs[5];
 	}
 
+	std::vector<MeshInstance>& instances = s_Data.MeshesData[mesh.MeshID].Instances;
+	MeshInstance& instance = instances.emplace_back();
+	instance.Transform = transform;
+	instance.EntityID = (float)entityID + 1.0f;
+	instance.MaterialSlot = (float)materialIdx;
+	s_Data.MeshesData[mesh.MeshID].CurrentInstancesCount++;
+	s_Data.InstancesCount++;
 	s_Data.Stats.ObjectsRendered++;
 }
 
@@ -895,13 +852,16 @@ void Renderer::DrawSkybox(std::shared_ptr<CubemapFramebuffer> cfb)
 	DrawArrays(s_Data.SkyboxShader, s_Data.EnvMapVertexArray, 36);
 	GLCall(glDepthFunc(GL_LESS));
 
-	cfb->BindIrradianceMap(50);
-	cfb->BindPrefilterMap(51);
-	s_Data.BRDF_Map->Bind(52);
+	uint32_t irradianceSlot = s_Data.TextureBindings.size();
+	uint32_t prefilterSlot = irradianceSlot + 1;
+	uint32_t brdfSlot = prefilterSlot + 1;
+	cfb->BindIrradianceMap(irradianceSlot);
+	cfb->BindPrefilterMap(prefilterSlot);
+	s_Data.BRDF_Map->Bind(brdfSlot);
 	s_Data.CurrentShader->Bind();
-	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", 50);
-	s_Data.CurrentShader->SetUniform1i("u_PrefilterMap", 51);
-	s_Data.CurrentShader->SetUniform1i("u_BRDF_LUT", 52);
+	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", irradianceSlot);
+	s_Data.CurrentShader->SetUniform1i("u_PrefilterMap", prefilterSlot);
+	s_Data.CurrentShader->SetUniform1i("u_BRDF_LUT", brdfSlot);
 }
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
