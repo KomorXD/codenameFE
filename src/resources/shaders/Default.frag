@@ -334,9 +334,8 @@ void main()
 	}
 
 	const float MAX_REFL_LOD = 4.0;
+	N = transpose(fs_in.TBN) * N;
 	V = normalize(fs_in.viewPos - fs_in.worldPos);
-	N = fs_in.normal;
-
 	vec3 R = reflect(-V, N);
 	vec3 prefilteredColor = textureLod(u_PrefilterMap, R, roughness * MAX_REFL_LOD).rgb;
 	vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
