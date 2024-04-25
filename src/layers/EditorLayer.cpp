@@ -443,6 +443,7 @@ void EditorLayer::RenderViewport()
 	}
 	else
 	{
+		Renderer::SetBloomStrength(0.0f);
 		m_ScreenFB->Bind();
 		m_ScreenFB->BindColorAttachment();
 	}

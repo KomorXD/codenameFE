@@ -808,15 +808,17 @@ void Renderer::DrawScreenQuad()
 
 void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
 {
-	// Bloom downsampling
+	const auto& mips = s_Data.BloomFBO->Mips();
 	s_Data.BloomFBO->Bind();
+
+	// Bloom downsampling
 	s_Data.BloomDownsamplerShader->Bind();
 	s_Data.BloomDownsamplerShader->SetUniform2f("u_SourceResolution", hdrFBO->BufferSize());
 	hdrFBO->BindColorAttachment();
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
 	GLCall(glDisable(GL_DEPTH_TEST));
 
-	for (const auto& mip : s_Data.BloomFBO->Mips())
+	for (const auto& mip : mips)
 	{
 		GLCall(glViewport(0, 0, mip.iSize.x, mip.iSize.y));
 		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mip.ID, 0));
@@ -833,7 +835,6 @@ void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
 	GLCall(glBlendFunc(GL_ONE, GL_ONE));
 	GLCall(glBlendEquation(GL_FUNC_ADD));
 
-	const auto& mips = s_Data.BloomFBO->Mips();
 	for (size_t i = mips.size() - 1; i > 0; i--)
 	{
 		const auto& mip = mips[i];
