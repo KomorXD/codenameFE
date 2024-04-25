@@ -20,8 +20,9 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [x] PBR
  - [x] Parallax mapping
  - [x] Environment maps + Diffuse and Specular IBL
+ - [x] Bloom
+ - [ ] Bloom with computer shaders
  - [ ] Uploading custom models (+ making sure they have normals and tangents, or calculating them)
- - [ ] Bloom (+ compute shaders)
  - [ ] SSAO
  - [ ] Managing textures to optimize draw calls, probably texture atlas
  - [ ] Directional light shadow maps
@@ -31,8 +32,11 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [ ] Forward+ rendering
  - [ ] Whatever comes to my mind next
 
+### Bloom (idk yet how to fix INF/NaN propagation issue)!!!!!!!!!!!!
+![blum](https://github.com/KomorXD/codenameFE/assets/51238441/14f108f6-d7dc-4968-af2f-2b3d98a84057)
+
 #### IBL Diffuse and specular environment maps :OOOOOOOOOOOOOO
-![Screenshot_9](https://github.com/KomorXD/codenameFE/assets/51238441/57e9b1e9-b2b6-4d20-b870-c311d9acd714)
+![IBL showcase](https://github.com/KomorXD/codenameFE/assets/51238441/57e9b1e9-b2b6-4d20-b870-c311d9acd714)
 
 Balls 1 | Balls 2
 :-----------------:|:-----------------:
