@@ -270,8 +270,10 @@ void EditorLayer::RenderScenePanel()
 		ImGui::PrettyDragFloat3("Position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::PrettyDragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, FLT_MAX);
 		ImGui::PrettyDragFloat("Brightness", &m_EditorCamera.Gamma, 0.001f, 0.0f, FLT_MAX);
+		ImGui::PrettyDragFloat("Bloom strength", &m_BloomStrength, 0.001f, 0.0f, FLT_MAX);
 		ImGui::PrettyDragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::PrettyDragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
+		ImGui::Checkbox("Bloom", &m_UseBloom);
 		ImGui::Checkbox("Wireframe", &m_DrawWireframe);
 		ImGui::Checkbox("Grid", &m_DrawGrid);
 		ImGui::Unindent(16.0f);
@@ -433,8 +435,17 @@ void EditorLayer::RenderViewport()
 	
 	m_MainFB->BlitBuffers(0, 0, *m_ScreenFB);
 	m_MainFB->BlitBuffers(1, 1, *m_ScreenFB);
-	m_ScreenFB->Bind();
-	m_ScreenFB->BindColorAttachment();
+
+	if (m_UseBloom)
+	{
+		Renderer::SetBloomStrength(m_BloomStrength);
+		Renderer::Bloom(m_ScreenFB);
+	}
+	else
+	{
+		m_ScreenFB->Bind();
+		m_ScreenFB->BindColorAttachment();
+	}
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT2));
 	Renderer::DrawScreenQuad();
 	m_ScreenFB->Unbind();
