@@ -167,6 +167,7 @@ public:
 
 	void SetUniform1i(const std::string& name, int32_t val);
 	void SetUniform1f(const std::string& name, float val);
+	void SetUniform2f(const std::string& name, const glm::vec2& vec);
 	void SetUniform3f(const std::string& name, const glm::vec3& vec);
 	void SetUniform4f(const std::string& name, const glm::vec4& vec);
 	void SetUniformMat4(const std::string& name, const glm::mat4& vec);
@@ -223,6 +224,7 @@ public:
 	void UnbindColorAttachment() const;
 	void ClearColorAttachment(uint32_t attachmentIndex) const;
 
+	inline glm::uvec2 BufferSize() const { return m_BufferSize; }
 	inline uint32_t GetColorAttachmentID(uint32_t slot = 0) const { return m_ColorAttachments[slot].ID; }
 	glm::u8vec4 GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx) const;
 	bool IsComplete() const;
@@ -267,6 +269,32 @@ private:
 	uint32_t m_CubemapID = 0;
 	uint32_t m_IrradianceMapID = 0;
 	uint32_t m_PrefilterID = 0;
+	glm::uvec2 m_BufferSize{};
+};
+
+class BloomFramebuffer
+{
+public:
+	struct BloomMip
+	{
+		glm::vec2 fSize;
+		glm::ivec2 iSize;
+		uint32_t ID;
+	};
+
+	BloomFramebuffer(const glm::uvec2& bufferSize);
+	~BloomFramebuffer();
+
+	void Bind() const;
+	void Unbind() const;
+	void ResizeRenderbuffer(const glm::uvec2& bufferSize);
+
+	inline const std::vector<BloomMip>& Mips() const { return m_Mips; }
+	inline glm::uvec2 BufferSize() const { return m_BufferSize; }
+
+private:
+	uint32_t m_ID = 0;
+	std::vector<BloomMip> m_Mips;
 	glm::uvec2 m_BufferSize{};
 };
 

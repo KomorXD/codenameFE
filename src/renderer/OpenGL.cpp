@@ -306,6 +306,11 @@ void Shader::SetUniform1f(const std::string& name, float val)
 	GLCall(glUniform1f(GetUniformLocation(name), val));
 }
 
+void Shader::SetUniform2f(const std::string& name, const glm::vec2& vec)
+{
+	GLCall(glUniform2f(GetUniformLocation(name), vec.r, vec.g));
+}
+
 void Shader::SetUniform3f(const std::string& name, const glm::vec3& vec)
 {
 	GLCall(glUniform3f(GetUniformLocation(name), vec.r, vec.g, vec.b));
@@ -878,6 +883,67 @@ void CubemapFramebuffer::SetCubemapFaceTarget(uint32_t faceIdx) const
 void CubemapFramebuffer::SetPrefilterFaceTarget(uint32_t faceIdx, uint32_t mipmapLevel) const
 {
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_PrefilterID, mipmapLevel));
+}
+
+BloomFramebuffer::BloomFramebuffer(const glm::uvec2& bufferSize)
+	: m_BufferSize(bufferSize)
+{
+	GLCall(glGenFramebuffers(1, &m_ID));
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
+
+	glm::vec2  fMipSize(bufferSize);
+	glm::ivec2 iMipSize(bufferSize);
+	for (uint32_t i = 0; i < 5; i++)
+	{
+		BloomMip mip{};
+		fMipSize *= 0.5f;
+		iMipSize /= 2;
+		mip.fSize = fMipSize;
+		mip.iSize = iMipSize;
+
+		GLCall(glGenTextures(1, &mip.ID));
+		GLCall(glBindTexture(GL_TEXTURE_2D, mip.ID));
+		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_R11F_G11F_B10F, iMipSize.x, iMipSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+
+		m_Mips.emplace_back(mip);
+	}
+
+	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_Mips[0].ID, 0));
+
+	GLCall(int32_t status = glCheckFramebufferStatus(GL_FRAMEBUFFER));
+	assert(status == GL_FRAMEBUFFER_COMPLETE && "Framebuffer incomplete!");
+
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
+}
+
+BloomFramebuffer::~BloomFramebuffer()
+{
+	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+	for (BloomMip& mip : m_Mips)
+	{
+		GLCall(glDeleteTextures(1, &mip.ID));
+	}
+
+	if (m_ID != 0)
+	{
+		GLCall(glDeleteFramebuffers(1, &m_ID));
+	}
+}
+
+void BloomFramebuffer::Bind() const
+{
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
+}
+
+void BloomFramebuffer::Unbind() const
+{
+	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
 static struct TexFormatInfo

@@ -156,6 +156,10 @@ struct RendererData
 	std::shared_ptr<Shader>		  SkyboxShader;
 	std::shared_ptr<Texture>	  BRDF_Map;
 
+	std::shared_ptr<BloomFramebuffer> BloomFBO;
+	std::shared_ptr<Shader> BloomDownsamplerShader;
+	std::shared_ptr<Shader> BloomUpsamplerShader;
+
 	std::shared_ptr<VertexArray>  LineVertexArray;
 	std::shared_ptr<VertexBuffer> LineVertexBuffer;
 	std::shared_ptr<Shader>		  LineShader;
@@ -356,6 +360,7 @@ void Renderer::Init()
 		s_Data.ScreenQuadShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/ScreenQuad.frag");
 		s_Data.ScreenQuadShader->Bind();
 		s_Data.ScreenQuadShader->SetUniform1i("u_ScreenTexture", 0);
+		s_Data.ScreenQuadShader->SetUniform1i("u_BloomTexture", 1);
 	}
 
 	{
@@ -416,8 +421,21 @@ void Renderer::Init()
 	}
 
 	{
-		SCOPE_PROFILE("Creating BRDF map");
+		SCOPE_PROFILE("Bloom setup");
 
+		s_Data.BloomFBO = std::make_shared<BloomFramebuffer>(glm::uvec2(1280, 720));
+
+		s_Data.BloomDownsamplerShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BloomDownsampler.frag");
+		s_Data.BloomDownsamplerShader->Bind();
+		s_Data.BloomDownsamplerShader->SetUniform1i("u_SourceTexture", 0);
+
+		s_Data.BloomUpsamplerShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BloomUpsampler.frag");
+		s_Data.BloomUpsamplerShader->Bind();
+		s_Data.BloomUpsamplerShader->SetUniform1i("u_SourceTexture", 0);
+	}
+
+	{
+		SCOPE_PROFILE("Creating BRDF map");
 		
 		GLuint fbo{};
 		GLuint rbo{};
@@ -472,8 +490,11 @@ void Renderer::Shutdown()
 	s_Data.EnvMapShader = nullptr;
 	s_Data.PrefilterShader = nullptr;
 	s_Data.SkyboxShader = nullptr;
-
 	s_Data.BRDF_Map = nullptr;
+
+	s_Data.BloomFBO = nullptr;
+	s_Data.BloomDownsamplerShader = nullptr;
+	s_Data.BloomUpsamplerShader = nullptr;
 
 	s_Data.DefaultShader = nullptr;
 	s_Data.CurrentShader = nullptr;
@@ -783,6 +804,61 @@ void Renderer::DrawScreenQuad()
 	GLCall(glDisable(GL_DEPTH_TEST));
 	DrawArrays(s_Data.ScreenQuadShader, s_Data.ScreenQuadVertexArray, 6);
 	GLCall(glEnable(GL_DEPTH_TEST));
+}
+
+void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
+{
+	// Bloom downsampling
+	s_Data.BloomFBO->Bind();
+	s_Data.BloomDownsamplerShader->Bind();
+	s_Data.BloomDownsamplerShader->SetUniform2f("u_SourceResolution", hdrFBO->BufferSize());
+	hdrFBO->BindColorAttachment();
+	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
+	GLCall(glDisable(GL_DEPTH_TEST));
+
+	for (const auto& mip : s_Data.BloomFBO->Mips())
+	{
+		GLCall(glViewport(0, 0, mip.iSize.x, mip.iSize.y));
+		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mip.ID, 0));
+
+		DrawArrays(s_Data.BloomDownsamplerShader, s_Data.ScreenQuadVertexArray, 6);
+
+		s_Data.BloomDownsamplerShader->SetUniform2f("u_SourceResolution", mip.fSize);
+		GLCall(glBindTexture(GL_TEXTURE_2D, mip.ID));
+	}
+
+	// Bloom upsampling
+	s_Data.BloomUpsamplerShader->Bind();
+	s_Data.BloomUpsamplerShader->SetUniform1f("u_FilterRadius", 0.005f);
+	GLCall(glBlendFunc(GL_ONE, GL_ONE));
+	GLCall(glBlendEquation(GL_FUNC_ADD));
+
+	const auto& mips = s_Data.BloomFBO->Mips();
+	for (size_t i = mips.size() - 1; i > 0; i--)
+	{
+		const auto& mip = mips[i];
+		const auto& nextMip = mips[i - 1];
+
+		GLCall(glBindTexture(GL_TEXTURE_2D, mip.ID));
+		GLCall(glViewport(0, 0, nextMip.iSize.x, nextMip.iSize.y));
+		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, nextMip.ID, 0));
+
+		DrawArrays(s_Data.BloomUpsamplerShader, s_Data.ScreenQuadVertexArray, 6);
+	}
+	GLCall(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
+	GLCall(glEnable(GL_DEPTH_TEST));
+
+	hdrFBO->Bind();
+	hdrFBO->BindColorAttachment();
+	GLCall(glViewport(0, 0, hdrFBO->BufferSize().x, hdrFBO->BufferSize().y));
+	GLCall(glActiveTexture(GL_TEXTURE1));
+	GLCall(glBindTexture(GL_TEXTURE_2D, mips[0].ID));
+}
+
+void Renderer::SetBloomStrength(float strength)
+{
+	s_Data.ScreenQuadShader->Bind();
+	s_Data.ScreenQuadShader->SetUniform1f("u_BloomStrength", strength);
 }
 
 std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
