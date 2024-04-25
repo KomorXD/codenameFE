@@ -5,7 +5,8 @@ layout(location = 0) out vec4 gOut;
 in vec2 textureUV;
 
 uniform sampler2D u_ScreenTexture;
-uniform bool u_BlurEnabled = false;
+uniform sampler2D u_BloomTexture;
+uniform float u_BloomStrength;
 
 layout (std140, binding = 1) uniform Camera
 {
@@ -14,49 +15,12 @@ layout (std140, binding = 1) uniform Camera
 	float gamma;
 } u_Camera;
 
-const float offset = 1.0 / 300.0;
-vec2 offsets[9] = vec2[](
-    vec2(-offset,  offset), // top-left
-    vec2( 0.0,     offset), // top-center
-    vec2( offset,  offset), // top-right
-    vec2(-offset,  0.0),    // center-left
-    vec2( 0.0,     0.0),    // center-center
-    vec2( offset,  0.0),    // center-right
-    vec2(-offset, -offset), // bottom-left
-    vec2( 0.0,    -offset), // bottom-center
-    vec2( offset, -offset)  // bottom-right    
-);
-float kernel[9] = float[](
-    1.0 / 16, 2.0 / 16, 1.0 / 16,
-    2.0 / 16, 4.0 / 16, 2.0 / 16,
-    1.0 / 16, 2.0 / 16, 1.0 / 16
-);
-
 void main()
 {
-    if(!u_BlurEnabled)
-    {
-		vec3 color = texture(u_ScreenTexture, textureUV).rgb;		
-		vec3 mapped = vec3(1.0) - exp(-color * u_Camera.exposure);
-		mapped = pow(mapped, vec3(1.0 / u_Camera.gamma));
-		gOut = vec4(mapped, 1.0);
-
-		return;
-    }
-
-    vec3 sampleTex[9];
-    for(int i = 0; i < 9; i++)
-    {
-        sampleTex[i] = vec3(texture(u_ScreenTexture, textureUV.st + offsets[i]));
-    }
-
-    vec3 color = vec3(0.0);
-    for(int i = 0; i < 9; i++)
-    {
-        color += sampleTex[i] * kernel[i];
-    }
-	
-	vec3 mapped = vec3(1.0) - exp(-color * u_Camera.exposure);
+	vec4 hdr = texture(u_ScreenTexture, textureUV);
+	vec3 bloom = texture(u_BloomTexture, textureUV).rgb;
+	vec3 result = mix(hdr.rgb, bloom, u_BloomStrength);
+	vec3 mapped = vec3(1.0) - exp(-result * u_Camera.exposure);
 	mapped = pow(mapped, vec3(1.0 / u_Camera.gamma));
-    gOut = vec4(mapped, 1.0);
+    gOut = vec4(mapped, hdr.a);
 }
