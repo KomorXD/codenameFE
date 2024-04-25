@@ -21,7 +21,7 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [x] Parallax mapping
  - [x] Environment maps + Diffuse and Specular IBL
  - [x] Bloom
- - [ ] Bloom with computer shaders
+ - [ ] Bloom with compute shaders
  - [ ] Uploading custom models (+ making sure they have normals and tangents, or calculating them)
  - [ ] SSAO
  - [ ] Managing textures to optimize draw calls, probably texture atlas
