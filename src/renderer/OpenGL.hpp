@@ -207,16 +207,101 @@ private:
 	uint32_t m_ID = 0;
 };
 
+enum class RenderbufferType
+{
+	DEPTH,
+	STENCIL,
+	DEPTH_STENCIL
+};
+
+struct RenderbufferSpec
+{
+	RenderbufferType Type;
+	glm::ivec2 Size;
+};
+
+enum class TextureFormat
+{
+	RGBA8,
+	RGB8,
+	RGBA16F,
+	RGB16F,
+	RG16F
+};
+
+enum class ColorAttachmentType
+{
+	TEX_2D,
+	TEX_2D_MULTISAMPLE,
+	TEX_CUBEMAP
+};
+
+struct ColorAttachmentSpec
+{
+	ColorAttachmentType Type;
+	TextureFormat Format;
+	int32_t Wrap;
+	int32_t MinFilter;
+	int32_t MagFilter;
+	glm::ivec2 Size;
+	bool GenMipmaps;
+};
+
+struct ColorAttachment
+{
+	uint32_t ID;
+	ColorAttachmentSpec spec;
+};
+
 class Framebuffer
 {
 public:
-	Framebuffer(const glm::uvec2& bufferSize, uint32_t samples);
+	Framebuffer(uint32_t samples);
 	~Framebuffer();
 
 	void Bind() const;
 	void Unbind() const;
+	void BlitBuffers(uint32_t sourceAttachment, uint32_t targetAttachment, const Framebuffer& target) const;
+	void ResizeEverything(const glm::uvec2& size);
+	void FillDrawBuffers();
+
+	void AddRenderbuffer(RenderbufferSpec spec);
+	void AddColorAttachment(ColorAttachmentSpec spec);
+
+	void BindRenderbuffer() const;
+	void BindColorAttachment(uint32_t attachmentIdx, uint32_t slot = 0) const;
+
+	void DrawToColorAttachment(uint32_t attachmentIdx, uint32_t targetAttachment, int32_t mip = 0) const;
+	void DrawToCubeColorAttachment(uint32_t attachmentIdx, uint32_t targetAttachment, int32_t faceIdx, int32_t mip = 0) const;
+	void ClearColorAttachment(uint32_t attachmentIdx, uint32_t mip = 0) const;
+
+	void RemoveRenderbuffer();
+	void RemoveColorAttachment(uint32_t attachmentIdx);
+
+	inline uint32_t GetColorAttachmentID(uint32_t attachmentIdx) const { return m_ColorAttachments[attachmentIdx].ID; }
+	glm::u8vec4 GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx) const;
+	bool IsComplete() const;
+
+private:
+	uint32_t m_ID = 0;
+	uint32_t m_RenderbufferID = 0;
+	RenderbufferSpec m_RBO_Spec{};
+
+	std::vector<ColorAttachment> m_ColorAttachments;
+
+	uint32_t m_Samples = 0;
+};
+
+class OldFramebuffer
+{
+public:
+	OldFramebuffer(const glm::uvec2& bufferSize, uint32_t samples);
+	~OldFramebuffer();
+
+	void Bind() const;
+	void Unbind() const;
 	void Resize(const glm::uvec2& bufferSize);
-	void BlitBuffers(uint32_t sourceAttachmentIndex, uint32_t targetAttachmentID, const Framebuffer& target) const;
+	void BlitBuffers(uint32_t sourceAttachmentIndex, uint32_t targetAttachmentID, const OldFramebuffer& target) const;
 
 	void AddColorAttachment(GLenum format);
 	void FillDrawBuffers();
@@ -296,15 +381,6 @@ private:
 	uint32_t m_ID = 0;
 	std::vector<BloomMip> m_Mips;
 	glm::uvec2 m_BufferSize{};
-};
-
-enum class TextureFormat
-{
-	RGBA8,
-	RGB8,
-	RGBA16F,
-	RGB16F,
-	RG16F
 };
 
 class Texture

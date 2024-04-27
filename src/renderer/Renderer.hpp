@@ -55,7 +55,7 @@ public:
 	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawScreenQuad();
 
-	static void Bloom(const std::unique_ptr<Framebuffer>& hdrFBO);
+	static void Bloom(const std::unique_ptr<OldFramebuffer>& hdrFBO);
 	static void SetBloomStrength(float strength);
 
 	static std::shared_ptr<CubemapFramebuffer> CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize = { 512, 512 });

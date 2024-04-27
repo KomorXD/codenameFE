@@ -20,7 +20,7 @@ EditorLayer::EditorLayer()
 
 	m_GizmoMode = ImGuizmo::WORLD;
 
-	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/lol.hdr", TextureFormat::RGB16F);
+	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/default.hdr", TextureFormat::RGB16F);
 	hdrEnvMap->SetWrap(GL_CLAMP_TO_EDGE);
 	m_Skybox = Renderer::CreateEnvCubemap(hdrEnvMap, { 1024, 1024 });
 
@@ -36,15 +36,59 @@ EditorLayer::EditorLayer()
 	Renderer::OnWindowResize({ 0, 0, (int32_t)(spec.Width * 0.6f), spec.Height });
 
 	glm::uvec2 fbSize((uint32_t)(spec.Width * 0.6f), spec.Height);
-	m_MainFB = std::make_unique<Framebuffer>(fbSize, 16);
-	m_MainFB->AddColorAttachment(GL_RGBA16F);
-	m_MainFB->AddColorAttachment(GL_RGBA8);
+	m_MainFB = std::make_unique<Framebuffer>(16);
+	m_MainFB->AddRenderbuffer({
+		.Type = RenderbufferType::DEPTH_STENCIL,
+		.Size = fbSize
+	});
+	m_MainFB->AddColorAttachment({
+		.Type = ColorAttachmentType::TEX_2D_MULTISAMPLE,
+		.Format = TextureFormat::RGBA16F,
+		.Wrap = GL_CLAMP_TO_EDGE,
+		.MinFilter = GL_LINEAR,
+		.MagFilter = GL_LINEAR,
+		.Size = fbSize,
+		.GenMipmaps = false
+	});
+	m_MainFB->AddColorAttachment({
+		.Type = ColorAttachmentType::TEX_2D_MULTISAMPLE,
+		.Format = TextureFormat::RGBA8,
+		.Wrap = GL_CLAMP_TO_EDGE,
+		.MinFilter = GL_LINEAR,
+		.MagFilter = GL_LINEAR,
+		.Size = fbSize,
+		.GenMipmaps = false
+	});
 	m_MainFB->Unbind();
 
-	m_ScreenFB = std::make_unique<Framebuffer>(fbSize, 1);
-	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
-	m_ScreenFB->AddColorAttachment(GL_RGBA8);
-	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
+	m_ScreenFB = std::make_unique<Framebuffer>(1);
+	m_ScreenFB->AddColorAttachment({
+		.Type = ColorAttachmentType::TEX_2D,
+		.Format = TextureFormat::RGBA16F,
+		.Wrap = GL_CLAMP_TO_EDGE,
+		.MinFilter = GL_LINEAR,
+		.MagFilter = GL_LINEAR,
+		.Size = fbSize,
+		.GenMipmaps = false
+	});
+	m_ScreenFB->AddColorAttachment({
+		.Type = ColorAttachmentType::TEX_2D,
+		.Format = TextureFormat::RGBA8,
+		.Wrap = GL_CLAMP_TO_EDGE,
+		.MinFilter = GL_LINEAR,
+		.MagFilter = GL_LINEAR,
+		.Size = fbSize,
+		.GenMipmaps = false
+	});
+	m_ScreenFB->AddColorAttachment({
+		.Type = ColorAttachmentType::TEX_2D,
+		.Format = TextureFormat::RGBA16F,
+		.Wrap = GL_CLAMP_TO_EDGE,
+		.MinFilter = GL_LINEAR,
+		.MagFilter = GL_LINEAR,
+		.Size = fbSize,
+		.GenMipmaps = false
+	});
 	m_ScreenFB->Unbind();
 }
 
@@ -120,11 +164,11 @@ void EditorLayer::OnEvent(Event& ev)
 		m_EditorCamera.OnEvent(ev);
 
 		m_ScreenFB->Bind();
-		m_ScreenFB->Resize({ width, height });
+		m_ScreenFB->ResizeEverything({ width, height });
 		m_ScreenFB->Unbind();
 
 		m_MainFB->Bind();
-		m_MainFB->Resize({ width, height });
+		m_MainFB->ResizeEverything({ width, height });
 		m_MainFB->Unbind();
 
 		return;
@@ -343,6 +387,9 @@ void EditorLayer::RenderViewport()
 	Renderer::ResetStats();
 
 	m_MainFB->Bind();
+	m_MainFB->BindRenderbuffer();
+	m_MainFB->DrawToColorAttachment(0, 0);
+	m_MainFB->DrawToColorAttachment(1, 1);
 	m_MainFB->FillDrawBuffers();
 	Renderer::ClearColor(m_BgColor);
 	Renderer::Clear();
@@ -433,20 +480,24 @@ void EditorLayer::RenderViewport()
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0xFF);
 	
+	m_MainFB->DrawToColorAttachment(0, 0);
+	m_MainFB->DrawToColorAttachment(1, 1);
+	m_ScreenFB->DrawToColorAttachment(0, 0);
+	m_ScreenFB->DrawToColorAttachment(1, 1);
 	m_MainFB->BlitBuffers(0, 0, *m_ScreenFB);
 	m_MainFB->BlitBuffers(1, 1, *m_ScreenFB);
 
 	if (m_UseBloom)
 	{
 		Renderer::SetBloomStrength(m_BloomStrength);
-		Renderer::Bloom(m_ScreenFB);
+		// Renderer::Bloom(m_ScreenFB);
 	}
 	else
 	{
 		Renderer::SetBloomStrength(0.0f);
-		m_ScreenFB->Bind();
-		m_ScreenFB->BindColorAttachment();
 	}
+	m_ScreenFB->Bind();
+	m_ScreenFB->BindColorAttachment(0);
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT2));
 	Renderer::DrawScreenQuad();
 	m_ScreenFB->Unbind();

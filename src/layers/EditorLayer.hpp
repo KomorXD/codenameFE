@@ -8,7 +8,7 @@
 
 #include <memory>
 
-class Framebuffer;
+class OldFramebuffer;
 class MultisampledFramebuffer;
 
 class EditorLayer : public Layer

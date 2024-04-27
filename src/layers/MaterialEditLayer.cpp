@@ -32,12 +32,12 @@ MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities)
 	Renderer::OnWindowResize({ 0, 0, (int32_t)(spec.Width * 0.8f), spec.Height });
 
 	glm::uvec2 fbSize((uint32_t)(spec.Width * 0.8f), spec.Height);
-	m_MainFB = std::make_unique<Framebuffer>(fbSize, 16);
+	m_MainFB = std::make_unique<OldFramebuffer>(fbSize, 16);
 	m_MainFB->AddColorAttachment(GL_RGBA16F);
 	m_MainFB->AddColorAttachment(GL_RGBA8);
 	m_MainFB->Unbind();
 
-	m_ScreenFB = std::make_unique<Framebuffer>(fbSize, 1);
+	m_ScreenFB = std::make_unique<OldFramebuffer>(fbSize, 1);
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);
 	m_ScreenFB->AddColorAttachment(GL_RGBA8);
 	m_ScreenFB->AddColorAttachment(GL_RGBA16F);

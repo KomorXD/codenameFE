@@ -7,7 +7,7 @@
 
 #include <memory>
 
-class Framebuffer;
+class OldFramebuffer;
 class MultisampledFramebuffer;
 
 class MaterialEditLayer : public Layer
@@ -36,6 +36,6 @@ private:
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;
 
-	std::unique_ptr<Framebuffer> m_MainFB;
-	std::unique_ptr<Framebuffer> m_ScreenFB;
+	std::unique_ptr<OldFramebuffer> m_MainFB;
+	std::unique_ptr<OldFramebuffer> m_ScreenFB;
 };
