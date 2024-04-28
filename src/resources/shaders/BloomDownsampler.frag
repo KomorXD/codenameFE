@@ -86,10 +86,5 @@ void main()
 	}
 
 	downsample = max(downsample, 0.0001);
-	if(isinf(downsample.x) || isinf(downsample.y) || isinf(downsample.z))
-	{
-		downsample.rgb = vec3(100.0);
-	}
-
 	downsample.a = 1.0;
 }

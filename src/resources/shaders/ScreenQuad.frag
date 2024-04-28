@@ -19,7 +19,8 @@ void main()
 {
 	vec4 hdr = texture(u_ScreenTexture, textureUV);
 	vec3 bloom = texture(u_BloomTexture, textureUV).rgb;
-	vec3 result = hdr.rgb + bloom * u_BloomStrength;
+	vec3 result = mix(hdr.rgb, bloom, u_BloomStrength);
+	// vec3 result = hdr.rgb + bloom * u_BloomStrength;
 	vec3 mapped = vec3(1.0) - exp(-result * u_Camera.exposure);
 	mapped = pow(mapped, vec3(1.0 / u_Camera.gamma));
     gOut = vec4(mapped, hdr.a);

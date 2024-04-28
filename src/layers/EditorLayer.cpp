@@ -496,6 +496,7 @@ void EditorLayer::RenderViewport()
 	{
 		Renderer::SetBloomStrength(0.0f);
 	}
+	m_MainFB->BindRenderbuffer();
 	m_ScreenFB->Bind();
 	m_ScreenFB->BindColorAttachment(0);
 	m_ScreenFB->DrawToColorAttachment(2, 2);

@@ -651,6 +651,12 @@ static TexFormatInfo FormatInfo(TextureFormat format)
 		formatInfo.Type = GL_FLOAT;
 		formatInfo.BPP = 3;
 		break;
+	case TextureFormat::R11_G11_B10:
+		formatInfo.InternalFormat = GL_R11F_G11F_B10F;
+		formatInfo.Format = GL_RGB;
+		formatInfo.Type = GL_FLOAT;
+		formatInfo.BPP = 3;
+		break;
 	default:
 		assert(true && "Invalid texture format passed");
 		break;
@@ -842,8 +848,6 @@ void Framebuffer::AddColorAttachment(ColorAttachmentSpec spec)
 
 		GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, id));
 		GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, texFmt.InternalFormat, spec.Size.x, spec.Size.y, GL_TRUE));
-		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_2D_MULTISAMPLE, id, 0));
-		GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0));
 	}
 	else
 	{
@@ -859,7 +863,6 @@ void Framebuffer::AddColorAttachment(ColorAttachmentSpec spec)
 		if (type == GL_TEXTURE_2D)
 		{
 			GLCall(glTexImage2D(type, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 0, texFmt.Format, texFmt.Type, nullptr));
-			GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_2D, id, 0));
 		}
 		else
 		{
@@ -868,16 +871,12 @@ void Framebuffer::AddColorAttachment(ColorAttachmentSpec spec)
 			{
 				GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 0, texFmt.Format, texFmt.Type, nullptr));
 			}
-
-			GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_CUBE_MAP_POSITIVE_X, id, 0));
 		}
 
 		if (spec.GenMipmaps)
 		{
 			GLCall(glGenerateMipmap(type));
 		}
-
-		GLCall(glBindTexture(type, 0));
 	}
 
 	m_ColorAttachments.push_back({ id, spec });
@@ -962,383 +961,6 @@ glm::u8vec4 Framebuffer::GetPixelAt(const glm::vec2& coords, int32_t attachmentI
 bool Framebuffer::IsComplete() const
 {
 	GLCall(return glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-}
-
-OldFramebuffer::OldFramebuffer(const glm::uvec2& bufferSize, uint32_t samples)
-	: m_Samples(samples), m_BufferSize(bufferSize)
-{
-	assert(samples > 0 && "Samples valie should be at least 1.");
-
-	GLCall(glGenFramebuffers(1, &m_ID));
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-
-	GLCall(glGenRenderbuffers(1, &m_RenderbufferID));
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-
-	if (samples > 1)
-	{
-		GLCall(glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH24_STENCIL8, bufferSize.x, bufferSize.y));
-	}
-	else
-	{
-		GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, bufferSize.x, bufferSize.y));
-	}
-
-	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-}
-
-OldFramebuffer::~OldFramebuffer()
-{
-	if (m_RenderbufferID != 0)
-	{
-		GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-		GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
-	}
-	
-	for (auto& [id, format] : m_ColorAttachments)
-	{
-		GLCall(glDeleteTextures(1, &id));
-	}
-	
-	if (m_ID != 0)
-	{
-		GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-		GLCall(glDeleteFramebuffers(1, &m_ID));
-	}
-}
-
-void OldFramebuffer::Bind() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-	GLCall(glViewport(0, 0, m_BufferSize.x, m_BufferSize.y));
-}
-
-void OldFramebuffer::Unbind() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-}
-
-void OldFramebuffer::Resize(const glm::uvec2& bufferSize)
-{
-	bool multisampled = m_Samples > 1;
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-
-	if (multisampled)
-	{
-		for (auto& [id, format] : m_ColorAttachments)
-		{
-			GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, id));
-			GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, format, bufferSize.x, bufferSize.y, GL_TRUE));
-		}
-
-		GLCall(glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_Samples, GL_DEPTH24_STENCIL8, bufferSize.x, bufferSize.y));
-	}
-	else
-	{
-		for (auto& [id, format] : m_ColorAttachments)
-		{
-			GLCall(glBindTexture(GL_TEXTURE_2D, id));
-			GLCall(glTexImage2D(GL_TEXTURE_2D, 0, format, bufferSize.x, bufferSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
-		}
-
-		GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, bufferSize.x, bufferSize.y));
-	}
-
-	m_BufferSize = bufferSize;
-}
-
-void OldFramebuffer::BlitBuffers(uint32_t sourceAttachmentIndex, uint32_t targetAttachmentID, const OldFramebuffer& target) const
-{
-	GLCall(glBindFramebuffer(GL_READ_FRAMEBUFFER, m_ID));
-	GLCall(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target.m_ID));
-	GLCall(glReadBuffer(GL_COLOR_ATTACHMENT0 + sourceAttachmentIndex));
-	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0 + targetAttachmentID));
-	GLCall(glBlitFramebuffer(0, 0, m_BufferSize.x, m_BufferSize.y, 0, 0, target.m_BufferSize.x, target.m_BufferSize.y, GL_COLOR_BUFFER_BIT, GL_NEAREST));
-}
-
-void OldFramebuffer::AddColorAttachment(GLenum format)
-{
-	assert(m_ColorAttachments.size() < 4 && "Framebuffer supports up to 4 color attachments");
-
-	uint32_t id{};
-	GLCall(glGenTextures(1, &id));
-
-	if (m_Samples > 1)
-	{
-		GLCall(glGenTextures(1, &id));
-		GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, id));
-		GLCall(glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, m_Samples, format, m_BufferSize.x, m_BufferSize.y, GL_TRUE));
-		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_2D_MULTISAMPLE, id, 0));
-		GLCall(glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0));
-	}
-	else
-	{
-		GLCall(glBindTexture(GL_TEXTURE_2D, id));
-		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, format, m_BufferSize.x, m_BufferSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
-		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + m_ColorAttachments.size(), GL_TEXTURE_2D, id, 0));
-		GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-	}
-
-	m_ColorAttachments.push_back({ id, format });
-
-	if (m_ColorAttachments.size() > 1)
-	{
-		GLenum buffers[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-		GLCall(glDrawBuffers(m_ColorAttachments.size(), buffers));
-	}
-}
-
-void OldFramebuffer::FillDrawBuffers()
-{
-	GLenum buffers[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-	GLCall(glDrawBuffers(m_ColorAttachments.size(), buffers));
-}
-
-void OldFramebuffer::BindColorAttachment(uint32_t slot) const
-{
-	assert(slot < m_ColorAttachments.size() && "Trying to access color attachment out of bounds.");
-
-	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
-	GLCall(glBindTexture(m_Samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, m_ColorAttachments[slot].ID));
-}
-
-void OldFramebuffer::UnbindColorAttachment() const
-{
-	GLCall(glBindTexture(m_Samples > 1 ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, 0));
-}
-
-void OldFramebuffer::ClearColorAttachment(uint32_t attachmentIdx) const
-{
-	assert(attachmentIdx < m_ColorAttachments.size() && "Trying to access color attachment out of bounds.");
-	
-	float lol = -1.0f;
-	GLCall(glClearTexImage(m_ColorAttachments[attachmentIdx].ID, 0, GL_RGBA, GL_FLOAT, &lol));
-}
-
-glm::u8vec4 OldFramebuffer::GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx) const
-{
-	glm::u8vec4 pixel{};
-
-	Bind();
-	GLCall(glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIdx));
-	GLCall(glReadPixels((GLint)coords.x, (GLint)coords.y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pixel[0]));
-
-	return pixel;
-}
-
-bool OldFramebuffer::IsComplete() const
-{
-	GLCall(bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-
-	return complete;
-}
-
-CubemapFramebuffer::CubemapFramebuffer(const glm::uvec2& bufferSize)
-	: m_BufferSize(bufferSize)
-{
-	GLCall(glGenFramebuffers(1, &m_ID));
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-
-	GLCall(glGenRenderbuffers(1, &m_RenderbufferID));
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-
-	GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, bufferSize.x, bufferSize.y));
-	GLCall(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_RenderbufferID));
-
-	// Cubemap
-	GLCall(glGenTextures(1, &m_CubemapID));
-	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_CubemapID));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	for (uint32_t i = 0; i < 6; i++)
-	{
-		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, bufferSize.x, bufferSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
-	}
-
-	// Irradiance map
-	GLCall(glGenTextures(1, &m_IrradianceMapID));
-	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_IrradianceMapID));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	for (uint32_t i = 0; i < 6; i++)
-	{
-		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, bufferSize.x, bufferSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
-	}
-
-	// Prefilter map
-	GLCall(glGenTextures(1, &m_PrefilterID));
-	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_PrefilterID));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR));
-	GLCall(glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	for (uint32_t i = 0; i < 6; i++)
-	{
-		GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0, GL_RGB, GL_FLOAT, nullptr));
-	}
-	GLCall(glGenerateMipmap(GL_TEXTURE_CUBE_MAP));
-
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-}
-
-CubemapFramebuffer::~CubemapFramebuffer()
-{
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
-	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-	if (m_RenderbufferID != 0)
-	{
-		GLCall(glDeleteRenderbuffers(1, &m_RenderbufferID));
-	}
-	
-	if(m_CubemapID != 0)
-	{
-		GLCall(glDeleteTextures(1, &m_CubemapID));
-	}
-	
-	if (m_IrradianceMapID != 0)
-	{
-		GLCall(glDeleteTextures(1, &m_IrradianceMapID));
-	}
-	
-	if(m_PrefilterID != 0)
-	{
-		GLCall(glDeleteTextures(1, &m_PrefilterID));
-	}
-	
-	if (m_ID != 0)
-	{
-		GLCall(glDeleteFramebuffers(1, &m_ID));
-	}
-}
-
-void CubemapFramebuffer::Bind() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-	GLCall(glViewport(0, 0, m_BufferSize.x, m_BufferSize.y));
-}
-
-void CubemapFramebuffer::Unbind() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-}
-
-void CubemapFramebuffer::BindCubemap(uint32_t slot) const
-{
-	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
-	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_CubemapID));
-}
-
-void CubemapFramebuffer::BindIrradianceMap(uint32_t slot) const
-{
-	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
-	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_IrradianceMapID));
-}
-
-void CubemapFramebuffer::BindPrefilterMap(uint32_t slot) const
-{
-	GLCall(glActiveTexture(GL_TEXTURE0 + slot));
-	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, m_PrefilterID));
-}
-
-void CubemapFramebuffer::UnbindMaps() const
-{
-	GLCall(glBindTexture(GL_TEXTURE_CUBE_MAP, 0));
-	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-}
-
-void CubemapFramebuffer::ResizeRenderbuffer(const glm::uvec2& bufferSize)
-{
-	GLCall(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, bufferSize.x, bufferSize.y));
-	GLCall(glViewport(0, 0, bufferSize.x, bufferSize.y));
-
-	m_BufferSize = bufferSize;
-}
-
-void CubemapFramebuffer::SetCubemapFaceTarget(uint32_t faceIdx) const
-{
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_CubemapID, 0));
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_IrradianceMapID, 0));
-}
-
-void CubemapFramebuffer::SetPrefilterFaceTarget(uint32_t faceIdx, uint32_t mipmapLevel) const
-{
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + faceIdx, m_PrefilterID, mipmapLevel));
-}
-
-BloomFramebuffer::BloomFramebuffer(const glm::uvec2& bufferSize)
-	: m_BufferSize(bufferSize)
-{
-	GLCall(glGenFramebuffers(1, &m_ID));
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-
-	glm::vec2  fMipSize(bufferSize);
-	glm::ivec2 iMipSize(bufferSize);
-	for (uint32_t i = 0; i < 5; i++)
-	{
-		BloomMip mip{};
-		fMipSize *= 0.5f;
-		iMipSize /= 2;
-		mip.fSize = fMipSize;
-		mip.iSize = iMipSize;
-
-		GLCall(glGenTextures(1, &mip.ID));
-		GLCall(glBindTexture(GL_TEXTURE_2D, mip.ID));
-		GLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_R11F_G11F_B10F, iMipSize.x, iMipSize.y, 0, GL_RGB, GL_FLOAT, nullptr));
-		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-		GLCall(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-
-		m_Mips.emplace_back(mip);
-	}
-
-	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_Mips[0].ID, 0));
-
-	GLCall(int32_t status = glCheckFramebufferStatus(GL_FRAMEBUFFER));
-	assert(status == GL_FRAMEBUFFER_COMPLETE && "Framebuffer incomplete!");
-
-	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, 0));
-}
-
-BloomFramebuffer::~BloomFramebuffer()
-{
-	GLCall(glBindTexture(GL_TEXTURE_2D, 0));
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
-
-	for (BloomMip& mip : m_Mips)
-	{
-		GLCall(glDeleteTextures(1, &mip.ID));
-	}
-
-	if (m_ID != 0)
-	{
-		GLCall(glDeleteFramebuffers(1, &m_ID));
-	}
-}
-
-void BloomFramebuffer::Bind() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, m_ID));
-}
-
-void BloomFramebuffer::Unbind() const
-{
-	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
 Texture::Texture(const std::string& path, TextureFormat format)

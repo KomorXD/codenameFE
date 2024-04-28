@@ -157,7 +157,7 @@ struct RendererData
 	std::shared_ptr<Shader>		  SkyboxShader;
 	std::shared_ptr<Texture>	  BRDF_Map;
 
-	std::shared_ptr<BloomFramebuffer> BloomFBO;
+	std::shared_ptr<Framebuffer> BloomFBO;
 	std::shared_ptr<Shader> BloomDownsamplerShader;
 	std::shared_ptr<Shader> BloomUpsamplerShader;
 
@@ -428,7 +428,24 @@ void Renderer::Init()
 	{
 		SCOPE_PROFILE("Bloom setup");
 
-		s_Data.BloomFBO = std::make_shared<BloomFramebuffer>(glm::uvec2(1280, 720));
+		glm::ivec2 mipSize(1024);
+		s_Data.BloomFBO = std::make_shared<Framebuffer>(1);
+		for (uint32_t i = 0; i < 5; i++)
+		{
+			mipSize /= 2;
+			s_Data.BloomFBO->AddColorAttachment({
+				.Type = ColorAttachmentType::TEX_2D,
+				.Format = TextureFormat::R11_G11_B10,
+				.Wrap = GL_CLAMP_TO_EDGE,
+				.MinFilter = GL_LINEAR,
+				.MagFilter = GL_LINEAR,
+				.Size = mipSize,
+				.GenMipmaps = false
+			});
+		}
+		s_Data.BloomFBO->DrawToColorAttachment(0, 0);
+		assert(s_Data.BloomFBO->IsComplete() && "Incomplete framebuffer!");
+		s_Data.BloomFBO->Unbind();
 
 		s_Data.BloomDownsamplerShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BloomDownsampler.frag");
 		s_Data.BloomDownsamplerShader->Bind();
@@ -814,7 +831,7 @@ void Renderer::DrawScreenQuad()
 
 void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
 {
-	const auto& mips = s_Data.BloomFBO->Mips();
+	const std::vector<ColorAttachment>& mips = s_Data.BloomFBO->ColorAttachments();
 	s_Data.BloomFBO->Bind();
 
 	// Bloom downsampling
@@ -826,16 +843,17 @@ void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
 	GLCall(glDisable(GL_DEPTH_TEST));
 
-	for (const auto& mip : mips)
+	for (size_t i = 0; i < mips.size(); i++)
 	{
-		GLCall(glViewport(0, 0, mip.iSize.x, mip.iSize.y));
-		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mip.ID, 0));
+		const ColorAttachment& mip = mips[i];
+		GLCall(glViewport(0, 0, mip.spec.Size.x, mip.spec.Size.y));
+		s_Data.BloomFBO->DrawToColorAttachment(i, 0);
 
 		DrawArrays(s_Data.BloomDownsamplerShader, s_Data.ScreenQuadVertexArray, 6);
 
-		s_Data.BloomDownsamplerShader->SetUniform2f("u_SourceResolution", mip.fSize);
+		s_Data.BloomDownsamplerShader->SetUniform2f("u_SourceResolution", mip.spec.Size);
 		s_Data.BloomDownsamplerShader->SetUniformBool("u_FirstMip", false);
-		GLCall(glBindTexture(GL_TEXTURE_2D, mip.ID));
+		s_Data.BloomFBO->BindColorAttachment(i);
 	}
 
 	// Bloom upsampling
@@ -846,20 +864,19 @@ void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
 
 	for (size_t i = mips.size() - 1; i > 0; i--)
 	{
-		const auto& mip = mips[i];
-		const auto& nextMip = mips[i - 1];
+		const ColorAttachment& mip = mips[i];
+		const ColorAttachment& nextMip = mips[i - 1];
 
-		GLCall(glBindTexture(GL_TEXTURE_2D, mip.ID));
-		GLCall(glViewport(0, 0, nextMip.iSize.x, nextMip.iSize.y));
-		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, nextMip.ID, 0));
+		s_Data.BloomFBO->BindColorAttachment(i);
+		GLCall(glViewport(0, 0, nextMip.spec.Size.x, nextMip.spec.Size.y));
+		s_Data.BloomFBO->DrawToColorAttachment(i - 1, 0);
 
 		DrawArrays(s_Data.BloomUpsamplerShader, s_Data.ScreenQuadVertexArray, 6);
 	}
 	GLCall(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
 	GLCall(glEnable(GL_DEPTH_TEST));
 	GLCall(glViewport(0, 0, viewportSize.x, viewportSize.y));
-	GLCall(glActiveTexture(GL_TEXTURE1));
-	GLCall(glBindTexture(GL_TEXTURE_2D, mips[0].ID));
+	s_Data.BloomFBO->BindColorAttachment(0, 1);
 }
 
 void Renderer::SetBloomStrength(float strength)

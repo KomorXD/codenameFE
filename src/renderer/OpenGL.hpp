@@ -228,6 +228,7 @@ enum class TextureFormat
 	RGB16F,
 	RG16F,
 	RGB32F,
+	R11_G11_B10,
 };
 
 enum class ColorAttachmentType
@@ -281,6 +282,7 @@ public:
 	void RemoveColorAttachment(uint32_t attachmentIdx);
 
 	inline glm::ivec2 BufferSize() const { return m_RBO_Spec.Size; }
+	inline const std::vector<ColorAttachment>& ColorAttachments() const { return m_ColorAttachments; }
 	inline glm::ivec2 ColorAttachmentSize(uint32_t attachmentIdx) const { return m_ColorAttachments[attachmentIdx].spec.Size; }
 	inline uint32_t GetColorAttachmentID(uint32_t attachmentIdx) const { return m_ColorAttachments[attachmentIdx].ID; }
 	glm::u8vec4 GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx) const;
@@ -294,97 +296,6 @@ private:
 	std::vector<ColorAttachment> m_ColorAttachments;
 
 	uint32_t m_Samples = 0;
-};
-
-class OldFramebuffer
-{
-public:
-	OldFramebuffer(const glm::uvec2& bufferSize, uint32_t samples);
-	~OldFramebuffer();
-
-	void Bind() const;
-	void Unbind() const;
-	void Resize(const glm::uvec2& bufferSize);
-	void BlitBuffers(uint32_t sourceAttachmentIndex, uint32_t targetAttachmentID, const OldFramebuffer& target) const;
-
-	void AddColorAttachment(GLenum format);
-	void FillDrawBuffers();
-	void BindColorAttachment(uint32_t attachmentIndex = 0) const;
-	void UnbindColorAttachment() const;
-	void ClearColorAttachment(uint32_t attachmentIndex) const;
-
-	inline glm::uvec2 BufferSize() const { return m_BufferSize; }
-	inline uint32_t GetColorAttachmentID(uint32_t slot = 0) const { return m_ColorAttachments[slot].ID; }
-	glm::u8vec4 GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx) const;
-	bool IsComplete() const;
-
-private:
-	struct ColorAttachmentData
-	{
-		uint32_t ID;
-		GLenum	 Format;
-	};
-
-	uint32_t m_ID = 0;
-	uint32_t m_RenderbufferID = 0;
-	uint32_t m_Samples = 1;
-	glm::uvec2 m_BufferSize{};
-	std::vector<ColorAttachmentData> m_ColorAttachments;
-};
-
-class CubemapFramebuffer
-{
-public:
-	CubemapFramebuffer(const glm::uvec2& bufferSize);
-	~CubemapFramebuffer();
-
-	void Bind() const;
-	void Unbind() const;
-	void BindCubemap(uint32_t slot = 0) const;
-	void BindIrradianceMap(uint32_t slot = 0) const;
-	void BindPrefilterMap(uint32_t slot = 0) const;
-	void UnbindMaps() const;
-
-	void ResizeRenderbuffer(const glm::uvec2& bufferSize);
-
-	void SetCubemapFaceTarget(uint32_t faceIdx) const;
-	void SetPrefilterFaceTarget(uint32_t faceIdx, uint32_t mipmapLevel) const;
-
-	inline glm::uvec2 BufferSize() const { return m_BufferSize; }
-
-private:
-	uint32_t m_ID = 0;
-	uint32_t m_RenderbufferID = 0;
-	uint32_t m_CubemapID = 0;
-	uint32_t m_IrradianceMapID = 0;
-	uint32_t m_PrefilterID = 0;
-	glm::uvec2 m_BufferSize{};
-};
-
-class BloomFramebuffer
-{
-public:
-	struct BloomMip
-	{
-		glm::vec2 fSize;
-		glm::ivec2 iSize;
-		uint32_t ID;
-	};
-
-	BloomFramebuffer(const glm::uvec2& bufferSize);
-	~BloomFramebuffer();
-
-	void Bind() const;
-	void Unbind() const;
-	void ResizeRenderbuffer(const glm::uvec2& bufferSize);
-
-	inline const std::vector<BloomMip>& Mips() const { return m_Mips; }
-	inline glm::uvec2 BufferSize() const { return m_BufferSize; }
-
-private:
-	uint32_t m_ID = 0;
-	std::vector<BloomMip> m_Mips;
-	glm::uvec2 m_BufferSize{};
 };
 
 class Texture
