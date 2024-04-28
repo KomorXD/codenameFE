@@ -22,7 +22,7 @@ EditorLayer::EditorLayer()
 
 	std::shared_ptr<Texture> hdrEnvMap = std::make_shared<Texture>("resources/textures/env_maps/default.hdr", TextureFormat::RGB16F);
 	hdrEnvMap->SetWrap(GL_CLAMP_TO_EDGE);
-	m_Skybox = Renderer::CreateEnvCubemap(hdrEnvMap, { 1024, 1024 });
+	m_SkyboxFB = Renderer::CreateEnvCubemap(hdrEnvMap, { 1024, 1024 });
 
 	const WindowSpec& spec = Application::Instance()->Spec();
 	Event dummyEv{};
@@ -304,7 +304,7 @@ void EditorLayer::RenderScenePanel()
 		{
 			std::shared_ptr<Texture> hdrFile = std::make_shared<Texture>(fileOpt.value(), TextureFormat::RGB16F);
 			hdrFile->SetWrap(GL_CLAMP_TO_EDGE);
-			m_Skybox = Renderer::CreateEnvCubemap(hdrFile, { 1024, 1024 });
+			m_SkyboxFB = Renderer::CreateEnvCubemap(hdrFile, { 1024, 1024 });
 		}
 	}
 
@@ -416,7 +416,7 @@ void EditorLayer::RenderViewport()
 	Renderer::SetWireframe(m_DrawWireframe);
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0x00);
-	Renderer::DrawSkybox(m_Skybox);
+	Renderer::DrawSkybox(m_SkyboxFB);
 	m_MainFB->ClearColorAttachment(1);
 	m_Scene.Render(m_EditorCamera);
 	Renderer::SetWireframe(false);
@@ -490,7 +490,7 @@ void EditorLayer::RenderViewport()
 	if (m_UseBloom)
 	{
 		Renderer::SetBloomStrength(m_BloomStrength);
-		// Renderer::Bloom(m_ScreenFB);
+		Renderer::Bloom(m_ScreenFB);
 	}
 	else
 	{
@@ -498,6 +498,7 @@ void EditorLayer::RenderViewport()
 	}
 	m_ScreenFB->Bind();
 	m_ScreenFB->BindColorAttachment(0);
+	m_ScreenFB->DrawToColorAttachment(2, 2);
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT2));
 	Renderer::DrawScreenQuad();
 	m_ScreenFB->Unbind();

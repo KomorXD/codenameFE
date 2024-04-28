@@ -52,7 +52,7 @@ private:
 
 	std::unique_ptr<Framebuffer> m_MainFB;
 	std::unique_ptr<Framebuffer> m_ScreenFB;
-	std::shared_ptr<CubemapFramebuffer> m_Skybox;
+	std::shared_ptr<Framebuffer> m_SkyboxFB;
 
 	RendererStats m_Stats{};
 };

@@ -152,6 +152,7 @@ struct RendererData
 	std::shared_ptr<VertexArray>  EnvMapVertexArray;
 	std::shared_ptr<VertexBuffer> EnvMapVertexBuffer;
 	std::shared_ptr<Shader>		  EnvMapShader;
+	std::shared_ptr<Shader>		  IrradianceShader;
 	std::shared_ptr<Shader>		  PrefilterShader;
 	std::shared_ptr<Shader>		  SkyboxShader;
 	std::shared_ptr<Texture>	  BRDF_Map;
@@ -378,6 +379,10 @@ void Renderer::Init()
 		s_Data.EnvMapShader->Bind();
 		s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
 
+		s_Data.IrradianceShader = std::make_shared<Shader>("resources/shaders/EnvMapper.vert", "resources/shaders/Irradiance.frag");
+		s_Data.IrradianceShader->Bind();
+		s_Data.IrradianceShader->SetUniform1i("u_EnvMap", 0);
+
 		s_Data.PrefilterShader = std::make_shared<Shader>("resources/shaders/EnvMapper.vert", "resources/shaders/EnvPrefilter.frag");
 		s_Data.PrefilterShader->Bind();
 		s_Data.PrefilterShader->SetUniform1i("u_EnvironmentMap", 0);
@@ -488,6 +493,7 @@ void Renderer::Shutdown()
 	s_Data.EnvMapVertexArray = nullptr;
 	s_Data.EnvMapVertexBuffer = nullptr;
 	s_Data.EnvMapShader = nullptr;
+	s_Data.IrradianceShader = nullptr;
 	s_Data.PrefilterShader = nullptr;
 	s_Data.SkyboxShader = nullptr;
 	s_Data.BRDF_Map = nullptr;
@@ -806,16 +812,17 @@ void Renderer::DrawScreenQuad()
 	GLCall(glEnable(GL_DEPTH_TEST));
 }
 
-void Renderer::Bloom(const std::unique_ptr<OldFramebuffer>& hdrFBO)
+void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
 {
 	const auto& mips = s_Data.BloomFBO->Mips();
 	s_Data.BloomFBO->Bind();
 
 	// Bloom downsampling
+	glm::ivec2 viewportSize = hdrFBO->ColorAttachmentSize(0);
 	s_Data.BloomDownsamplerShader->Bind();
-	s_Data.BloomDownsamplerShader->SetUniform2f("u_SourceResolution", hdrFBO->BufferSize());
+	s_Data.BloomDownsamplerShader->SetUniform2f("u_SourceResolution", viewportSize);
 	s_Data.BloomDownsamplerShader->SetUniformBool("u_FirstMip", true);
-	hdrFBO->BindColorAttachment();
+	hdrFBO->BindColorAttachment(0);
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
 	GLCall(glDisable(GL_DEPTH_TEST));
 
@@ -850,10 +857,7 @@ void Renderer::Bloom(const std::unique_ptr<OldFramebuffer>& hdrFBO)
 	}
 	GLCall(glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA));
 	GLCall(glEnable(GL_DEPTH_TEST));
-
-	hdrFBO->Bind();
-	hdrFBO->BindColorAttachment();
-	GLCall(glViewport(0, 0, hdrFBO->BufferSize().x, hdrFBO->BufferSize().y));
+	GLCall(glViewport(0, 0, viewportSize.x, viewportSize.y));
 	GLCall(glActiveTexture(GL_TEXTURE1));
 	GLCall(glBindTexture(GL_TEXTURE_2D, mips[0].ID));
 }
@@ -864,9 +868,23 @@ void Renderer::SetBloomStrength(float strength)
 	s_Data.ScreenQuadShader->SetUniform1f("u_BloomStrength", strength);
 }
 
-std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
+std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
 {
-	std::shared_ptr<CubemapFramebuffer> cfb = std::make_shared<CubemapFramebuffer>(faceSize);
+	std::shared_ptr<Framebuffer> cfb = std::make_shared<Framebuffer>(1);
+	cfb->AddRenderbuffer({
+		.Type = RenderbufferType::DEPTH,
+		.Size = faceSize
+	});
+	cfb->AddColorAttachment({
+		.Type = ColorAttachmentType::TEX_CUBEMAP,
+		.Format = TextureFormat::RGB16F,
+		.Wrap = GL_CLAMP_TO_EDGE,
+		.MinFilter = GL_LINEAR_MIPMAP_LINEAR,
+		.MagFilter = GL_LINEAR,
+		.Size = faceSize,
+		.GenMipmaps = true
+	});
+
 	glm::mat4 captureProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 100.0f);
 	glm::mat4 captureViews[] = {
 		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
@@ -876,35 +894,64 @@ std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<T
 		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
 		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
 	};
-
 	s_Data.MatricesBuffer->Bind();
 	s_Data.MatricesBuffer->SetData(glm::value_ptr(captureProj), sizeof(glm::mat4));
 
 	cfb->Bind();
+	cfb->BindRenderbuffer();
+	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
+
 	hdrEnvMap->Bind();
 	s_Data.EnvMapShader->Bind();
-	s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
-
-	GLenum irradianceBuffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-	GLCall(glDrawBuffers(2, irradianceBuffers));
 	for (uint32_t i = 0; i < 6; i++)
 	{
 		s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
-		cfb->SetCubemapFaceTarget(i);
+		cfb->DrawToCubeColorAttachment(0, 0, i);
 		Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		DrawArrays(s_Data.EnvMapShader, s_Data.EnvMapVertexArray, 36);
 	}
-	cfb->BindCubemap();
+	cfb->BindColorAttachment(0);
 	GLCall(glGenerateMipmap(GL_TEXTURE_CUBE_MAP));
-	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
+
+	cfb->AddColorAttachment({
+		.Type = ColorAttachmentType::TEX_CUBEMAP,
+		.Format = TextureFormat::RGB16F,
+		.Wrap = GL_CLAMP_TO_EDGE,
+		.MinFilter = GL_LINEAR,
+		.MagFilter = GL_LINEAR,
+		.Size = faceSize,
+		.GenMipmaps = false
+	});
+	cfb->BindColorAttachment(0);
+	s_Data.IrradianceShader->Bind();
+	for (uint32_t i = 0; i < 6; i++)
+	{
+		s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
+		cfb->DrawToCubeColorAttachment(1, 0, i);
+		Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		DrawArrays(s_Data.IrradianceShader, s_Data.EnvMapVertexArray, 36);
+	}
+
+	cfb->AddColorAttachment({
+		.Type = ColorAttachmentType::TEX_CUBEMAP,
+		.Format = TextureFormat::RGB16F,
+		.Wrap = GL_CLAMP_TO_EDGE,
+		.MinFilter = GL_LINEAR_MIPMAP_LINEAR,
+		.MagFilter = GL_LINEAR,
+		.Size = { 128, 128 },
+		.GenMipmaps = true
+	});
+	GLCall(glViewport(0, 0, 128, 128));
 
 	constexpr uint32_t MIPMAP_LEVELS = 5;
+	cfb->BindColorAttachment(0);
 	s_Data.PrefilterShader->Bind();
 	for (uint32_t mip = 0; mip < MIPMAP_LEVELS; mip++)
 	{
 		uint32_t mipW = 128 / (mip + 1);
 		uint32_t mipH = 128 / (mip + 1);
 		cfb->ResizeRenderbuffer({ mipW, mipH });
+		GLCall(glViewport(0, 0, mipW, mipH));
 
 		float roughness = (float)mip / (float)(MIPMAP_LEVELS - 1);
 		s_Data.PrefilterShader->SetUniform1f("u_Roughness", roughness);
@@ -912,21 +959,21 @@ std::shared_ptr<CubemapFramebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<T
 		for (uint32_t i = 0; i < 6; i++)
 		{
 			s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
-			cfb->SetPrefilterFaceTarget(i, mip);
+			cfb->DrawToCubeColorAttachment(2, 0, i, mip);
 			Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			DrawArrays(s_Data.PrefilterShader, s_Data.EnvMapVertexArray, 36);
 		}
 	}
 	
-	cfb->UnbindMaps();
+	cfb->ResizeRenderbuffer(faceSize);
+	cfb->BindRenderbuffer();
 	cfb->Unbind();
-
 	return cfb;
 }
 
-void Renderer::DrawSkybox(std::shared_ptr<CubemapFramebuffer> cfb)
+void Renderer::DrawSkybox(std::shared_ptr<Framebuffer> cfb)
 {
-	cfb->BindCubemap();
+	cfb->BindColorAttachment(0);
 	GLCall(glDepthFunc(GL_LEQUAL));
 	DrawArrays(s_Data.SkyboxShader, s_Data.EnvMapVertexArray, 36);
 	GLCall(glDepthFunc(GL_LESS));
@@ -934,8 +981,8 @@ void Renderer::DrawSkybox(std::shared_ptr<CubemapFramebuffer> cfb)
 	uint32_t irradianceSlot = s_Data.TextureBindings.size();
 	uint32_t prefilterSlot = irradianceSlot + 1;
 	uint32_t brdfSlot = prefilterSlot + 1;
-	cfb->BindIrradianceMap(irradianceSlot);
-	cfb->BindPrefilterMap(prefilterSlot);
+	cfb->BindColorAttachment(1, irradianceSlot);
+	cfb->BindColorAttachment(2, prefilterSlot);
 	s_Data.BRDF_Map->Bind(brdfSlot);
 	s_Data.CurrentShader->Bind();
 	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", irradianceSlot);

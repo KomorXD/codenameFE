@@ -582,11 +582,11 @@ static RenderbufferSettings RBO_Settings(const RenderbufferSpec& spec)
 	switch (spec.Type)
 	{
 	case RenderbufferType::DEPTH:
-		sets.Type = GL_DEPTH;
+		sets.Type = GL_DEPTH_COMPONENT;
 		sets.AttachmentType = GL_DEPTH_ATTACHMENT;
 		break;
 	case RenderbufferType::STENCIL:
-		sets.Type = GL_STENCIL;
+		sets.Type = GL_STENCIL_COMPONENTS;
 		sets.AttachmentType = GL_STENCIL_ATTACHMENT;
 		break;
 	case RenderbufferType::DEPTH_STENCIL:
@@ -644,6 +644,12 @@ static TexFormatInfo FormatInfo(TextureFormat format)
 		formatInfo.Format = GL_RG;
 		formatInfo.Type = GL_FLOAT;
 		formatInfo.BPP = 2;
+		break;
+	case TextureFormat::RGB32F:
+		formatInfo.InternalFormat = GL_RGB32F;
+		formatInfo.Format = GL_RGB;
+		formatInfo.Type = GL_FLOAT;
+		formatInfo.BPP = 3;
 		break;
 	default:
 		assert(true && "Invalid texture format passed");
@@ -727,6 +733,23 @@ void Framebuffer::BlitBuffers(uint32_t sourceAttachment, uint32_t targetAttachme
 	GLCall(glBlitFramebuffer(0, 0, m_RBO_Spec.Size.x, m_RBO_Spec.Size.y, 0, 0, m_RBO_Spec.Size.x, m_RBO_Spec.Size.y, GL_COLOR_BUFFER_BIT, GL_LINEAR));
 }
 
+void Framebuffer::ResizeRenderbuffer(const glm::uvec2& size)
+{
+	bool multisampled = m_Samples > 1;
+	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
+
+	if (multisampled)
+	{
+		GLCall(glRenderbufferStorageMultisample(GL_RENDERBUFFER, m_Samples, RBO_Settings(m_RBO_Spec).Type, size.x, size.y));
+	}
+	else
+	{
+		GLCall(glRenderbufferStorage(GL_RENDERBUFFER, RBO_Settings(m_RBO_Spec).Type, size.x, size.y));
+	}
+
+	m_RBO_Spec.Size = size;
+}
+
 void Framebuffer::ResizeEverything(const glm::uvec2& size)
 {
 	bool multisampled = m_Samples > 1;
@@ -748,8 +771,21 @@ void Framebuffer::ResizeEverything(const glm::uvec2& size)
 		for (auto& [id, spec] : m_ColorAttachments)
 		{
 			TexFormatInfo texFmt = FormatInfo(spec.Format);
-			GLCall(glBindTexture(GL_TEXTURE_2D, id));
-			GLCall(glTexImage2D(GL_TEXTURE_2D, 0, texFmt.InternalFormat, size.x, size.y, 0, texFmt.Format, texFmt.Type, nullptr));
+			GLenum texType = TexType(spec.Type);
+			GLCall(glBindTexture(texType, id));
+
+			if (spec.Type == ColorAttachmentType::TEX_CUBEMAP)
+			{
+				for (uint32_t i = 0; i < 6; i++)
+				{
+					GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 0, texFmt.Format, texFmt.Type, nullptr));
+				}
+			}
+			else
+			{
+				GLCall(glTexImage2D(texType, 0, texFmt.InternalFormat, size.x, size.y, 0, texFmt.Format, texFmt.Type, nullptr));
+			}
+
 			spec.Size = size;
 		}
 
@@ -1311,7 +1347,7 @@ Texture::Texture(const std::string& path, TextureFormat format)
 	auto [internalFormat, pixelFormat, type, BPP] = FormatInfo(format);
 	void* buffer = nullptr;
 	stbi_set_flip_vertically_on_load(1);
-	if (format == TextureFormat::RGBA16F || format == TextureFormat::RGB16F)
+	if (type == GL_FLOAT)
 	{
 		buffer = stbi_loadf(path.c_str(), &m_Width, &m_Height, &m_BPP, BPP);
 	}

@@ -226,7 +226,8 @@ enum class TextureFormat
 	RGB8,
 	RGBA16F,
 	RGB16F,
-	RG16F
+	RG16F,
+	RGB32F,
 };
 
 enum class ColorAttachmentType
@@ -262,6 +263,7 @@ public:
 	void Bind() const;
 	void Unbind() const;
 	void BlitBuffers(uint32_t sourceAttachment, uint32_t targetAttachment, const Framebuffer& target) const;
+	void ResizeRenderbuffer(const glm::uvec2& size);
 	void ResizeEverything(const glm::uvec2& size);
 	void FillDrawBuffers();
 
@@ -278,6 +280,8 @@ public:
 	void RemoveRenderbuffer();
 	void RemoveColorAttachment(uint32_t attachmentIdx);
 
+	inline glm::ivec2 BufferSize() const { return m_RBO_Spec.Size; }
+	inline glm::ivec2 ColorAttachmentSize(uint32_t attachmentIdx) const { return m_ColorAttachments[attachmentIdx].spec.Size; }
 	inline uint32_t GetColorAttachmentID(uint32_t attachmentIdx) const { return m_ColorAttachments[attachmentIdx].ID; }
 	glm::u8vec4 GetPixelAt(const glm::vec2& coords, int32_t attachmentIdx) const;
 	bool IsComplete() const;
