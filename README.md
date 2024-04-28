@@ -32,7 +32,7 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [ ] Forward+ rendering
  - [ ] Whatever comes to my mind next
 
-### Bloom (idk yet how to fix INF/NaN propagation issue)!!!!!!!!!!!!
+### Bloom (unoptimized, but not slow either ig)!!!!!!!!!!!!
 ![blum](https://github.com/KomorXD/codenameFE/assets/51238441/14f108f6-d7dc-4968-af2f-2b3d98a84057)
 
 #### IBL Diffuse and specular environment maps :OOOOOOOOOOOOOO
