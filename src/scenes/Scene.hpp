@@ -12,6 +12,7 @@ struct Scene
 	Entity SpawnEntity(const std::string& name);
 	void DestroyEntity(Entity entity);
 
+	void RenderShadowMaps();
 	void Render(Camera& editorCamera);
 
 private:
