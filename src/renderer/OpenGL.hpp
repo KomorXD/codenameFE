@@ -240,12 +240,14 @@ enum class TextureFormat
 	RG16F,
 	RGB32F,
 	R11_G11_B10,
+	DEPTH_32F
 };
 
 enum class ColorAttachmentType
 {
 	TEX_2D,
 	TEX_2D_MULTISAMPLE,
+	TEX_2D_ARRAY,
 	TEX_CUBEMAP
 };
 
@@ -256,6 +258,7 @@ struct ColorAttachmentSpec
 	int32_t Wrap;
 	int32_t MinFilter;
 	int32_t MagFilter;
+	glm::vec4 BorderColor;
 	glm::ivec2 Size;
 	bool GenMipmaps;
 };
@@ -286,6 +289,7 @@ public:
 	void BindColorAttachment(uint32_t attachmentIdx, uint32_t slot = 0) const;
 
 	void DrawToColorAttachment(uint32_t attachmentIdx, uint32_t targetAttachment, int32_t mip = 0) const;
+	void DrawToDepthMap(uint32_t attachmentIdx, int32_t mip = 0) const;
 	void DrawToCubeColorAttachment(uint32_t attachmentIdx, uint32_t targetAttachment, int32_t faceIdx, int32_t mip = 0) const;
 	void ClearColorAttachment(uint32_t attachmentIdx, uint32_t mip = 0) const;
 

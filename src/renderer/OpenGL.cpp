@@ -556,6 +556,12 @@ static TexFormatInfo FormatInfo(TextureFormat format)
 		formatInfo.Type = GL_FLOAT;
 		formatInfo.BPP = 3;
 		break;
+	case TextureFormat::DEPTH_32F:
+		formatInfo.InternalFormat = GL_DEPTH_COMPONENT32F;
+		formatInfo.Format = GL_DEPTH_COMPONENT;
+		formatInfo.Type = GL_FLOAT;
+		formatInfo.BPP = 1;
+		break;
 	default:
 		assert(true && "Invalid texture format passed");
 		break;
@@ -575,6 +581,9 @@ static GLenum TexType(const ColorAttachmentType& type)
 		break;
 	case ColorAttachmentType::TEX_2D_MULTISAMPLE:
 		ret = GL_TEXTURE_2D_MULTISAMPLE;
+		break;
+	case ColorAttachmentType::TEX_2D_ARRAY:
+		ret = GL_TEXTURE_2D_ARRAY;
 		break;
 	case ColorAttachmentType::TEX_CUBEMAP:
 		ret = GL_TEXTURE_CUBE_MAP;
@@ -759,17 +768,26 @@ void Framebuffer::AddColorAttachment(ColorAttachmentSpec spec)
 		GLCall(glTexParameteri(type, GL_TEXTURE_WRAP_S, spec.Wrap));
 		GLCall(glTexParameteri(type, GL_TEXTURE_WRAP_T, spec.Wrap));
 
-		if (type == GL_TEXTURE_2D)
+		switch (type)
 		{
+		case GL_TEXTURE_2D:
+			GLCall(glTexParameterfv(type, GL_TEXTURE_BORDER_COLOR, &spec.BorderColor[0]));
 			GLCall(glTexImage2D(type, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 0, texFmt.Format, texFmt.Type, nullptr));
-		}
-		else
-		{
+			break;
+		case GL_TEXTURE_2D_ARRAY:
+			GLCall(glTexParameterfv(type, GL_TEXTURE_BORDER_COLOR, &spec.BorderColor[0]));
+			GLCall(glTexImage3D(type, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 16, 0, texFmt.Format, texFmt.Type, nullptr));
+			break;
+		case GL_TEXTURE_CUBE_MAP:
 			GLCall(glTexParameteri(type, GL_TEXTURE_WRAP_R, spec.Wrap));
 			for (uint32_t i = 0; i < 6; i++)
 			{
 				GLCall(glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 0, texFmt.Format, texFmt.Type, nullptr));
 			}
+			break;
+		default:
+			assert(true && "Unsupported texture type.");
+			break;
 		}
 
 		if (spec.GenMipmaps)
@@ -805,6 +823,16 @@ void Framebuffer::DrawToColorAttachment(uint32_t attachmentIdx, uint32_t targetA
 	const auto& [id, spec] = m_ColorAttachments[attachmentIdx];
 	Bind();
 	GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + targetAttachment, TexType(spec.Type), id, mip));
+}
+
+void Framebuffer::DrawToDepthMap(uint32_t attachmentIdx, int32_t mip) const
+{
+	assert(attachmentIdx < m_ColorAttachments.size() && "Trying to draw to non-existent color attachment.");
+
+	const auto& [id, spec] = m_ColorAttachments[attachmentIdx];
+	Bind();
+	GLCall(glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, id, 0));
+	GLCall(glViewport(0, 0, spec.Size.x, spec.Size.y));
 }
 
 void Framebuffer::DrawToCubeColorAttachment(uint32_t attachmentIdx, uint32_t targetAttachment, int32_t faceIdx, int32_t mip) const
