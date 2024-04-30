@@ -51,7 +51,8 @@ struct Material
 in VS_OUT
 {
 	vec3 worldPos;
-	vec3 viewPos;
+	vec3 viewSpacePos;
+	vec3 eyePos;
 	vec3 normal;
 	mat3 TBN;
 	vec3 tangentWorldPos;
@@ -78,10 +79,12 @@ layout(std140, binding = 3) uniform Materials
 } materials;
 
 uniform bool u_IsLightSource = false;
+uniform sampler2DArray u_SpotlightShadowmaps;
 uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_PrefilterMap;
 uniform sampler2D u_BRDF_LUT;
 uniform sampler2D u_Textures[64];
+uniform mat4 u_SpotlightMatrices[16];
 
 const float PI = 3.14159265359;
 
@@ -193,6 +196,35 @@ vec2 depthMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightSc
 	return prevCoords * weight + currentCoords * (1.0 - weight);
 }
 
+float shadowFactor(int lightIdx)
+{
+	vec4 fragPosLightSpace = u_SpotlightMatrices[lightIdx] * vec4(fs_in.worldPos, 1.0);
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	projCoords = projCoords * 0.5 + 0.5;
+
+	float currentDepth = projCoords.z;
+	if(currentDepth > 1.0)
+	{
+		return 0.0;
+	}
+
+	float bias = 0.00005;
+	vec2 texelSize = 1.0 / textureSize(u_SpotlightShadowmaps, 0).xy;
+	float depth = texture(u_SpotlightShadowmaps, vec3(projCoords.xy, lightIdx)).r;
+	float shadow = 0.0;
+	for(int x = -1; x <= 1; x++)
+	{
+		for(int y = -1; y <= 1; y++)
+		{
+			float depth = texture(u_SpotlightShadowmaps, vec3(projCoords.xy + vec2(x, y) * texelSize, lightIdx)).r;
+			shadow += (currentDepth - bias > depth) ? 1.0 : 0.0;
+		}
+	}
+
+	shadow /= 9.0;
+	return 1.0 - shadow;
+}
+
 void main()
 {
 	int entID = int(fs_in.entityID);
@@ -300,14 +332,14 @@ void main()
 		SpotLight spotLight = lights.spotLights[i];
 		vec3 position	  = spotLight.positionAndCutoff.xyz;
 		vec3 tangentPos	  = fs_in.TBN * position;
-		vec3 direction	  = spotLight.directionAndOuterCutoff.xyz;
+		vec3 direction	  = fs_in.TBN * spotLight.directionAndOuterCutoff.xyz;
 		vec3 color		  = spotLight.colorAndLin.xyz;
 		float cutoff	  = spotLight.positionAndCutoff.w;
 		float outerCutoff = spotLight.directionAndOuterCutoff.w;
 		float linear	  = spotLight.colorAndLin.w;
 		float quadratic	  = spotLight.quadraticTerm.x;
 		
-		vec3 L = normalize(position - fs_in.worldPos);
+		vec3 L = normalize(tangentPos - fs_in.tangentWorldPos);
 		float theta = dot(L, normalize(-direction));
 		float epsilon = abs(cutoff - outerCutoff) + 0.0001;
 		float intensity = clamp((theta - outerCutoff) / epsilon, 0.0, 1.0);
@@ -328,14 +360,15 @@ void main()
 			vec3 kS = F;
 			vec3 kD = vec3(1.0) - kS;
 			kD *= 1.0 - metallic;
-		
-			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity;
+
+			float shadow = shadowFactor(i);
+			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity * shadow;
 		}
 	}
 
 	const float MAX_REFL_LOD = 4.0;
 	N = transpose(fs_in.TBN) * N;
-	V = normalize(fs_in.viewPos - fs_in.worldPos);
+	V = normalize(fs_in.eyePos - fs_in.worldPos);
 	vec3 R = reflect(-V, N);
 	vec3 prefilteredColor = textureLod(u_PrefilterMap, R, roughness * MAX_REFL_LOD).rgb;
 	vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);

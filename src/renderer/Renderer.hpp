@@ -38,6 +38,9 @@ public:
 	static void SceneEnd();
 	static void Flush();
 
+	static void BeginShadowMapPass();
+	static void EndShadowMapPass();
+
 	static void ResetStats();
 	static RendererStats Stats();
 

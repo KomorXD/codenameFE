@@ -387,6 +387,7 @@ void EditorLayer::RenderViewport()
 {
 	Renderer::ResetStats();
 
+	m_Scene.RenderShadowMaps();
 	m_MainFB->Bind();
 	m_MainFB->BindRenderbuffer();
 	m_MainFB->DrawToColorAttachment(0, 0);
