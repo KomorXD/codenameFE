@@ -57,6 +57,7 @@ public:
 
 	static void Bloom(const std::unique_ptr<Framebuffer>& hdrFBO);
 	static void SetBloomStrength(float strength);
+	static void SetBloomThreshold(float threshold);
 
 	static std::shared_ptr<Framebuffer> CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize = { 512, 512 });
 	static void DrawSkybox(std::shared_ptr<Framebuffer> cfb);

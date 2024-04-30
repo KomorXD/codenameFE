@@ -17,7 +17,7 @@ void main()
 	vec3 irradiance = vec3(0.0);
 	float dPhi = 0.05;
 	float dTheta = 0.05;
-	int samples = 0;
+	float samples = (2.0 * PI / dPhi) * (0.5 * PI / dTheta);
 	for(float phi = 0.0; phi < 2.0 * PI; phi += dPhi)
 	{
 		for(float theta = 0.0; theta < 0.5 * PI; theta += dTheta)
@@ -25,11 +25,10 @@ void main()
 			vec3 tangentSample = vec3(sin(theta) * cos(phi),  sin(theta) * sin(phi), cos(theta));
 			vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * N;
 
-			irradiance += texture(u_EnvMap, sampleVec).rgb * cos(theta) * sin(theta);
-			samples++;
+			irradiance += min(texture(u_EnvMap, sampleVec).rgb * cos(theta) * sin(theta), 16.0) / samples;
 		}
 	}
 
-	outIrradiance.rgb = PI * irradiance * (1.0 / float(samples));
+	outIrradiance.rgb = PI * irradiance;
 	outIrradiance.a = 1.0;
 }

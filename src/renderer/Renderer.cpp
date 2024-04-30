@@ -885,6 +885,12 @@ void Renderer::SetBloomStrength(float strength)
 	s_Data.ScreenQuadShader->SetUniform1f("u_BloomStrength", strength);
 }
 
+void Renderer::SetBloomThreshold(float threshold)
+{
+	s_Data.BloomDownsamplerShader->Bind();
+	s_Data.BloomDownsamplerShader->SetUniform1f("u_Threshold", threshold);
+}
+
 std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
 {
 	std::shared_ptr<Framebuffer> cfb = std::make_shared<Framebuffer>(1);

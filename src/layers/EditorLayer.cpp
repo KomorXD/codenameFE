@@ -238,7 +238,7 @@ void EditorLayer::RenderScenePanel()
 
 	if (ImGui::PrettyButton("Material editor", buttonSize))
 	{
-		Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities));
+		Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, m_SkyboxFB));
 	}
 
 	if (ImGui::PrettyButton("Reload shaders", buttonSize))
@@ -315,6 +315,7 @@ void EditorLayer::RenderScenePanel()
 		ImGui::PrettyDragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, FLT_MAX);
 		ImGui::PrettyDragFloat("Brightness", &m_EditorCamera.Gamma, 0.001f, 0.0f, FLT_MAX);
 		ImGui::PrettyDragFloat("Bloom strength", &m_BloomStrength, 0.001f, 0.0f, FLT_MAX);
+		ImGui::PrettyDragFloat("Bloom threshold", &m_BloomThreshold, 0.001f, 0.0f, FLT_MAX);
 		ImGui::PrettyDragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::PrettyDragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::Checkbox("Bloom", &m_UseBloom);
@@ -490,6 +491,7 @@ void EditorLayer::RenderViewport()
 	if (m_UseBloom)
 	{
 		Renderer::SetBloomStrength(m_BloomStrength);
+		Renderer::SetBloomThreshold(m_BloomThreshold);
 		Renderer::Bloom(m_ScreenFB);
 	}
 	else
@@ -601,7 +603,13 @@ void EditorLayer::RenderEntityData()
 
 			if (ImGui::PrettyButton("Edit", buttonSize))
 			{
-				Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID));
+				Application::Instance()->PushLayer(
+					std::make_unique<MaterialEditLayer>(
+						m_Scene.m_Entities,
+						m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID,
+						m_SkyboxFB
+					)
+				);
 			}
 
 			ImGui::SameLine();
@@ -609,7 +617,12 @@ void EditorLayer::RenderEntityData()
 			if (ImGui::PrettyButton("New", buttonSize))
 			{
 				m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID = AssetManager::AddMaterial(AssetManager::GetMaterial(AssetManager::MATERIAL_DEFAULT));
-				Application::Instance()->PushLayer(std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID));
+				Application::Instance()->PushLayer(
+					std::make_unique<MaterialEditLayer>(m_Scene.m_Entities, 
+						m_SelectedEntity.GetComponent<MaterialComponent>().MaterialID,
+						m_SkyboxFB
+					)
+				);
 			}
 
 			ImGui::Separator();

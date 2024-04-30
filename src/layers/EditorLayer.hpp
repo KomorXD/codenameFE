@@ -39,6 +39,7 @@ private:
 	int32_t m_GizmoMode;
 
 	float m_BloomStrength = 0.04f;
+	float m_BloomThreshold = 1.0f;
 	bool m_UseBloom = true;
 
 	bool m_LockFocus    = false;

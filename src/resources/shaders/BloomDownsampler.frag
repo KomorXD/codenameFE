@@ -5,6 +5,7 @@ in vec2 textureUV;
 uniform sampler2D u_SourceTexture;
 uniform vec2 u_SourceResolution;
 uniform bool u_FirstMip;
+uniform float u_Threshold;
 
 layout (std140, binding = 1) uniform Camera
 {
@@ -34,6 +35,14 @@ float KarisAverage(vec3 color)
 {
 	float lum = RGB_ToLuminance(to_sRGB(color)) * 0.25;
 	return 1.0 / (1.0 + lum);
+}
+
+vec3 prefilter(vec3 color)
+{
+	float brightness = max(color.r, max(color.g, color.b));
+	float contrib = max(0, brightness - u_Threshold);
+	contrib /= brightness + 0.00001;
+	return color * contrib;
 }
 
 void main()
@@ -76,6 +85,7 @@ void main()
 		groups[4] *= KarisAverage(groups[4]);
 
 		downsample.rgb = groups[0] + groups[1] + groups[2] + groups[3] + groups[4];
+		downsample.rgb = prefilter(downsample.rgb);
 	}
 	else
 	{
