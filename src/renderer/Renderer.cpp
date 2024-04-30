@@ -307,7 +307,10 @@ void Renderer::Init()
 	{
 		SCOPE_PROFILE("Shaders init + default textures");
 
-		s_Data.DefaultShader = std::make_shared<Shader>("resources/shaders/Default.vert", "resources/shaders/Default.frag");
+		ShaderSpec spec{};
+		spec.Vertex	  = { "resources/shaders/Default.vert", {} };
+		spec.Fragment = { "resources/shaders/Default.frag", {} };
+		s_Data.DefaultShader = std::make_shared<Shader>(spec);
 		s_Data.DefaultShader->Bind();
 		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
 		{
@@ -358,7 +361,11 @@ void Renderer::Init()
 		layout.Push<float>(2); // Texture UV
 
 		s_Data.ScreenQuadVertexArray->AddVertexBuffer(s_Data.ScreenQuadVertexBuffer, layout);
-		s_Data.ScreenQuadShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/ScreenQuad.frag");
+
+		ShaderSpec spec{};
+		spec.Vertex   = { "resources/shaders/ScreenQuad.vert", {} };
+		spec.Fragment = { "resources/shaders/ScreenQuad.frag", {} };
+		s_Data.ScreenQuadShader = std::make_shared<Shader>(spec);
 		s_Data.ScreenQuadShader->Bind();
 		s_Data.ScreenQuadShader->SetUniform1i("u_ScreenTexture", 0);
 		s_Data.ScreenQuadShader->SetUniform1i("u_BloomTexture", 1);
@@ -375,19 +382,29 @@ void Renderer::Init()
 		layout.Push<float>(3); // Position
 
 		s_Data.EnvMapVertexArray->AddVertexBuffer(s_Data.EnvMapVertexBuffer, layout);
-		s_Data.EnvMapShader = std::make_shared<Shader>("resources/shaders/EnvMapper.vert", "resources/shaders/EnvMapper.frag");
+
+		ShaderSpec spec{};
+		spec.Vertex   = { "resources/shaders/EnvMapper.vert", {} };
+		spec.Fragment = { "resources/shaders/EnvMapper.frag", {} };
+		s_Data.EnvMapShader = std::make_shared<Shader>(spec);
 		s_Data.EnvMapShader->Bind();
 		s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
 
-		s_Data.IrradianceShader = std::make_shared<Shader>("resources/shaders/EnvMapper.vert", "resources/shaders/Irradiance.frag");
+		spec.Vertex   = { "resources/shaders/EnvMapper.vert", {} };
+		spec.Fragment = { "resources/shaders/Irradiance.frag", {} };
+		s_Data.IrradianceShader = std::make_shared<Shader>(spec);
 		s_Data.IrradianceShader->Bind();
 		s_Data.IrradianceShader->SetUniform1i("u_EnvMap", 0);
 
-		s_Data.PrefilterShader = std::make_shared<Shader>("resources/shaders/EnvMapper.vert", "resources/shaders/EnvPrefilter.frag");
+		spec.Vertex   = { "resources/shaders/EnvMapper.vert", {} };
+		spec.Fragment = { "resources/shaders/EnvPrefilter.frag", {} };
+		s_Data.PrefilterShader = std::make_shared<Shader>(spec);
 		s_Data.PrefilterShader->Bind();
 		s_Data.PrefilterShader->SetUniform1i("u_EnvironmentMap", 0);
 
-		s_Data.SkyboxShader = std::make_shared<Shader>("resources/shaders/Skybox.vert", "resources/shaders/Skybox.frag");
+		spec.Vertex   = { "resources/shaders/Skybox.vert", {} };
+		spec.Fragment = { "resources/shaders/Skybox.frag", {} };
+		s_Data.SkyboxShader = std::make_shared<Shader>(spec);
 		s_Data.SkyboxShader->Bind();
 		s_Data.SkyboxShader->SetUniform1i("u_Cubemap", 0);
 	}
@@ -404,7 +421,11 @@ void Renderer::Init()
 
 		s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer, layout);
 		s_Data.LineBufferBase = new LineVertex[s_Data.MaxVertices];
-		s_Data.LineShader = std::make_shared<Shader>("resources/shaders/Line.vert", "resources/shaders/Line.frag");
+
+		ShaderSpec spec{};
+		spec.Vertex   = { "resources/shaders/Line.vert", {} };
+		spec.Fragment = { "resources/shaders/Line.frag", {} };
+		s_Data.LineShader = std::make_shared<Shader>(spec);
 	}
 
 	{
@@ -447,11 +468,16 @@ void Renderer::Init()
 		assert(s_Data.BloomFBO->IsComplete() && "Incomplete framebuffer!");
 		s_Data.BloomFBO->Unbind();
 
-		s_Data.BloomDownsamplerShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BloomDownsampler.frag");
+		ShaderSpec spec{};
+		spec.Vertex   = { "resources/shaders/ScreenQuad.vert", {} };
+		spec.Fragment = { "resources/shaders/BloomDownsampler.frag", {} };
+		s_Data.BloomDownsamplerShader = std::make_shared<Shader>(spec);
 		s_Data.BloomDownsamplerShader->Bind();
 		s_Data.BloomDownsamplerShader->SetUniform1i("u_SourceTexture", 0);
 
-		s_Data.BloomUpsamplerShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BloomUpsampler.frag");
+		spec.Vertex   = { "resources/shaders/ScreenQuad.vert", {} };
+		spec.Fragment = { "resources/shaders/BloomUpsampler.frag", {} };
+		s_Data.BloomUpsamplerShader = std::make_shared<Shader>(spec);
 		s_Data.BloomUpsamplerShader->Bind();
 		s_Data.BloomUpsamplerShader->SetUniform1i("u_SourceTexture", 0);
 	}
@@ -479,8 +505,11 @@ void Renderer::Init()
 
 		GLCall(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfTex, 0));
 		GLCall(glViewport(0, 0, 512, 512)); 
-		
-		std::shared_ptr<Shader> brdfShader = std::make_shared<Shader>("resources/shaders/ScreenQuad.vert", "resources/shaders/BRDF.frag");
+
+		ShaderSpec spec{};
+		spec.Vertex   = { "resources/shaders/ScreenQuad.vert", {} };
+		spec.Fragment = { "resources/shaders/BRDF.frag", {} };
+		std::shared_ptr<Shader> brdfShader = std::make_shared<Shader>(spec);
 		brdfShader->Bind();
 		Clear();
 		DrawArrays(brdfShader, s_Data.ScreenQuadVertexArray, 6);
@@ -530,8 +559,7 @@ void Renderer::Shutdown()
 
 void Renderer::ReloadShaders()
 {
-	s_Data.LineShader->ReloadShader();
-	s_Data.DefaultShader->ReloadShader();
+	
 }
 
 void Renderer::OnWindowResize(const Viewport& newViewport)

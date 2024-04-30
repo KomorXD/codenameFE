@@ -155,11 +155,29 @@ private:
 	uint32_t m_ID = 0;
 };
 
+struct StringReplacement
+{
+	std::string Pattern;
+	std::string Target;
+};
+
+struct ShaderDescriptor
+{
+	std::string Path;
+	std::vector<StringReplacement> Replacement;
+};
+
+struct ShaderSpec
+{
+	ShaderDescriptor Vertex;
+	ShaderDescriptor Fragment;
+	std::optional<ShaderDescriptor> Geometry;
+};
+
 class Shader
 {
 public:
-	Shader(const std::string& vs, const std::string& fs);
-	Shader(const std::string& vs, const std::string& gs, const std::string& fs);
+	Shader(const ShaderSpec& spec);
 	~Shader();
 
 	void Bind() const;
@@ -173,22 +191,15 @@ public:
 	void SetUniformMat4(const std::string& name, const glm::mat4& vec);
 	void SetUniformBool(const std::string& name, bool flag);
 
-	bool ReloadShader();
-
 private:
-	std::optional<std::string> ShaderParse(const std::string& filepath);
-	uint32_t ShaderCompile(uint32_t type, const std::string& sourceCode);
-	uint32_t ShaderCreate(const std::string& vs, const std::string& fs);
-	uint32_t ShaderCreate(const std::string& vs, const std::string& gs, const std::string& fs);
+	std::optional<std::string> ParseShaderSource(const std::string& path);
+	uint32_t CreateShader(const std::string& vsrc, const std::string& fsrc, std::optional<std::string> gsrc);
+	uint32_t CompileShader(uint32_t type, const std::string& source);
+	int32_t UniformLocation(const std::string& name);
 
-	int32_t GetUniformLocation(const std::string& name);
-
-	std::string m_VertexShaderPath{};
-	std::string m_FragmentShaderPath{};
-	std::string m_GeometryShaderPath{};
-
-	uint32_t m_ID = 0;
+	ShaderSpec m_Spec;
 	std::unordered_map<std::string, int32_t> m_UniformLocations;
+	uint32_t m_ID = 0;
 };
 
 class SharedBuffer
