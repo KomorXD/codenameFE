@@ -21,16 +21,19 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [x] Parallax mapping
  - [x] Environment maps + Diffuse and Specular IBL
  - [x] Bloom
+ - [x] Spotlight shadow maps
  - [ ] Bloom with compute shaders
  - [ ] Uploading custom models (+ making sure they have normals and tangents, or calculating them)
  - [ ] SSAO
  - [ ] Managing textures to optimize draw calls, probably texture atlas
  - [ ] Directional light shadow maps
  - [ ] Cascaded shadow maps
- - [ ] Spotlight shadow maps
  - [ ] Point light volumetric lights (to try to avoid shadow mapping with those)
  - [ ] Forward+ rendering
  - [ ] Whatever comes to my mind next
+
+### Spotlight shadow maps (pipeline yet to be cleaned, but it works)!
+![Spotlight shadows](https://github.com/KomorXD/codenameFE/assets/51238441/4bd5de54-cc33-43a2-aecf-ba8106f44769)
 
 ### Bloom (unoptimized, but not slow either ig)!!!!!!!!!!!!
 ![blum](https://github.com/KomorXD/codenameFE/assets/51238441/14f108f6-d7dc-4968-af2f-2b3d98a84057)
