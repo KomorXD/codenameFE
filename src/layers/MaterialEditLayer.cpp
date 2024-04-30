@@ -14,9 +14,10 @@
 
 #include <filesystem>
 
-MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities)
+MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities, std::shared_ptr<Framebuffer> skyboxFBO)
 	: m_Camera(90.0f, 16.0f / 9.0f, 0.1f, 1000.0f)
 	, m_MainEntities(mainEntities)
+	, m_SkyboxFBO(skyboxFBO)
 {
 	FUNC_PROFILE();
 
@@ -98,8 +99,8 @@ MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities)
 	m_LightEnt.AddComponent<PointLightComponent>();
 }
 
-MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities, int32_t materialID)
-	: MaterialEditLayer(mainEntities)
+MaterialEditLayer::MaterialEditLayer(std::vector<Entity>& mainEntities, int32_t materialID, std::shared_ptr<Framebuffer> skyboxFBO)
+	: MaterialEditLayer(mainEntities, skyboxFBO)
 {
 	m_SampleEnt.GetComponent<MaterialComponent>().MaterialID = materialID;
 }
@@ -156,6 +157,7 @@ void MaterialEditLayer::OnRender()
 	m_MainFB->FillDrawBuffers();
 	Renderer::ClearColor(glm::vec4(m_BgColor, 1.0f));
 	Renderer::Clear();
+	Renderer::DrawSkybox(m_SkyboxFBO);
 	m_MainFB->ClearColorAttachment(1);
 	m_Scene.Render(m_Camera);
 	m_MainFB->DrawToColorAttachment(0, 0);
@@ -164,6 +166,18 @@ void MaterialEditLayer::OnRender()
 	m_ScreenFB->DrawToColorAttachment(1, 1);
 	m_MainFB->BlitBuffers(0, 0, *m_ScreenFB);
 	m_MainFB->BlitBuffers(1, 1, *m_ScreenFB);
+
+	if (m_UseBloom)
+	{
+		Renderer::SetBloomStrength(m_BloomStrength);
+		Renderer::SetBloomThreshold(m_BloomThreshold);
+		Renderer::Bloom(m_ScreenFB);
+	}
+	else
+	{
+		Renderer::SetBloomStrength(0.0f);
+	}
+	m_MainFB->BindRenderbuffer();
 	m_ScreenFB->Bind();
 	m_ScreenFB->BindColorAttachment(0);
 	m_ScreenFB->DrawToColorAttachment(2, 2);
@@ -226,9 +240,12 @@ void MaterialEditLayer::RenderPanel()
 	if (ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		ImGui::Indent(16.0f);
-		ImGui::Text("General");
+		ImGui::Text("Environment");
 		ImGui::Separator();
 		ImGui::ColorEdit3("Sky color", glm::value_ptr(m_BgColor));
+		ImGui::PrettyDragFloat("Bloom strength", &m_BloomStrength, 0.001f, 0.0f, FLT_MAX);
+		ImGui::PrettyDragFloat("Bloom threshold", &m_BloomThreshold, 0.001f, 0.0f, FLT_MAX);
+		ImGui::Checkbox("Bloom", &m_UseBloom);
 
 		MeshComponent& mc = m_SampleEnt.GetComponent<MeshComponent>();
 		ImGui::BeginPrettyCombo("Mesh", AssetManager::GetMesh(mc.MeshID).Name.c_str(),

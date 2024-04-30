@@ -13,8 +13,8 @@ class MultisampledFramebuffer;
 class MaterialEditLayer : public Layer
 {
 public:
-	MaterialEditLayer(std::vector<Entity>& mainEntities);
-	MaterialEditLayer(std::vector<Entity>& mainEntities, int32_t materialID);
+	MaterialEditLayer(std::vector<Entity>& mainEntities, std::shared_ptr<Framebuffer> skyboxFBO);
+	MaterialEditLayer(std::vector<Entity>& mainEntities, int32_t materialID, std::shared_ptr<Framebuffer> skyboxFBO);
 
 	virtual void OnAttach()			override;
 	virtual void OnEvent(Event& ev) override;
@@ -36,6 +36,11 @@ private:
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;
 
+	float m_BloomStrength = 0.04f;
+	float m_BloomThreshold = 1.0f;
+	bool m_UseBloom = true;
+
 	std::unique_ptr<Framebuffer> m_MainFB;
 	std::unique_ptr<Framebuffer> m_ScreenFB;
+	std::shared_ptr<Framebuffer> m_SkyboxFBO;
 };
