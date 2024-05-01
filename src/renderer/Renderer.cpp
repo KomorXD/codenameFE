@@ -106,6 +106,17 @@ struct MaterialsBufferData
 	float Padding;
 };
 
+struct CameraBufferData
+{
+	glm::mat4 Projection;
+	glm::mat4 View;
+	glm::vec4 Position;
+	float Exposure;
+	float Gamma;
+	float Near;
+	float Far;
+};
+
 static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& rhs)
 {
 	return lhs.Color == rhs.Color
@@ -171,10 +182,10 @@ struct RendererData
 	std::shared_ptr<Shader>	DefaultShader;
 	std::shared_ptr<Shader> CurrentShader;
 
+	std::shared_ptr<Framebuffer> ShadowMapsFBO;
+	std::shared_ptr<Shader> PointShadowShader;
 	std::shared_ptr<Shader> SpotlightShadowShader;
-	std::shared_ptr<Framebuffer> SpotlightShadowFBO;
 
-	std::shared_ptr<UniformBuffer> MatricesBuffer;
 	std::shared_ptr<UniformBuffer> CameraBuffer;
 	std::shared_ptr<UniformBuffer> LightsBuffer;
 	std::shared_ptr<UniformBuffer> MaterialsBuffer;
@@ -340,6 +351,7 @@ void Renderer::Init()
 		AssetManager::AddMaterial(mat, AssetManager::MATERIAL_DEFAULT);
 
 		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", 40);
+		s_Data.DefaultShader->SetUniform1i("u_PointLightShadowmaps", 41);
 		s_Data.CurrentShader = s_Data.DefaultShader;
 	}
 
@@ -348,11 +360,21 @@ void Renderer::Init()
 
 		{
 			ShaderSpec spec{};
-			spec.Vertex   = { "resources/shaders/shadows/Spotlight.vert", {} };
+			spec.Vertex   = { "resources/shaders/shadows/Point.vert", {} };
+			spec.Fragment = { "resources/shaders/shadows/Point.frag", {} };
+			spec.Geometry = { "resources/shaders/shadows/Point.geom", {} };
+			s_Data.PointShadowShader = std::make_shared<Shader>(spec);
+		}
+
+		{
+			ShaderSpec spec{};
+			spec.Vertex = { "resources/shaders/shadows/Spotlight.vert", {} };
 			spec.Fragment = { "resources/shaders/shadows/Spotlight.frag", {} };
 			spec.Geometry = { "resources/shaders/shadows/Spotlight.geom", {} };
 			s_Data.SpotlightShadowShader = std::make_shared<Shader>(spec);
 		}
+
+		s_Data.ShadowMapsFBO = std::make_shared<Framebuffer>(1);
 
 		ColorAttachmentSpec spec{};
 		spec.Type = ColorAttachmentType::TEX_2D_ARRAY;
@@ -362,8 +384,10 @@ void Renderer::Init()
 		spec.BorderColor = glm::vec4(1.0f);
 		spec.Size = { 1024, 1024 };
 		spec.GenMipmaps = false;
-		s_Data.SpotlightShadowFBO = std::make_shared<Framebuffer>(1);
-		s_Data.SpotlightShadowFBO->AddColorAttachment(spec);
+		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
+
+		spec.Type = ColorAttachmentType::TEX_CUBEMAP_ARRAY;
+		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 	}
 
 	{
@@ -458,11 +482,8 @@ void Renderer::Init()
 	{
 		SCOPE_PROFILE("Uniform buffers init");
 
-		s_Data.MatricesBuffer = std::make_shared<UniformBuffer>(nullptr, 2 * sizeof(glm::mat4));
-		s_Data.MatricesBuffer->BindBufferRange(0, 0, 2 * sizeof(glm::mat4));
-
-		s_Data.CameraBuffer = std::make_shared<UniformBuffer>(nullptr, sizeof(glm::vec4) + 2 * sizeof(float));
-		s_Data.CameraBuffer->BindBufferRange(1, 0, sizeof(glm::vec4) + 2 * sizeof(float));
+		s_Data.CameraBuffer = std::make_shared<UniformBuffer>(nullptr, sizeof(CameraBufferData));
+		s_Data.CameraBuffer->BindBufferRange(0, 0, sizeof(CameraBufferData));
 
 		s_Data.LightsBuffer = std::make_shared<UniformBuffer>(nullptr,
 			3 * sizeof(int32_t) + 128 * (sizeof(DirLightBufferData) + sizeof(PointLightBufferData) + sizeof(SpotLightBufferData)));
@@ -578,10 +599,10 @@ void Renderer::Shutdown()
 	s_Data.DefaultShader = nullptr;
 	s_Data.CurrentShader = nullptr;
 
+	s_Data.ShadowMapsFBO = nullptr;
+	s_Data.PointShadowShader = nullptr;
 	s_Data.SpotlightShadowShader = nullptr;
-	s_Data.SpotlightShadowFBO = nullptr;
 
-	s_Data.MatricesBuffer = nullptr;
 	s_Data.CameraBuffer = nullptr;
 	s_Data.LightsBuffer = nullptr;
 	s_Data.MaterialsBuffer = nullptr;
@@ -606,14 +627,17 @@ void Renderer::SceneBegin(Camera& camera)
 	glm::mat4 projection = camera.GetProjection();
 	glm::mat4 view = camera.GetViewMatrix();
 
-	s_Data.MatricesBuffer->Bind();
-	s_Data.MatricesBuffer->SetData(glm::value_ptr(projection), sizeof(glm::mat4));
-	s_Data.MatricesBuffer->SetData(glm::value_ptr(view), sizeof(glm::mat4), sizeof(glm::mat4));
+	CameraBufferData cbd{};
+	cbd.Projection = camera.GetProjection();
+	cbd.View = camera.GetViewMatrix();
+	cbd.Position = glm::vec4(camera.Position, 1.0f);
+	cbd.Exposure = camera.Exposure;
+	cbd.Gamma = camera.Gamma;
+	cbd.Near = camera.m_NearClip;
+	cbd.Far = camera.m_FarClip;
 
 	s_Data.CameraBuffer->Bind();
-	s_Data.CameraBuffer->SetData(glm::value_ptr(camera.Position), sizeof(glm::vec3));
-	s_Data.CameraBuffer->SetData(&camera.Exposure, sizeof(float), sizeof(glm::vec4));
-	s_Data.CameraBuffer->SetData(&camera.Gamma, sizeof(float), sizeof(glm::vec4) + sizeof(float));
+	s_Data.CameraBuffer->SetData(&cbd, sizeof(CameraBufferData));
 
 	StartBatch();
 }
@@ -646,7 +670,8 @@ void Renderer::Flush()
 	s_Data.LightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
 	s_Data.MaterialsBuffer->SetData(s_Data.MaterialsData.data(), s_Data.MaterialsData.size() * sizeof(MaterialsBufferData));
-	s_Data.SpotlightShadowFBO->BindColorAttachment(0, 40);
+	s_Data.ShadowMapsFBO->BindColorAttachment(0, 40);
+	s_Data.ShadowMapsFBO->BindColorAttachment(1, 41);
 
 	for (int32_t i = 0; i < s_Data.BoundTexturesCount; i++)
 	{
@@ -664,6 +689,7 @@ void Renderer::Flush()
 		Mesh& mesh = AssetManager::GetMesh(meshID);
 		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
 		DrawIndexedInstanced(s_Data.CurrentShader, mesh.VAO, meshData.CurrentInstancesCount);
+		s_Data.Stats.RenderPassDrawCalls++;
 	}
 
 	if (s_Data.LineVertexCount)
@@ -674,6 +700,7 @@ void Renderer::Flush()
 		GLCall(glDisable(GL_CULL_FACE));
 		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
 		GLCall(glEnable(GL_CULL_FACE));
+		s_Data.Stats.RenderPassDrawCalls++;
 	}
 }
 
@@ -704,12 +731,6 @@ void Renderer::EndShadowMapPass()
 	count = s_Data.SpotLightsData.size();
 	s_Data.LightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
-	s_Data.SpotlightShadowFBO->Bind();
-	s_Data.SpotlightShadowFBO->DrawToDepthMap(0, 0);
-
-	GLCall(glDrawBuffer(GL_NONE));
-	GLCall(glDrawBuffer(GL_NONE));
-	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
 	for (auto& [meshID, meshData] : s_Data.MeshesData)
 	{
 		if (meshData.CurrentInstancesCount == 0)
@@ -719,8 +740,51 @@ void Renderer::EndShadowMapPass()
 
 		Mesh& mesh = AssetManager::GetMesh(meshID);
 		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
-		DrawIndexedInstanced(s_Data.SpotlightShadowShader, mesh.VAO, meshData.CurrentInstancesCount);
 	}
+
+	s_Data.ShadowMapsFBO->Bind();
+	s_Data.ShadowMapsFBO->DrawToDepthMap(0);
+
+	GLCall(glDrawBuffer(GL_NONE));
+	GLCall(glDrawBuffer(GL_NONE));
+	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
+	
+	Clock cock;
+	cock.Start();
+	if (!s_Data.SpotLightsData.empty())
+	{
+		for (auto& [meshID, meshData] : s_Data.MeshesData)
+		{
+			if (meshData.CurrentInstancesCount == 0)
+			{
+				continue;
+			}
+
+			Mesh& mesh = AssetManager::GetMesh(meshID);
+			DrawIndexedInstanced(s_Data.SpotlightShadowShader, mesh.VAO, meshData.CurrentInstancesCount);
+		}
+		GLCall(glFinish());
+	}
+	s_Data.Stats.SpotlightShadowPassTime = cock.GetElapsedTime();
+
+	s_Data.ShadowMapsFBO->DrawToDepthMap(1);
+	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
+	cock.Restart();
+	if (!s_Data.PointLightsData.empty())
+	{
+		for (auto& [meshID, meshData] : s_Data.MeshesData)
+		{
+			if (meshData.CurrentInstancesCount == 0)
+			{
+				continue;
+			}
+
+			Mesh& mesh = AssetManager::GetMesh(meshID);
+			DrawIndexedInstanced(s_Data.PointShadowShader, mesh.VAO, meshData.CurrentInstancesCount);
+		}
+		GLCall(glFinish());
+	}
+	s_Data.Stats.PointLightShadowPassTime = cock.GetElapsedTime();
 }
 
 void Renderer::ResetStats()
@@ -1022,8 +1086,8 @@ std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture>
 		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
 		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
 	};
-	s_Data.MatricesBuffer->Bind();
-	s_Data.MatricesBuffer->SetData(glm::value_ptr(captureProj), sizeof(glm::mat4));
+	s_Data.CameraBuffer->Bind();
+	s_Data.CameraBuffer->SetData(glm::value_ptr(captureProj), sizeof(glm::mat4));
 
 	cfb->Bind();
 	cfb->BindRenderbuffer();
@@ -1033,7 +1097,7 @@ std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture>
 	s_Data.EnvMapShader->Bind();
 	for (uint32_t i = 0; i < 6; i++)
 	{
-		s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
+		s_Data.CameraBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
 		cfb->DrawToCubeColorAttachment(0, 0, i);
 		Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		DrawArrays(s_Data.EnvMapShader, s_Data.EnvMapVertexArray, 36);
@@ -1054,7 +1118,7 @@ std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture>
 	s_Data.IrradianceShader->Bind();
 	for (uint32_t i = 0; i < 6; i++)
 	{
-		s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
+		s_Data.CameraBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
 		cfb->DrawToCubeColorAttachment(1, 0, i);
 		Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		DrawArrays(s_Data.IrradianceShader, s_Data.EnvMapVertexArray, 36);
@@ -1086,7 +1150,7 @@ std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture>
 
 		for (uint32_t i = 0; i < 6; i++)
 		{
-			s_Data.MatricesBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
+			s_Data.CameraBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
 			cfb->DrawToCubeColorAttachment(2, 0, i, mip);
 			Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			DrawArrays(s_Data.PrefilterShader, s_Data.EnvMapVertexArray, 36);
@@ -1127,6 +1191,24 @@ void Renderer::AddDirectionalLight(const TransformComponent& transform, const Di
 void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)
 {
 	s_Data.PointLightsData.push_back({ glm::vec4(position, light.LinearTerm), glm::vec4(light.Color * light.Intensity, light.QuadraticTerm) });
+
+	glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
+	std::array<glm::mat4, 6> lookAts = {
+		glm::lookAt(position, position + glm::vec3( 1.0,  0.0,  0.0), glm::vec3( 0.0, -1.0,  0.0)),
+		glm::lookAt(position, position + glm::vec3(-1.0,  0.0,  0.0), glm::vec3( 0.0, -1.0,  0.0)),
+		glm::lookAt(position, position + glm::vec3( 0.0,  1.0,  0.0), glm::vec3( 0.0,  0.0,  1.0)),
+		glm::lookAt(position, position + glm::vec3( 0.0, -1.0,  0.0), glm::vec3( 0.0,  0.0, -1.0)),
+		glm::lookAt(position, position + glm::vec3( 0.0,  0.0,  1.0), glm::vec3( 0.0, -1.0,  0.0)),
+		glm::lookAt(position, position + glm::vec3( 0.0,  0.0, -1.0), glm::vec3( 0.0, -1.0,  0.0))
+	};
+
+	s_Data.PointShadowShader->Bind();
+	for (size_t i = 0; i < lookAts.size(); i++)
+	{
+		s_Data.PointShadowShader->SetUniformMat4("u_PointLightMatrices[" + 
+			std::to_string((s_Data.PointLightsData.size() - 1) * 6 + i) + "]", 
+			proj * lookAts[i]);
+	}
 }
 
 void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light)
