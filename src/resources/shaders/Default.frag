@@ -62,6 +62,17 @@ in VS_OUT
 	flat float entityID;
 } fs_in;
 
+layout (std140, binding = 0) uniform Camera
+{
+	mat4 projection;
+	mat4 view;
+	vec4 position;
+	float exposure;
+	float gamma;
+	float near;
+	float far;
+} u_Camera;
+
 layout(std140, binding = 2) uniform Lights
 {
 	DirectionalLight dirLights[128];
@@ -79,11 +90,14 @@ layout(std140, binding = 3) uniform Materials
 } materials;
 
 uniform bool u_IsLightSource = false;
-uniform sampler2DArray u_SpotlightShadowmaps;
 uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_PrefilterMap;
 uniform sampler2D u_BRDF_LUT;
 uniform sampler2D u_Textures[64];
+
+uniform samplerCubeArray u_PointLightShadowmaps;
+
+uniform sampler2DArray u_SpotlightShadowmaps;
 uniform mat4 u_SpotlightMatrices[16];
 
 const float PI = 3.14159265359;
@@ -196,6 +210,39 @@ vec2 depthMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightSc
 	return prevCoords * weight + currentCoords * (1.0 - weight);
 }
 
+vec3 offsets[20] = vec3[]
+(
+   vec3( 1,  1,  1), vec3( 1, -1,  1), vec3(-1, -1,  1), vec3(-1,  1,  1), 
+   vec3( 1,  1, -1), vec3( 1, -1, -1), vec3(-1, -1, -1), vec3(-1,  1, -1),
+   vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
+   vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
+   vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
+);  
+
+float pointLightShadowFactor(int lightIdx, vec3 lightPos)
+{
+	vec3 fragToLight = fs_in.worldPos - lightPos;
+	float currentDepth = length(fragToLight);
+	float shadow = 0.0;
+	float bias = 0.15;
+	float viewDistance = length(fs_in.worldPos - u_Camera.position.xyz);
+	float radius = (1.0 + (viewDistance / u_Camera.far)) / 25.0;
+	int samples = offsets.length();
+	for(int i = 0; i < samples; i++)
+	{
+		float closestDepth = texture(u_PointLightShadowmaps, vec4(fragToLight + offsets[i] * radius, lightIdx)).r;
+		closestDepth *= 1000.0;
+
+		if(currentDepth - bias > closestDepth)
+		{
+			shadow += 1.0;
+		}
+	}
+
+	shadow /= float(samples);
+	return 1.0 - shadow;
+}
+
 float shadowFactor(int lightIdx)
 {
 	vec4 fragPosLightSpace = u_SpotlightMatrices[lightIdx] * vec4(fs_in.worldPos, 1.0);
@@ -208,20 +255,19 @@ float shadowFactor(int lightIdx)
 		return 0.0;
 	}
 
+	float shadow = 0.0;
 	float bias = 0.00005;
 	vec2 texelSize = 1.0 / textureSize(u_SpotlightShadowmaps, 0).xy;
-	float depth = texture(u_SpotlightShadowmaps, vec3(projCoords.xy, lightIdx)).r;
-	float shadow = 0.0;
-	for(int x = -1; x <= 1; x++)
+	int samples = offsets.length();
+	for(int i = 0; i < samples; i++)
 	{
-		for(int y = -1; y <= 1; y++)
+		float depth = texture(u_SpotlightShadowmaps, vec3(projCoords.xy + offsets[i].xy * texelSize, lightIdx)).r;
+		if(currentDepth - bias > depth)
 		{
-			float depth = texture(u_SpotlightShadowmaps, vec3(projCoords.xy + vec2(x, y) * texelSize, lightIdx)).r;
-			shadow += (currentDepth - bias > depth) ? 1.0 : 0.0;
+			shadow += 1.0;
 		}
 	}
-
-	shadow /= 9.0;
+	shadow /= float(samples);
 	return 1.0 - shadow;
 }
 
@@ -321,8 +367,9 @@ void main()
 		vec3 kS = F;
 		vec3 kD = vec3(1.0) - kS;
 		kD *= 1.0 - metallic;
-		
-		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
+
+		float shadow = pointLightShadowFactor(i, position);
+		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * shadow;
 	}
 	
 	vec3 totalDiffuse = vec3(0.0);

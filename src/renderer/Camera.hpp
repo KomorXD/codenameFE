@@ -49,6 +49,7 @@ private:
 	glm::vec2 m_ViewportSize = glm::vec2(1280.0f, 720.0f);
 	glm::vec2 m_PrevMousePos = glm::vec2(0.0f);
 
+	friend class Renderer;
 	friend class EditorLayer;
 	friend class TrackballControls;
 	friend class FpsControls;

@@ -248,7 +248,8 @@ enum class ColorAttachmentType
 	TEX_2D,
 	TEX_2D_MULTISAMPLE,
 	TEX_2D_ARRAY,
-	TEX_CUBEMAP
+	TEX_CUBEMAP,
+	TEX_CUBEMAP_ARRAY
 };
 
 struct ColorAttachmentSpec

@@ -40,9 +40,9 @@ void main()
 {
 	for(int i = 0; i < lights.spotLightsCount; i++)
 	{
-		gl_Layer = i;
 		for(int j = 0; j < 3; j++)
 		{
+			gl_Layer = i;
 			gl_Position = u_SpotlightMatrices[i] * gl_in[j].gl_Position;
 			EmitVertex();
 		}

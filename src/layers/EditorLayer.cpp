@@ -366,7 +366,25 @@ void EditorLayer::RenderScenePanel()
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
+		ImGui::Text("Point light shadow pass");
+		ImGui::TableNextColumn();
+		ImGui::Text("%.2fms", m_Stats.PointLightShadowPassTime);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Spotlight shadow pass");
+		ImGui::TableNextColumn();
+		ImGui::Text("%.2fms", m_Stats.SpotlightShadowPassTime);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
 		ImGui::Text("Draw calls");
+		ImGui::TableNextColumn();
+		ImGui::Text("%u", m_Stats.RenderPassDrawCalls);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Absolute draw calls");
 		ImGui::TableNextColumn();
 		ImGui::Text("%u", m_Stats.DrawCalls);
 

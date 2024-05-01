@@ -9,17 +9,15 @@ layout(location = 5)  in mat4  a_Transform;
 layout(location = 9)  in float a_MaterialSlot;
 layout(location = 10) in float a_EntityID;
 
-layout (std140, binding = 0) uniform Matrices
+layout (std140, binding = 0) uniform Camera
 {
-	mat4 u_Projection;
-	mat4 u_View;
-};
-
-layout (std140, binding = 1) uniform Camera
-{
+	mat4 projection;
+	mat4 view;
 	vec4 position;
 	float exposure;
 	float gamma;
+	float near;
+	float far;
 } u_Camera;
 
 out VS_OUT
@@ -44,7 +42,7 @@ void main()
 	mat3 TBN = transpose(mat3(T, B, N));
 
 	vs_out.worldPos		   = (a_Transform * vec4(a_Pos, 1.0)).xyz;
-	vs_out.viewSpacePos	   = (u_View * vec4(vs_out.worldPos, 1.0)).xyz;
+	vs_out.viewSpacePos	   = (u_Camera.view * vec4(vs_out.worldPos, 1.0)).xyz;
 	vs_out.eyePos		   = u_Camera.position.xyz;
 	vs_out.normal		   = a_Normal;
 	vs_out.TBN			   = TBN;
@@ -54,5 +52,5 @@ void main()
 	vs_out.materialSlot	   = a_MaterialSlot;
 	vs_out.entityID		   = a_EntityID;
 
-	gl_Position = u_Projection * u_View * a_Transform * vec4(a_Pos, 1.0);
+	gl_Position = u_Camera.projection * u_Camera.view * a_Transform * vec4(a_Pos, 1.0);
 }

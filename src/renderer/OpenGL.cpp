@@ -588,6 +588,10 @@ static GLenum TexType(const ColorAttachmentType& type)
 	case ColorAttachmentType::TEX_CUBEMAP:
 		ret = GL_TEXTURE_CUBE_MAP;
 		break;
+		break;
+	case ColorAttachmentType::TEX_CUBEMAP_ARRAY:
+		ret = GL_TEXTURE_CUBE_MAP_ARRAY;
+		break;
 	default:
 		assert(true && "Unsupported texture type passed");
 		break;
@@ -777,6 +781,10 @@ void Framebuffer::AddColorAttachment(ColorAttachmentSpec spec)
 		case GL_TEXTURE_2D_ARRAY:
 			GLCall(glTexParameterfv(type, GL_TEXTURE_BORDER_COLOR, &spec.BorderColor[0]));
 			GLCall(glTexImage3D(type, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 16, 0, texFmt.Format, texFmt.Type, nullptr));
+			break;
+		case GL_TEXTURE_CUBE_MAP_ARRAY:
+			GLCall(glTexParameterfv(type, GL_TEXTURE_BORDER_COLOR, &spec.BorderColor[0]));
+			GLCall(glTexStorage3D(type, 1, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 6 * 16));
 			break;
 		case GL_TEXTURE_CUBE_MAP:
 			GLCall(glTexParameteri(type, GL_TEXTURE_WRAP_R, spec.Wrap));

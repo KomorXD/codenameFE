@@ -7,11 +7,15 @@ uniform vec2 u_SourceResolution;
 uniform bool u_FirstMip;
 uniform float u_Threshold;
 
-layout (std140, binding = 1) uniform Camera
+layout (std140, binding = 0) uniform Camera
 {
+	mat4 projection;
+	mat4 view;
 	vec4 position;
 	float exposure;
 	float gamma;
+	float near;
+	float far;
 } u_Camera;
 
 out vec4 downsample;

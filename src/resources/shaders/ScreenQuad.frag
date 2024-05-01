@@ -8,11 +8,15 @@ uniform sampler2D u_ScreenTexture;
 uniform sampler2D u_BloomTexture;
 uniform float u_BloomStrength;
 
-layout (std140, binding = 1) uniform Camera
+layout (std140, binding = 0) uniform Camera
 {
+	mat4 projection;
+	mat4 view;
 	vec4 position;
 	float exposure;
 	float gamma;
+	float near;
+	float far;
 } u_Camera;
 
 void main()
