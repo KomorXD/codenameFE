@@ -135,7 +135,7 @@ void Application::Run()
 		currTime = glfwGetTime();
 		timestep = currTime - prevTime;
 
-		m_FrameTimeInMS = timestep * 1000.0f;
+		m_Stats.FrameTime = timestep * 1000.0f;
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -144,28 +144,30 @@ void Application::Run()
 		ImGui::PushFont(font);
 
 		Event ev{};
-		m_EventsTimer.Restart();
 		while (m_EventQueue.PollEvents(ev))
 		{
 			m_Layers.top()->OnEvent(ev);
 		}
-		m_EventsTimeInMS = m_EventsTimer.GetElapsedTime();
 
-		m_UpdateTimer.Restart();
+		Clock clock;
+		clock.Start();
 		m_Layers.top()->OnUpdate((float)timestep);
-		m_UpdateTimeInMS = m_UpdateTimer.GetElapsedTime();
+		m_Stats.UpdateTime = clock.GetElapsedTime();
 
-		m_RenderTimer.Restart();
+		clock.Restart();
 		m_Layers.top()->OnRender();
+		GLCall(glFinish());
+		m_Stats.RenderTime = clock.GetElapsedTime();
 
+		clock.Restart();
 		ImGui::PopFont();
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		GLCall(glFinish());
+		m_Stats.ImGuiRenderTime = clock.GetElapsedTime();
 
 		glfwPollEvents();
 		glfwSwapBuffers(m_Window);
-		GLCall(glFinish());	// finish all OpenGL operations here to get accurate time
-		m_RenderTimeInMS = m_RenderTimer.GetElapsedTime();
 	}
 }
 

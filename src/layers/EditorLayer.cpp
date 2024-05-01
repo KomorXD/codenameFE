@@ -333,48 +333,48 @@ void EditorLayer::RenderScenePanel()
 		ImGui::TableSetupColumn("Stat", ImGuiTableColumnFlags_WidthStretch);
 		ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
-		const Application const* app = Application::Instance();
+		const AppStats& stats = Application::Instance()->Stats();
 
 		ImGui::TableNextColumn();
 		ImGui::Text("Frame time");
 		ImGui::TableNextColumn();
-		ImGui::Text("%.2fms", app->FrameTime());
+		ImGui::Text("%.3fms", stats.FrameTime);
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("FPS");
 		ImGui::TableNextColumn();
-		ImGui::Text("%u", static_cast<uint32_t>(1000.0f / app->FrameTime()));
-
-		ImGui::TableNextRow();
-		ImGui::TableNextColumn();
-		ImGui::Text("Events time");
-		ImGui::TableNextColumn();
-		ImGui::Text("%.2fms", app->EventsTime());
+		ImGui::Text("%u", static_cast<uint32_t>(1000.0f / stats.FrameTime));
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("Update time");
 		ImGui::TableNextColumn();
-		ImGui::Text("%.2fms", app->UpdateTime());
+		ImGui::Text("%.3fms", stats.UpdateTime);
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("Render time");
 		ImGui::TableNextColumn();
-		ImGui::Text("%.2fms", app->RenderTime());
+		ImGui::Text("%.3fms", stats.RenderTime);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("ImGui render time");
+		ImGui::TableNextColumn();
+		ImGui::Text("%.3fms", stats.ImGuiRenderTime);
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("Point light shadow pass");
 		ImGui::TableNextColumn();
-		ImGui::Text("%.2fms", m_Stats.PointLightShadowPassTime);
+		ImGui::Text("%.3fms", m_Stats.PointLightShadowPassTime);
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
 		ImGui::Text("Spotlight shadow pass");
 		ImGui::TableNextColumn();
-		ImGui::Text("%.2fms", m_Stats.SpotlightShadowPassTime);
+		ImGui::Text("%.3fms", m_Stats.SpotlightShadowPassTime);
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
@@ -711,6 +711,12 @@ void EditorLayer::RenderEntityData()
 					ImGui::Text("Diffuse texture");
 					ImGui::Text(texture->Name().c_str());
 					ImGui::ColorEdit4("Color", glm::value_ptr(material.Color), ImGuiColorEditFlags_NoInputs);
+					ImGui::Checkbox("Emissive", &material.Emissive);
+
+					if (material.Emissive)
+					{
+						ImGui::PrettyDragFloat("Emission", &material.Emission, 0.001f, 0.0f, FLT_MAX, "%.3f", 70.0f);
+					}
 				}
 			))
 			{

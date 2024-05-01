@@ -17,6 +17,14 @@ struct WindowSpec
 	std::string Title = "FE";
 };
 
+struct AppStats
+{
+	float FrameTime;
+	float UpdateTime;
+	float RenderTime;
+	float ImGuiRenderTime;
+};
+
 class Application
 {
 public:
@@ -31,11 +39,7 @@ public:
 
 	inline GLFWwindow* Window()		const { return m_Window; }
 	inline const WindowSpec& Spec() const { return m_Spec;	 }
-
-	inline float FrameTime()  const { return m_FrameTimeInMS;  }
-	inline float EventsTime() const { return m_EventsTimeInMS; }
-	inline float UpdateTime() const { return m_UpdateTimeInMS; }
-	inline float RenderTime() const { return m_RenderTimeInMS; }
+	inline const AppStats& Stats()  const { return m_Stats;  }
 
 	inline static Application* Instance() { return s_Instance; }
 
@@ -46,17 +50,7 @@ private:
 	WindowSpec m_Spec{};
 	GLFWwindow* m_Window = nullptr;
 	EventQueue m_EventQueue;
-
-	float m_FrameTimeInMS;
-
-	Clock m_EventsTimer;
-	float m_EventsTimeInMS;
-	
-	Clock m_UpdateTimer;
-	float m_UpdateTimeInMS;
-
-	Clock m_RenderTimer;
-	float m_RenderTimeInMS;
+	AppStats m_Stats{};
 
 	std::stack<std::unique_ptr<Layer>> m_Layers;
 	std::unique_ptr<Layer> m_NextLayer;
