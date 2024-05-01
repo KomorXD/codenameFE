@@ -131,16 +131,18 @@ static bool MaterialToBufferCmp(const Material& lhs, const MaterialsBufferData& 
 
 static MaterialsBufferData MaterialToBuffer(const Material& material)
 {
-	return {
-		.Color = material.Color,
-		.TilingFactor = material.TilingFactor,
-		.TextureOffset = material.TextureOffset,
-		.HeightFactor = material.HeightFactor,
-		.IsDepthMap = material.IsDepthMap,
-		.RoughnessFactor = material.RoughnessFactor,
-		.MetallicFactor = material.MetallicFactor,
-		.AmbientOccFactor = material.AmbientOccFactor
-	};
+	MaterialsBufferData mbd{};
+	mbd.Color = material.Color * (material.Emissive ? material.Emission : 1.0f);
+	mbd.Color.a = material.Color.a;
+	mbd.TilingFactor = material.TilingFactor;
+	mbd.TextureOffset = material.TextureOffset;
+	mbd.HeightFactor = material.HeightFactor;
+	mbd.IsDepthMap = material.IsDepthMap;
+	mbd.RoughnessFactor = material.RoughnessFactor;
+	mbd.MetallicFactor = material.MetallicFactor;
+	mbd.AmbientOccFactor = material.AmbientOccFactor;
+
+	return mbd;
 }
 
 struct RendererData

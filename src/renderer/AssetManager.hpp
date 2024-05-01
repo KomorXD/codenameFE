@@ -20,6 +20,9 @@ struct Material
 	glm::vec2 TilingFactor = glm::vec2(1.0f);
 	glm::vec2 TextureOffset = glm::vec2(0.0f);
 
+	float Emission = 1.0f;
+	bool Emissive = false;
+
 	int32_t AlbedoTextureID = 1;
 	int32_t NormalTextureID = 2;
 

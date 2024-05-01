@@ -302,7 +302,7 @@ void main()
 		discard;
 	}
 
-	vec4 diffuseColor = texture(u_Textures[mat.albedoTextureSlot], texCoords) * mat.color;
+	vec4 diffuseColor = texture(u_Textures[mat.albedoTextureSlot], texCoords);
 	if(diffuseColor.a == 0.0)
 	{
 		gDefault = vec4(0.0);
@@ -311,7 +311,8 @@ void main()
 
 	if(u_IsLightSource)
 	{
-		gDefault = diffuseColor;
+		gDefault.rgb = diffuseColor.rgb * mat.color.rgb;
+		gDefault.a = diffuseColor.a * mat.color.a;
 		return;
 	}
 	
@@ -430,6 +431,6 @@ void main()
 	vec3 diffuse = irradiance * diffuseColor.rgb;
 	vec3 ambient = (kD * diffuse + specular) * AO;
 	
-	gDefault.rgb = ambient + Lo;
-	gDefault.a = diffuseColor.a;
+	gDefault.rgb = (ambient + Lo) * mat.color.rgb;
+	gDefault.a = diffuseColor.a * mat.color.a;
 }
