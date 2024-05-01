@@ -157,8 +157,6 @@ void Application::Run()
 
 		m_RenderTimer.Restart();
 		m_Layers.top()->OnRender();
-		GLCall(glFinish());	// finish all OpenGL operations here to get accurate time
-		m_RenderTimeInMS = m_RenderTimer.GetElapsedTime();
 
 		ImGui::PopFont();
 		ImGui::Render();
@@ -166,6 +164,8 @@ void Application::Run()
 
 		glfwPollEvents();
 		glfwSwapBuffers(m_Window);
+		GLCall(glFinish());	// finish all OpenGL operations here to get accurate time
+		m_RenderTimeInMS = m_RenderTimer.GetElapsedTime();
 	}
 }
 
