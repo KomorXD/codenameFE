@@ -11,12 +11,20 @@ struct DirectionalLight
 
 struct PointLight
 {
+	mat4 lightSpaceMatrices[6];
+	vec4 renderedDirs[6];
 	vec4 positionAndLin;
 	vec4 colorAndQuad;
+	int facesRendered;
+
+	int pad1;
+	int pad2;
+	int pad3;
 };
 
 struct Spotlight
 {
+	mat4 lightSpaceMatrix;
 	vec4 positionAndCutoff;
 	vec4 directionAndOuterCutoff;
 	vec4 colorAndLin;
@@ -86,7 +94,7 @@ layout(std140, binding = 2) uniform DirectionalLights
 
 layout(std140, binding = 3) uniform PointLights
 {
-	PointLight lights[128];
+	PointLight lights[64];
 	int count;
 } u_PointLights;
 
@@ -102,10 +110,8 @@ uniform samplerCube u_PrefilterMap;
 uniform sampler2D u_BRDF_LUT;
 uniform sampler2D u_Textures[64];
 
-uniform samplerCubeArray u_PointLightShadowmaps;
-
+uniform sampler2DArray u_PointLightShadowmaps;
 uniform sampler2DArray u_SpotlightShadowmaps;
-uniform mat4 u_SpotlightMatrices[16];
 
 const float PI = 3.14159265359;
 
@@ -224,35 +230,11 @@ vec3 offsets[20] = vec3[]
    vec3( 1,  1,  0), vec3( 1, -1,  0), vec3(-1, -1,  0), vec3(-1,  1,  0),
    vec3( 1,  0,  1), vec3(-1,  0,  1), vec3( 1,  0, -1), vec3(-1,  0, -1),
    vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
-);  
+);
 
-float pointLightShadowFactor(int lightIdx, vec3 lightPos)
+float shadowFactor(sampler2DArray shadowMaps, mat4 lightSpaceMat, int layer, vec3 N, vec3 L)
 {
-	vec3 fragToLight = fs_in.worldPos - lightPos;
-	float currentDepth = dot(fragToLight, fragToLight);
-	float shadow = 0.0;
-	float bias = 0.15;
-	float viewDistance = length(fs_in.worldPos - u_Camera.position.xyz);
-	float radius = (1.0 + (viewDistance / u_Camera.far)) / 25.0;
-	int samples = offsets.length();
-	for(int i = 0; i < samples; i++)
-	{
-		float closestDepth = texture(u_PointLightShadowmaps, vec4(fragToLight + offsets[i] * radius, lightIdx)).r;
-		closestDepth *= 1000.0;
-
-		if(currentDepth - bias > closestDepth)
-		{
-			shadow += 1.0;
-		}
-	}
-
-	shadow /= float(samples);
-	return 1.0 - shadow;
-}
-
-float shadowFactor(int lightIdx)
-{
-	vec4 fragPosLightSpace = u_SpotlightMatrices[lightIdx] * vec4(fs_in.worldPos, 1.0);
+	vec4 fragPosLightSpace = lightSpaceMat * vec4(fs_in.worldPos, 1.0);
 	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 	projCoords = projCoords * 0.5 + 0.5;
 
@@ -263,16 +245,13 @@ float shadowFactor(int lightIdx)
 	}
 
 	float shadow = 0.0;
-	float bias = 0.00005;
-	vec2 texelSize = 1.0 / textureSize(u_SpotlightShadowmaps, 0).xy;
+	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
+	vec2 texelSize = 1.0 / textureSize(shadowMaps, 0).xy;
 	int samples = offsets.length();
 	for(int i = 0; i < samples; i++)
 	{
-		float depth = texture(u_SpotlightShadowmaps, vec3(projCoords.xy + offsets[i].xy * texelSize, lightIdx)).r;
-		if(currentDepth - bias > depth)
-		{
-			shadow += 1.0;
-		}
+		float depth = texture(shadowMaps, vec3(projCoords.xy + offsets[i].xy * texelSize, layer)).r;
+		shadow += float(currentDepth - bias > depth);
 	}
 	shadow /= float(samples);
 	return 1.0 - shadow;
@@ -351,6 +330,7 @@ void main()
 		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
 	}
 
+	int layer = 0;
 	for(int i = 0; i < u_PointLights.count; i++)
 	{
 		PointLight pointLight = u_PointLights.lights[i];
@@ -375,8 +355,24 @@ void main()
 		vec3 kS = F;
 		vec3 kD = vec3(1.0) - kS;
 		kD *= 1.0 - metallic;
-
-		float shadow = pointLightShadowFactor(i, position);
+		
+		vec3 worldDir = fs_in.worldPos - position;
+		float maxDot = -1.0;
+		int targetDir = 0;
+		int localLayer = layer;
+		for(int face = 0; face < pointLight.facesRendered; face++)
+		{
+			float d = dot(worldDir, pointLight.renderedDirs[face].xyz);
+			if(d > maxDot)
+			{
+				maxDot = d;
+				targetDir = face;
+				localLayer = layer + face;
+			}
+		}
+		
+		layer += pointLight.facesRendered;
+		float shadow = shadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
 		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * shadow;
 	}
 	
@@ -416,7 +412,7 @@ void main()
 			vec3 kD = vec3(1.0) - kS;
 			kD *= 1.0 - metallic;
 
-			float shadow = shadowFactor(i);
+			float shadow = shadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, layer, N, L);
 			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity * shadow;
 		}
 	}
