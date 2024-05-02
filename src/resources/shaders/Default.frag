@@ -15,7 +15,7 @@ struct PointLight
 	vec4 colorAndQuad;
 };
 
-struct SpotLight
+struct Spotlight
 {
 	vec4 positionAndCutoff;
 	vec4 directionAndOuterCutoff;
@@ -73,21 +73,28 @@ layout (std140, binding = 0) uniform Camera
 	float far;
 } u_Camera;
 
-layout(std140, binding = 2) uniform Lights
+layout(std140, binding = 1) uniform Materials
 {
-	DirectionalLight dirLights[128];
-	PointLight pointLights[128];
-	SpotLight spotLights[128];
-	
-	int dirLightsCount;
-	int pointLightsCount;
-	int spotLightsCount;
-} lights;
+	Material materials[128];
+} u_Materials;
 
-layout(std140, binding = 3) uniform Materials
+layout(std140, binding = 2) uniform DirectionalLights
 {
-	Material materialsData[128];
-} materials;
+	DirectionalLight lights[128];
+	int count;
+} u_DirLights;
+
+layout(std140, binding = 3) uniform PointLights
+{
+	PointLight lights[128];
+	int count;
+} u_PointLights;
+
+layout(std140, binding = 4) uniform Spotlights
+{
+	Spotlight lights[128];
+	int count;
+} u_Spotlights;
 
 uniform bool u_IsLightSource = false;
 uniform samplerCube u_IrradianceMap;
@@ -222,7 +229,7 @@ vec3 offsets[20] = vec3[]
 float pointLightShadowFactor(int lightIdx, vec3 lightPos)
 {
 	vec3 fragToLight = fs_in.worldPos - lightPos;
-	float currentDepth = length(fragToLight);
+	float currentDepth = dot(fragToLight, fragToLight);
 	float shadow = 0.0;
 	float bias = 0.15;
 	float viewDistance = length(fs_in.worldPos - u_Camera.position.xyz);
@@ -282,7 +289,7 @@ void main()
 	float b = float(bInt) / 255.0;
 	gPicker = vec4(r, g, b, 1.0);
 	
-	Material mat = materials.materialsData[int(fs_in.materialSlot)];
+	Material mat = u_Materials.materials[int(fs_in.materialSlot)];
 	vec3 V = normalize(fs_in.tangentViewPos - fs_in.tangentWorldPos);
 
 	vec2 texCoords = fs_in.textureUV * mat.tilingFactor + mat.texOffset;
@@ -295,9 +302,9 @@ void main()
 		texCoords = heightMapUV(texCoords, V, u_Textures[mat.heightTextureSlot], mat.heightFactor);
 	}
 
-	if(texCoords.x < -0.1 || texCoords.y < -0.1
-		|| texCoords.x > mat.tilingFactor.x + mat.texOffset.x + 0.1 
-		|| texCoords.y > mat.tilingFactor.y + mat.texOffset.y + 0.1)
+	if(texCoords.x < -0.01 || texCoords.y < -0.01
+		|| texCoords.x > mat.tilingFactor.x + mat.texOffset.x + 0.01 
+		|| texCoords.y > mat.tilingFactor.y + mat.texOffset.y + 0.01)
 	{
 		discard;
 	}
@@ -324,9 +331,9 @@ void main()
 	
 	vec3 Lo = vec3(0.0);
 	vec3 F0 = mix(vec3(0.04), diffuseColor.rgb, metallic);
-	for(int i = 0; i < lights.dirLightsCount; i++)
+	for(int i = 0; i < u_DirLights.count; i++)
 	{
-		DirectionalLight light = lights.dirLights[i];
+		DirectionalLight light = u_DirLights.lights[i];
 		vec3 radiance = light.color.rgb;
 		vec3 L = fs_in.TBN * light.direction.xyz;
 		vec3 H = normalize(V + L);
@@ -344,9 +351,9 @@ void main()
 		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
 	}
 
-	for(int i = 0; i < lights.pointLightsCount; i++)
+	for(int i = 0; i < u_PointLights.count; i++)
 	{
-		PointLight pointLight = lights.pointLights[i];
+		PointLight pointLight = u_PointLights.lights[i];
 		vec3 position	= pointLight.positionAndLin.xyz;
 		vec3 tangentPos = fs_in.TBN * position;
 		vec3 color		= pointLight.colorAndQuad.xyz;
@@ -375,17 +382,17 @@ void main()
 	
 	vec3 totalDiffuse = vec3(0.0);
 	vec3 totalSpecular = vec3(0.0);
-	for(int i = 0; i < lights.spotLightsCount; i++)
+	for(int i = 0; i < u_Spotlights.count; i++)
 	{
-		SpotLight spotLight = lights.spotLights[i];
-		vec3 position	  = spotLight.positionAndCutoff.xyz;
+		Spotlight spotlight = u_Spotlights.lights[i];
+		vec3 position	  = spotlight.positionAndCutoff.xyz;
 		vec3 tangentPos	  = fs_in.TBN * position;
-		vec3 direction	  = fs_in.TBN * spotLight.directionAndOuterCutoff.xyz;
-		vec3 color		  = spotLight.colorAndLin.xyz;
-		float cutoff	  = spotLight.positionAndCutoff.w;
-		float outerCutoff = spotLight.directionAndOuterCutoff.w;
-		float linear	  = spotLight.colorAndLin.w;
-		float quadratic	  = spotLight.quadraticTerm.x;
+		vec3 direction	  = fs_in.TBN * spotlight.directionAndOuterCutoff.xyz;
+		vec3 color		  = spotlight.colorAndLin.xyz;
+		float cutoff	  = spotlight.positionAndCutoff.w;
+		float outerCutoff = spotlight.directionAndOuterCutoff.w;
+		float linear	  = spotlight.colorAndLin.w;
+		float quadratic	  = spotlight.quadraticTerm.x;
 		
 		vec3 L = normalize(tangentPos - fs_in.tangentWorldPos);
 		float theta = dot(L, normalize(-direction));

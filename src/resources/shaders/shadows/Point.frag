@@ -8,5 +8,6 @@ in GS_OUT
 
 void main()
 {
-	gl_FragDepth = length(fs_in.fragPos - fs_in.lightPos) / 1000.0;
+	vec3 dir = fs_in.fragPos - fs_in.lightPos;
+	gl_FragDepth = dot(dir, dir) / 1000.0;
 }

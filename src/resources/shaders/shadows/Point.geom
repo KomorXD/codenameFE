@@ -3,36 +3,17 @@
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 48) out;
 
-struct DirectionalLight
-{
-	vec4 direction;
-	vec4 color;
-};
-
 struct PointLight
 {
 	vec4 positionAndLin;
 	vec4 colorAndQuad;
 };
 
-struct SpotLight
+layout(std140, binding = 3) uniform PointLights
 {
-	vec4 positionAndCutoff;
-	vec4 directionAndOuterCutoff;
-	vec4 colorAndLin;
-	vec4 quadraticTerm;
-};
-
-layout(std140, binding = 2) uniform Lights
-{
-	DirectionalLight dirLights[128];
-	PointLight pointLights[128];
-	SpotLight spotLights[128];
-	
-	int dirLightsCount;
-	int pointLightsCount;
-	int spotLightsCount;
-} lights;
+	PointLight lights[128];
+	int count;
+} u_PointLights;
 
 uniform mat4 u_PointLightMatrices[16 * 6];
 
@@ -44,9 +25,9 @@ out GS_OUT
 
 void main()
 {
-	for(int i = 0; i < lights.pointLightsCount; i++)
+	for(int i = 0; i < u_PointLights.count; i++)
 	{
-		gs_out.lightPos = lights.pointLights[i].positionAndLin.xyz;
+		gs_out.lightPos = u_PointLights.lights[i].positionAndLin.xyz;
 
 		for(int face = 0; face < 6; face++)
 		{
