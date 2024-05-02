@@ -159,11 +159,6 @@ float geoSmith(vec3 N, vec3 V, vec3 L, float roughness)
 
 vec2 heightMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightScale)
 {
-	if(heightScale <= 0.0)
-	{
-		return texCoords;
-	}
-
 	const float minLayers = 8.0;
 	const float maxLayers = 64.0;
 	float layers = mix(maxLayers, minLayers, max(dot(vec3(0.0, 0.0, 1.0), viewDir), 0.0));
@@ -175,8 +170,13 @@ vec2 heightMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightS
 
 	vec2 currentCoords = texCoords;
 	float depthMapValue = texture(depthMap, currentCoords).r;
-	while(currentDepth < depthMapValue)
+	
+	for(int i = 0; i < 16; i++)
 	{
+		if(currentDepth < depthMapValue)
+		{
+			break;
+		}
 		currentCoords -= deltaCoords;
 		depthMapValue = texture(depthMap, currentCoords).r;
 		currentDepth += layerDepth;
@@ -192,11 +192,6 @@ vec2 heightMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightS
 
 vec2 depthMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightScale)
 {
-	if(heightScale <= 0.0)
-	{
-		return texCoords;
-	}
-
 	const float minLayers = 8.0;
 	const float maxLayers = 64.0;
 	float layers = mix(maxLayers, minLayers, max(dot(vec3(0.0, 0.0, 1.0), viewDir), 0.0));
@@ -208,8 +203,14 @@ vec2 depthMapUV(vec2 texCoords, vec3 viewDir, sampler2D depthMap, float heightSc
 
 	vec2 currentCoords = texCoords;
 	float depthMapValue = 1.0 - texture(depthMap, currentCoords).r;
-	while(currentDepth < depthMapValue)
+
+	for(int i = 0; i < 16; i++)
 	{
+		if(currentDepth < depthMapValue)
+		{
+			break;
+		}
+
 		currentCoords -= deltaCoords;
 		depthMapValue = 1.0 - texture(depthMap, currentCoords).r;
 		currentDepth += layerDepth;
@@ -246,14 +247,13 @@ float shadowFactor(sampler2DArray shadowMaps, mat4 lightSpaceMat, int layer, vec
 
 	float shadow = 0.0;
 	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
-	vec2 texelSize = 1.0 / textureSize(shadowMaps, 0).xy;
-	int samples = offsets.length();
-	for(int i = 0; i < samples; i++)
+	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
+	for(int i = 0; i < 20; i++)
 	{
 		float depth = texture(shadowMaps, vec3(projCoords.xy + offsets[i].xy * texelSize, layer)).r;
 		shadow += float(currentDepth - bias > depth);
 	}
-	shadow /= float(samples);
+	shadow /= 20.0;
 	return 1.0 - shadow;
 }
 
@@ -310,8 +310,13 @@ void main()
 	
 	vec3 Lo = vec3(0.0);
 	vec3 F0 = mix(vec3(0.04), diffuseColor.rgb, metallic);
-	for(int i = 0; i < u_DirLights.count; i++)
+	for(int i = 0; i < 128; i++)
 	{
+		if(i >= u_DirLights.count)
+		{
+			break;
+		}
+
 		DirectionalLight light = u_DirLights.lights[i];
 		vec3 radiance = light.color.rgb;
 		vec3 L = fs_in.TBN * light.direction.xyz;
@@ -331,8 +336,13 @@ void main()
 	}
 
 	int layer = 0;
-	for(int i = 0; i < u_PointLights.count; i++)
+	for(int i = 0; i < 64; i++)
 	{
+		if(i >= u_PointLights.count)
+		{
+			break;
+		}
+
 		PointLight pointLight = u_PointLights.lights[i];
 		vec3 position	= pointLight.positionAndLin.xyz;
 		vec3 tangentPos = fs_in.TBN * position;
@@ -360,15 +370,17 @@ void main()
 		float maxDot = -1.0;
 		int targetDir = 0;
 		int localLayer = layer;
-		for(int face = 0; face < pointLight.facesRendered; face++)
+		for(int face = 0; face < 6; face++)
 		{
-			float d = dot(worldDir, pointLight.renderedDirs[face].xyz);
-			if(d > maxDot)
+			if(face >= pointLight.facesRendered)
 			{
-				maxDot = d;
-				targetDir = face;
-				localLayer = layer + face;
+				break;
 			}
+
+			float d = dot(worldDir, pointLight.renderedDirs[face].xyz);
+			maxDot = mix(d, maxDot, float(d < maxDot));
+			targetDir = int(mix(face, targetDir, float(d < maxDot)));
+			localLayer = int(mix(layer + face, localLayer, float(d < maxDot)));
 		}
 		
 		layer += pointLight.facesRendered;
@@ -378,8 +390,13 @@ void main()
 	
 	vec3 totalDiffuse = vec3(0.0);
 	vec3 totalSpecular = vec3(0.0);
-	for(int i = 0; i < u_Spotlights.count; i++)
+	for(int i = 0; i < 128; i++)
 	{
+		if(i >= u_Spotlights.count)
+		{
+			break;
+		}
+
 		Spotlight spotlight = u_Spotlights.lights[i];
 		vec3 position	  = spotlight.positionAndCutoff.xyz;
 		vec3 tangentPos	  = fs_in.TBN * position;
