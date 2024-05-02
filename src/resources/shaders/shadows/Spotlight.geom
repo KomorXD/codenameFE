@@ -5,6 +5,7 @@ layout(triangle_strip, max_vertices = 48) out;
 
 struct Spotlight
 {
+	mat4 lightSpaceMatrix;
 	vec4 positionAndCutoff;
 	vec4 directionAndOuterCutoff;
 	vec4 colorAndLin;
@@ -17,8 +18,6 @@ layout(std140, binding = 4) uniform Spotlights
 	int count;
 } u_Spotlights;
 
-uniform mat4 u_SpotlightMatrices[16];
-
 void main()
 {
 	for(int i = 0; i < u_Spotlights.count; i++)
@@ -26,7 +25,7 @@ void main()
 		for(int j = 0; j < 3; j++)
 		{
 			gl_Layer = i;
-			gl_Position = u_SpotlightMatrices[i] * gl_in[j].gl_Position;
+			gl_Position = u_Spotlights.lights[i].lightSpaceMatrix * gl_in[j].gl_Position;
 			EmitVertex();
 		}
 

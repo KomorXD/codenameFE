@@ -366,7 +366,7 @@ void EditorLayer::RenderScenePanel()
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
-		ImGui::Text("Point light shadow pass");
+		ImGui::Text("Point CUBE shadow pass");
 		ImGui::TableNextColumn();
 		ImGui::Text("%.3fms", m_Stats.PointLightShadowPassTime);
 

@@ -67,12 +67,18 @@ struct DirLightBufferData
 
 struct PointLightBufferData
 {
+	std::array<glm::mat4, 6> LightSpaceMatrices;
+	std::array<glm::vec4, 6> RenderedDirs;
 	glm::vec4 PosAndLinear;
 	glm::vec4 ColorAndQuadratic;
+
+	int32_t FacesRendered;
+	glm::vec3 Padding;
 };
 
 struct SpotlightBufferData
 {
+	glm::mat4 LightSpaceMatrix;
 	glm::vec4 PositionAndCutoff;
 	glm::vec4 DirectionAndOuterCutoff;
 	glm::vec4 ColorAndLinear;
@@ -354,8 +360,8 @@ void Renderer::Init()
 		mat.HeightTextureID = AssetManager::TEXTURE_BLACK;
 		AssetManager::AddMaterial(mat, AssetManager::MATERIAL_DEFAULT);
 
-		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", 40);
-		s_Data.DefaultShader->SetUniform1i("u_PointLightShadowmaps", 41);
+		s_Data.DefaultShader->SetUniform1i("u_PointLightShadowmaps", 40);
+		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", 41);
 		s_Data.CurrentShader = s_Data.DefaultShader;
 	}
 
@@ -372,7 +378,7 @@ void Renderer::Init()
 
 		{
 			ShaderSpec spec{};
-			spec.Vertex = { "resources/shaders/shadows/Spotlight.vert", {} };
+			spec.Vertex	  = { "resources/shaders/shadows/Spotlight.vert", {} };
 			spec.Fragment = { "resources/shaders/shadows/Spotlight.frag", {} };
 			spec.Geometry = { "resources/shaders/shadows/Spotlight.geom", {} };
 			s_Data.SpotlightShadowShader = std::make_shared<Shader>(spec);
@@ -391,6 +397,9 @@ void Renderer::Init()
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 
 		spec.Type = ColorAttachmentType::TEX_CUBEMAP_ARRAY;
+		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
+
+		spec.Type = ColorAttachmentType::TEX_2D_ARRAY;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 	}
 
@@ -496,7 +505,7 @@ void Renderer::Init()
 		s_Data.DirLightsBuffer->BindBufferRange(2, 0, 128 * sizeof(DirLightBufferData) + sizeof(int32_t));
 
 		s_Data.PointLightsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(PointLightBufferData) + sizeof(int32_t));
-		s_Data.PointLightsBuffer->BindBufferRange(3, 0, 128 * sizeof(PointLightBufferData) + sizeof(int32_t));
+		s_Data.PointLightsBuffer->BindBufferRange(3, 0, 64 * sizeof(PointLightBufferData) + sizeof(int32_t));
 
 		s_Data.SpotlightsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(SpotlightBufferData) + sizeof(int32_t));
 		s_Data.SpotlightsBuffer->BindBufferRange(4, 0, 128 * sizeof(SpotlightBufferData) + sizeof(int32_t));
@@ -722,7 +731,7 @@ void Renderer::EndShadowMapPass()
 	s_Data.DirLightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
 	count = s_Data.PointLightsData.size();
-	offset = 128 * sizeof(PointLightBufferData);
+	offset = 64 * sizeof(PointLightBufferData);
 	s_Data.PointLightsBuffer->SetData(s_Data.PointLightsData.data(), s_Data.PointLightsData.size() * sizeof(PointLightBufferData));
 	s_Data.PointLightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
@@ -748,28 +757,9 @@ void Renderer::EndShadowMapPass()
 	GLCall(glDrawBuffer(GL_NONE));
 	GLCall(glDrawBuffer(GL_NONE));
 	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
-	
+
 	Clock cock;
 	cock.Start();
-	if (!s_Data.SpotlightsData.empty())
-	{
-		for (auto& [meshID, meshData] : s_Data.MeshesData)
-		{
-			if (meshData.CurrentInstancesCount == 0)
-			{
-				continue;
-			}
-
-			Mesh& mesh = AssetManager::GetMesh(meshID);
-			DrawIndexedInstanced(s_Data.SpotlightShadowShader, mesh.VAO, meshData.CurrentInstancesCount);
-		}
-		GLCall(glFinish());
-	}
-	s_Data.Stats.SpotlightShadowPassTime = cock.GetElapsedTime();
-
-	s_Data.ShadowMapsFBO->DrawToDepthMap(1);
-	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
-	cock.Restart();
 	if (!s_Data.PointLightsData.empty())
 	{
 		for (auto& [meshID, meshData] : s_Data.MeshesData)
@@ -785,6 +775,25 @@ void Renderer::EndShadowMapPass()
 		GLCall(glFinish());
 	}
 	s_Data.Stats.PointLightShadowPassTime = cock.GetElapsedTime();
+
+	s_Data.ShadowMapsFBO->DrawToDepthMap(1);
+	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
+	cock.Restart();
+	if (!s_Data.SpotlightsData.empty())
+	{
+		for (auto& [meshID, meshData] : s_Data.MeshesData)
+		{
+			if (meshData.CurrentInstancesCount == 0)
+			{
+				continue;
+			}
+
+			Mesh& mesh = AssetManager::GetMesh(meshID);
+			DrawIndexedInstanced(s_Data.SpotlightShadowShader, mesh.VAO, meshData.CurrentInstancesCount);
+		}
+		GLCall(glFinish());
+	}
+	s_Data.Stats.SpotlightShadowPassTime = cock.GetElapsedTime();
 }
 
 void Renderer::ResetStats()
@@ -1190,45 +1199,45 @@ void Renderer::AddDirectionalLight(const TransformComponent& transform, const Di
 
 void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)
 {
-	s_Data.PointLightsData.push_back({ glm::vec4(position, light.LinearTerm), glm::vec4(light.Color * light.Intensity, light.QuadraticTerm) });
-
-	glm::mat4 proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 1000.0f);
-	std::array<glm::mat4, 6> lookAts = {
-		glm::lookAt(position, position + glm::vec3( 1.0,  0.0,  0.0), glm::vec3( 0.0, -1.0,  0.0)),
-		glm::lookAt(position, position + glm::vec3(-1.0,  0.0,  0.0), glm::vec3( 0.0, -1.0,  0.0)),
-		glm::lookAt(position, position + glm::vec3( 0.0,  1.0,  0.0), glm::vec3( 0.0,  0.0,  1.0)),
-		glm::lookAt(position, position + glm::vec3( 0.0, -1.0,  0.0), glm::vec3( 0.0,  0.0, -1.0)),
-		glm::lookAt(position, position + glm::vec3( 0.0,  0.0,  1.0), glm::vec3( 0.0, -1.0,  0.0)),
-		glm::lookAt(position, position + glm::vec3( 0.0,  0.0, -1.0), glm::vec3( 0.0, -1.0,  0.0))
+	glm::mat4 proj = glm::perspective(glm::radians(91.0f), 1.0f, 0.1f, 1000.0f);
+	std::array<glm::vec4, 6> dirs = {
+		glm::vec4( 1.0f,  0.0f,  0.0f,  0.0f),
+		glm::vec4(-1.0f,  0.0f,  0.0f,  0.0f),
+		glm::vec4( 0.0f,  1.0f,  0.0f,  0.0f),
+		glm::vec4( 0.0f, -1.0f,  0.0f,  0.0f),
+		glm::vec4( 0.0f,  0.0f,  1.0f,  0.0f),
+		glm::vec4( 0.0f,  0.0f, -1.0f,  0.0f)
 	};
-
-	s_Data.PointShadowShader->Bind();
-	for (size_t i = 0; i < lookAts.size(); i++)
-	{
-		s_Data.PointShadowShader->SetUniformMat4("u_PointLightMatrices[" + 
-			std::to_string((s_Data.PointLightsData.size() - 1) * 6 + i) + "]", 
-			proj * lookAts[i]);
-	}
+	std::array<glm::mat4, 6> lightSpaceMatrices = {
+		proj * glm::lookAt(position, position + glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3( 0.0f, -1.0f,  0.0f)),
+		proj * glm::lookAt(position, position + glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3( 0.0f, -1.0f,  0.0f)),
+		proj * glm::lookAt(position, position + glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3( 0.0f,  0.0f,  1.0f)),
+		proj * glm::lookAt(position, position + glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3( 0.0f,  0.0f, -1.0f)),
+		proj * glm::lookAt(position, position + glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3( 0.0f, -1.0f,  0.0f)),
+		proj * glm::lookAt(position, position + glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3( 0.0f, -1.0f,  0.0f))
+	};
+	s_Data.PointLightsData.push_back({
+		lightSpaceMatrices,
+		dirs,
+		glm::vec4(position, light.LinearTerm), 
+		glm::vec4(light.Color * light.Intensity, light.QuadraticTerm) ,
+		6
+	});
 }
 
 void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light)
 {
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
+	glm::mat4 proj = glm::perspective(glm::radians(2.0f * light.Cutoff), 1.0f, 0.1f, 100.0f);
+	glm::mat4 view = glm::lookAt(transform.Position, transform.Position + dir, glm::vec3(0.0, 1.0f, 0.0f));
+
 	s_Data.SpotlightsData.push_back({
+		proj * view,
 		glm::vec4(transform.Position, glm::cos(glm::radians(light.Cutoff))),
 		glm::vec4(dir, glm::cos(glm::radians(light.Cutoff - light.EdgeSmoothness))),
 		glm::vec4(light.Color * light.Intensity, light.LinearTerm),
 		light.QuadraticTerm
 	});
-
-	glm::mat4 proj = glm::perspective(glm::radians(2.0f * light.Cutoff), 1.0f, 0.1f, 100.0f);
-	glm::mat4 view = glm::lookAt(transform.Position, transform.Position + dir, glm::vec3(0.0, 1.0f, 0.0f));
-
-	s_Data.SpotlightShadowShader->Bind();
-	s_Data.SpotlightShadowShader->SetUniformMat4("u_SpotlightMatrices[" + std::to_string(s_Data.SpotlightsData.size() - 1) + "]", proj * view);
-
-	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniformMat4("u_SpotlightMatrices[" + std::to_string(s_Data.SpotlightsData.size() - 1) + "]", proj * view);
 }
 
 void Renderer::SetBlur(bool enabled)

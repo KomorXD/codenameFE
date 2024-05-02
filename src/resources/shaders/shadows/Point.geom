@@ -5,40 +5,38 @@ layout(triangle_strip, max_vertices = 48) out;
 
 struct PointLight
 {
+	mat4 lightSpaceMatrices[6];
+	vec4 renderedDirs[6];
 	vec4 positionAndLin;
 	vec4 colorAndQuad;
+	int facesRendered;
+
+	int pad1;
+	int pad2;
+	int pad3;
 };
 
 layout(std140, binding = 3) uniform PointLights
 {
-	PointLight lights[128];
+	PointLight lights[64];
 	int count;
 } u_PointLights;
 
-uniform mat4 u_PointLightMatrices[16 * 6];
-
-out GS_OUT
-{
-	vec3 fragPos;
-	vec3 lightPos;
-} gs_out;
-
 void main()
 {
+	int layer = 0;
 	for(int i = 0; i < u_PointLights.count; i++)
 	{
-		gs_out.lightPos = u_PointLights.lights[i].positionAndLin.xyz;
-
-		for(int face = 0; face < 6; face++)
+		for(int face = 0; face < u_PointLights.lights[i].facesRendered; face++)
 		{
-			for(int vert = 0; vert < 3; vert++)
+			for(int j = 0; j < 3; j++)
 			{
-				gs_out.fragPos = gl_in[vert].gl_Position.xyz;
-				gl_Layer = i * 6 + face;
-				gl_Position = u_PointLightMatrices[i * 6 + face] * gl_in[vert].gl_Position;
+				gl_Layer = layer;
+				gl_Position = u_PointLights.lights[i].lightSpaceMatrices[face] * gl_in[j].gl_Position;
 				EmitVertex();
 			}
-			
+
+			layer++;
 			EndPrimitive();
 		}
 	}
