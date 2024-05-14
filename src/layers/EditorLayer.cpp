@@ -366,7 +366,19 @@ void EditorLayer::RenderScenePanel()
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
-		ImGui::Text("Point CUBE shadow pass");
+		ImGui::Text("Point faces passed");
+		ImGui::TableNextColumn();
+		ImGui::Text("%u", m_Stats.PointLightFacesShadowPassed);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Spotlights passed");
+		ImGui::TableNextColumn();
+		ImGui::Text("%u", m_Stats.SpotlightFacesShadowPassed);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Point shadow pass");
 		ImGui::TableNextColumn();
 		ImGui::Text("%.3fms", m_Stats.PointLightShadowPassTime);
 

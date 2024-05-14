@@ -429,7 +429,7 @@ void main()
 			vec3 kD = vec3(1.0) - kS;
 			kD *= 1.0 - metallic;
 
-			float shadow = shadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, layer, N, L);
+			float shadow = shadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, i, N, L);
 			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity * shadow;
 		}
 	}

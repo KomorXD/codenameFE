@@ -8,6 +8,7 @@
 #include "Camera.hpp"
 #include "PrimitivesGen.hpp"
 #include "AssetManager.hpp"
+#include "../RandomUtils.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -361,7 +362,7 @@ void Renderer::Init()
 		AssetManager::AddMaterial(mat, AssetManager::MATERIAL_DEFAULT);
 
 		s_Data.DefaultShader->SetUniform1i("u_PointLightShadowmaps", 40);
-		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", 41);
+		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", 42);
 		s_Data.CurrentShader = s_Data.DefaultShader;
 	}
 
@@ -395,11 +396,6 @@ void Renderer::Init()
 		spec.Size = { 1024, 1024 };
 		spec.GenMipmaps = false;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
-
-		spec.Type = ColorAttachmentType::TEX_CUBEMAP_ARRAY;
-		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
-
-		spec.Type = ColorAttachmentType::TEX_2D_ARRAY;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 	}
 
@@ -670,7 +666,7 @@ void Renderer::Flush()
 {
 	s_Data.MaterialsBuffer->SetData(s_Data.MaterialsData.data(), s_Data.MaterialsData.size() * sizeof(MaterialsBufferData));
 	s_Data.ShadowMapsFBO->BindColorAttachment(0, 40);
-	s_Data.ShadowMapsFBO->BindColorAttachment(1, 41);
+	s_Data.ShadowMapsFBO->BindColorAttachment(1, 42);
 
 	uint32_t count = s_Data.DirLightsData.size();
 	uint32_t offset = 128 * sizeof(DirLightBufferData);
@@ -794,6 +790,8 @@ void Renderer::EndShadowMapPass()
 		GLCall(glFinish());
 	}
 	s_Data.Stats.SpotlightShadowPassTime = cock.GetElapsedTime();
+	s_Data.Stats.PointLightFacesShadowPassed = 0;
+	s_Data.Stats.SpotlightFacesShadowPassed = 0;
 }
 
 void Renderer::ResetStats()
@@ -1223,6 +1221,8 @@ void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponen
 		glm::vec4(light.Color * light.Intensity, light.QuadraticTerm) ,
 		6
 	});
+
+	s_Data.Stats.PointLightFacesShadowPassed += 6;
 }
 
 void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light)
@@ -1238,6 +1238,7 @@ void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLight
 		glm::vec4(light.Color * light.Intensity, light.LinearTerm),
 		light.QuadraticTerm
 	});
+	s_Data.Stats.SpotlightFacesShadowPassed++;
 }
 
 void Renderer::SetBlur(bool enabled)
