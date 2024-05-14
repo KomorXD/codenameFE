@@ -1,5 +1,6 @@
 #include "TriggerClock.hpp"
 
+std::vector<TriggerClock::SingleShotData> TriggerClock::m_SingleShots;
 std::vector<TriggerClock*> TriggerClock::m_Clocks;
 std::chrono::system_clock::time_point TriggerClock::m_PreviousTimepoint = std::chrono::system_clock::now();
 
@@ -56,12 +57,30 @@ void TriggerClock::Update(float ts)
 	}
 }
 
+void TriggerClock::SingleShot(uint32_t interval, std::function<void(void)> f)
+{
+	m_SingleShots.push_back({ interval, f });
+}
+
 void TriggerClock::UpdateClocks()
 {
 	auto currentTP = std::chrono::system_clock::now();
 	float ts = std::chrono::duration<float>(currentTP - m_PreviousTimepoint).count() * 1000.0f;
 
 	m_PreviousTimepoint = currentTP;
+
+	for (auto it = m_SingleShots.begin(); it != m_SingleShots.end();)
+	{
+		if (it->TimeLeft <= 0)
+		{
+			it->Func();
+			it = m_SingleShots.erase(it);
+			continue;
+		}
+
+		it->TimeLeft -= ts;
+		++it;
+	}
 
 	for (auto& clock : m_Clocks)
 	{

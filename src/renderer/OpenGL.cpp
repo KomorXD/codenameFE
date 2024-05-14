@@ -273,6 +273,47 @@ void Shader::Unbind() const
 	GLCall(glUseProgram(0));
 }
 
+void Shader::Reload()
+{
+	m_UniformLocations.clear();
+
+	if (m_ID != 0)
+	{
+		Unbind();
+		GLCall(glDeleteProgram(m_ID));
+	}
+
+	std::optional<std::string> vertex = ParseShaderSource(m_Spec.Vertex.Path);
+	if (!vertex.has_value())
+	{
+		LOG_ERROR("Failed to open vertex shader file: {}", m_Spec.Vertex.Path);
+
+		return;
+	}
+
+	std::optional<std::string> fragment = ParseShaderSource(m_Spec.Fragment.Path);
+	if (!fragment.has_value())
+	{
+		LOG_ERROR("Failed to open fragment shader file: {}", m_Spec.Fragment.Path);
+
+		return;
+	}
+
+	std::optional<std::string> geometry{};
+	if (m_Spec.Geometry.has_value())
+	{
+		geometry = ParseShaderSource(m_Spec.Geometry.value().Path);
+		if (!geometry.has_value())
+		{
+			LOG_ERROR("Failed to open geometry shader file: {}", m_Spec.Geometry.value().Path);
+
+			return;
+		}
+	}
+
+	m_ID = CreateShader(vertex.value(), fragment.value(), geometry);
+}
+
 void Shader::SetUniform1i(const std::string& name, int32_t val)
 {
 	GLCall(glUniform1i(UniformLocation(name), val));

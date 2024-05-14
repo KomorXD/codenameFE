@@ -21,6 +21,7 @@ public:
 	void SetInterval(uint32_t interval);
 	void SetAction(std::function<void(void)> f);
 
+	static void SingleShot(uint32_t interval, std::function<void(void)> f = []() {});
 	static void UpdateClocks();
 
 private:
@@ -31,6 +32,12 @@ private:
 
 	void Update(float ts);
 
+	struct SingleShotData
+	{
+		uint32_t TimeLeft;
+		std::function<void(void)> Func;
+	};
+	static std::vector<SingleShotData> m_SingleShots;
 	static std::vector<TriggerClock*> m_Clocks;
 	static std::chrono::system_clock::time_point m_PreviousTimepoint;
 };

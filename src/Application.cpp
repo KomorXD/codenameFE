@@ -10,6 +10,7 @@
 #include "Application.hpp"
 #include "Logger.hpp"
 #include "Timer.hpp"
+#include "TriggerClock.hpp"
 #include "layers/EditorLayer.hpp"
 #include "renderer/Renderer.hpp"
 
@@ -114,6 +115,7 @@ void Application::Run()
 
 	while (!glfwWindowShouldClose(m_Window))
 	{
+		TriggerClock::UpdateClocks();
 		if (m_DoPopLayer)
 		{
 			m_DoPopLayer = false;

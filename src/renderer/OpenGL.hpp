@@ -183,6 +183,8 @@ public:
 	void Bind() const;
 	void Unbind() const;
 
+	void Reload();
+
 	void SetUniform1i(const std::string& name, int32_t val);
 	void SetUniform1f(const std::string& name, float val);
 	void SetUniform2f(const std::string& name, const glm::vec2& vec);
