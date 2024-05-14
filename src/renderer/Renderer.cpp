@@ -677,6 +677,19 @@ void Renderer::SceneEnd()
 
 void Renderer::Flush()
 {
+	std::array<float, 5> cascades = {
+		s_ActiveCamera->m_FarClip / 100.0f,
+		s_ActiveCamera->m_FarClip / 50.0f,
+		s_ActiveCamera->m_FarClip / 20.0f,
+		s_ActiveCamera->m_FarClip / 4.0f,
+		s_ActiveCamera->m_FarClip
+	};
+	s_Data.DefaultShader->Bind();
+	for (size_t i = 0; i < cascades.size(); i++)
+	{
+		s_Data.DefaultShader->SetUniform1f("u_CascadeDistances[" + std::to_string(i) + "]", cascades[i]);
+	}
+
 	s_Data.MaterialsBuffer->SetData(s_Data.MaterialsData.data(), s_Data.MaterialsData.size() * sizeof(MaterialsBufferData));
 	s_Data.ShadowMapsFBO->BindColorAttachment(0, 40);
 	s_Data.ShadowMapsFBO->BindColorAttachment(1, 41);
@@ -1286,7 +1299,7 @@ void Renderer::AddDirectionalLight(const TransformComponent& transform, const Di
 		glm::vec4(dir, 1.0f),
 		glm::vec4(light.Color * light.Intensity, 1.0f) 
 	});
-	s_Data.Stats.DirLightCascadesPassed += 3;
+	s_Data.Stats.DirLightCascadesPassed += 5;
 }
 
 void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)

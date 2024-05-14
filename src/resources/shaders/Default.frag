@@ -111,6 +111,7 @@ uniform samplerCube u_PrefilterMap;
 uniform sampler2D u_BRDF_LUT;
 uniform sampler2D u_Textures[64];
 
+uniform float u_CascadeDistances[5];
 uniform sampler2DArray u_DirLightCSM;
 uniform sampler2DArray u_PointLightShadowmaps;
 uniform sampler2DArray u_SpotlightShadowmaps;
@@ -235,6 +236,43 @@ vec3 offsets[20] = vec3[]
    vec3( 0,  1,  1), vec3( 0, -1,  1), vec3( 0, -1, -1), vec3( 0,  1, -1)
 );
 
+float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
+{
+	vec4 fragPosViewSpace = u_Camera.view * vec4(fs_in.worldPos, 1.0);
+	float depth = abs(fragPosViewSpace.z);
+	int layer = 4;
+	for(int i = 0; i < 5; i++)
+	{
+		if(depth < u_CascadeDistances[i])
+		{
+			layer = i;
+			break;
+		}
+	}
+
+	vec4 fragPosLightSpace = u_DirLights.lights[dirLightIdx].cascadeLightMatrices[layer] * vec4(fs_in.worldPos, 1.0);
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	projCoords = projCoords * 0.5 + 0.5;
+
+	float currentDepth = projCoords.z;
+	if(currentDepth > 1.0)
+	{
+		return 0.0;
+	}
+
+	float shadow = 0.0;
+	float bias = max(0.05 * (1.0 - dot(N, L)), 0.005);
+	bias *= 1.0 / (u_CascadeDistances[layer] * 0.5);
+	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
+	for(int i = 0; i < 20; i++)
+	{
+		float depth = texture(u_DirLightCSM, vec3(projCoords.xy + offsets[i].xy * texelSize, dirLightIdx + layer)).r;
+		shadow += float(currentDepth - bias > depth);
+	}
+	shadow /= 20.0;
+	return 1.0 - shadow;
+}
+
 float shadowFactor(sampler2DArray shadowMaps, mat4 lightSpaceMat, int layer, vec3 N, vec3 L)
 {
 	vec4 fragPosLightSpace = lightSpaceMat * vec4(fs_in.worldPos, 1.0);
@@ -334,7 +372,8 @@ void main()
 		vec3 kD = vec3(1.0) - kS;
 		kD *= 1.0 - metallic;
 		
-		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
+		float shadow = cascadedShadowFactor(i, N, L);
+		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * shadow;
 	}
 
 	int layer = 0;
