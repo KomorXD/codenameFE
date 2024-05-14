@@ -5,7 +5,7 @@ layout(location = 1) out vec4 gPicker;
 
 struct DirectionalLight
 {
-	mat4 cascadeLightMatrices[3];
+	mat4 cascadeLightMatrices[5];
 	vec4 direction;
 	vec4 color;
 };
@@ -111,6 +111,7 @@ uniform samplerCube u_PrefilterMap;
 uniform sampler2D u_BRDF_LUT;
 uniform sampler2D u_Textures[64];
 
+uniform sampler2DArray u_DirLightCSM;
 uniform sampler2DArray u_PointLightShadowmaps;
 uniform sampler2DArray u_SpotlightShadowmaps;
 

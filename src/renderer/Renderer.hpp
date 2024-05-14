@@ -23,8 +23,10 @@ struct RendererStats
 	uint32_t RenderPassDrawCalls = 0;
 	uint32_t DrawCalls = 0;
 	uint32_t ObjectsRendered = 0;
+	uint32_t DirLightCascadesPassed = 0;
 	uint32_t PointLightFacesShadowPassed = 0;
 	uint32_t SpotlightFacesShadowPassed = 0;
+	float DirLightShadowPassTime = 0.0f;
 	float PointLightShadowPassTime = 0.0f;
 	float SpotlightShadowPassTime = 0.0f;
 };

@@ -372,9 +372,21 @@ void EditorLayer::RenderScenePanel()
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
+		ImGui::Text("Dir cascades passed");
+		ImGui::TableNextColumn();
+		ImGui::Text("%u", m_Stats.DirLightCascadesPassed);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
 		ImGui::Text("Spotlights passed");
 		ImGui::TableNextColumn();
 		ImGui::Text("%u", m_Stats.SpotlightFacesShadowPassed);
+
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::Text("Dir shadow pass");
+		ImGui::TableNextColumn();
+		ImGui::Text("%.3fms", m_Stats.DirLightShadowPassTime);
 
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
