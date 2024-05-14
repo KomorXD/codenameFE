@@ -5,6 +5,7 @@ layout(location = 1) out vec4 gPicker;
 
 struct DirectionalLight
 {
+	mat4 cascadeLightMatrices[3];
 	vec4 direction;
 	vec4 color;
 };

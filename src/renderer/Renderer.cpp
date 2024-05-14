@@ -1,6 +1,3 @@
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/quaternion.hpp>
-
 #include "Renderer.hpp"
 #include "../Logger.hpp"
 #include "../Timer.hpp"
@@ -12,6 +9,9 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
 
 static void OpenGLMessageCallback(
 	unsigned source,
@@ -62,6 +62,7 @@ struct MeshBufferData
 
 struct DirLightBufferData
 {
+	std::array<glm::mat4, 3> CascadeLightMatrices;
 	glm::vec4 Direction;
 	glm::vec4 Color;
 };
@@ -1191,8 +1192,63 @@ void Renderer::DrawSkybox(std::shared_ptr<Framebuffer> cfb)
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
 {
+	constexpr size_t CASCADE_LEVELS = 3;
+	std::array<glm::mat4, CASCADE_LEVELS> cascadedMatrices{};
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
-	s_Data.DirLightsData.push_back({ glm::vec4(dir, 1.0f), glm::vec4(light.Color * light.Intensity, 1.0f) });
+	float frustumStep = (s_ActiveCamera->m_FarClip - s_ActiveCamera->m_NearClip) / 3.0f;
+	std::array<float, CASCADE_LEVELS> nearPlanes = {
+		s_ActiveCamera->m_NearClip,
+		s_ActiveCamera->m_NearClip + frustumStep,
+		s_ActiveCamera->m_NearClip + 2.0f * frustumStep
+	};
+	std::array<float, CASCADE_LEVELS> farPlanes = {
+		nearPlanes[1],
+		nearPlanes[2],
+		s_ActiveCamera->m_FarClip
+	};
+
+	for (size_t i = 0; i < nearPlanes.size(); i++)
+	{
+		glm::mat4 proj = glm::perspective(glm::radians(s_ActiveCamera->m_FOV), 1.0f, nearPlanes[i], farPlanes[i]);
+		std::vector<glm::vec4> viewCorners = FrustumCornersWorldSpace(proj * s_ActiveCamera->GetViewMatrix());
+		glm::vec3 center(0.0f);
+		for (const glm::vec4& corner : viewCorners)
+		{
+			center += glm::vec3(corner);
+		}
+		center /= viewCorners.size();
+
+		glm::mat4 lightView = glm::lookAt(center + dir, center, glm::vec3(0.0f, 1.0f, 0.0f));
+		float minX = FLT_MAX;
+		float maxX = -FLT_MAX;
+		float minY = FLT_MAX;
+		float maxY = -FLT_MAX;
+		float minZ = FLT_MAX;
+		float maxZ = -FLT_MAX;
+		for (const glm::vec4& corner : viewCorners)
+		{
+			glm::vec4 trf = lightView * corner;
+			minX = glm::min(minX, trf.x);
+			maxX = glm::max(maxX, trf.x);
+			minY = glm::min(minY, trf.y);
+			maxY = glm::max(maxY, trf.y);
+			minZ = glm::min(minZ, trf.z);
+			maxZ = glm::max(maxZ, trf.z);
+		}
+
+		constexpr float Z_MULT = 10.0f;
+		minZ = (minZ < 0.0f ? minZ * Z_MULT : minZ / Z_MULT);
+		maxZ = (maxZ < 0.0f ? maxZ / Z_MULT : maxZ * Z_MULT);
+
+		glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+		cascadedMatrices[i] = lightProj * lightView;
+	}
+
+	s_Data.DirLightsData.push_back({
+		cascadedMatrices,
+		glm::vec4(dir, 1.0f),
+		glm::vec4(light.Color * light.Intensity, 1.0f) 
+	});
 }
 
 void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)

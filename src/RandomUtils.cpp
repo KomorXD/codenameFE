@@ -13,6 +13,30 @@
 
 #include <filesystem>
 
+std::vector<glm::vec4> FrustumCornersWorldSpace(const glm::mat4& projView)
+{
+	const glm::mat4 inv = glm::inverse(projView);
+	std::vector<glm::vec4> corners;
+	for (uint32_t x = 0; x < 2; x++)
+	{
+		for (uint32_t y = 0; y < 2; y++)
+		{
+			for (uint32_t z = 0; z < 2; z++)
+			{
+				const glm::vec4 pt = inv * glm::vec4(
+					2.0f * x - 1.0f,
+					2.0f * y - 1.0f,
+					2.0f * z - 1.0f,
+					1.0f
+				);
+				corners.push_back(pt / pt.w);
+			}
+		}
+	}
+
+	return corners;
+}
+
 bool TransformDecompose(const glm::mat4& transform, glm::vec3& translation, glm::vec3& rotation, glm::vec3& scale)
 {
 	// From glm::decompose in matrix_decompose.inl
