@@ -404,9 +404,11 @@ void Renderer::Init()
 		spec.Wrap = GL_CLAMP_TO_BORDER;
 		spec.MinFilter = spec.MagFilter = GL_NEAREST;
 		spec.BorderColor = glm::vec4(1.0f);
-		spec.Size = { 1024, 1024 };
+		spec.Size = { 4096, 4096 };
 		spec.GenMipmaps = false;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
+
+		spec.Size = { 2048, 2048 };
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 	}
@@ -678,11 +680,11 @@ void Renderer::SceneEnd()
 void Renderer::Flush()
 {
 	std::array<float, 5> cascades = {
+		s_ActiveCamera->m_FarClip / 120.0f,
 		s_ActiveCamera->m_FarClip / 100.0f,
-		s_ActiveCamera->m_FarClip / 50.0f,
+		s_ActiveCamera->m_FarClip / 70.0f,
 		s_ActiveCamera->m_FarClip / 20.0f,
-		s_ActiveCamera->m_FarClip / 4.0f,
-		s_ActiveCamera->m_FarClip
+		s_ActiveCamera->m_FarClip / 5.0f
 	};
 	s_Data.DefaultShader->Bind();
 	for (size_t i = 0; i < cascades.size(); i++)
@@ -780,6 +782,7 @@ void Renderer::EndShadowMapPass()
 	GLCall(glDrawBuffer(GL_NONE));
 	GLCall(glDrawBuffer(GL_NONE));
 	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
+	// GLCall(glCullFace(GL_FRONT));
 
 	Clock cock;
 	cock.Restart();
@@ -800,6 +803,7 @@ void Renderer::EndShadowMapPass()
 	s_Data.Stats.DirLightShadowPassTime = cock.GetElapsedTime();
 
 	s_Data.ShadowMapsFBO->DrawToDepthMap(1);
+	// GLCall(glCullFace(GL_BACK));
 	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
 	cock.Restart();
 	if (!s_Data.PointLightsData.empty())
@@ -1244,17 +1248,17 @@ void Renderer::AddDirectionalLight(const TransformComponent& transform, const Di
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
 	std::array<float, CASCADE_LEVELS> nearPlanes = {
 		s_ActiveCamera->m_NearClip,
+		s_ActiveCamera->m_FarClip / 120.0f,
 		s_ActiveCamera->m_FarClip / 100.0f,
-		s_ActiveCamera->m_FarClip / 50.0f,
-		s_ActiveCamera->m_FarClip / 20.0f,
-		s_ActiveCamera->m_FarClip / 4.0f
+		s_ActiveCamera->m_FarClip / 70.0f,
+		s_ActiveCamera->m_FarClip / 20.0f
 	};
 	std::array<float, CASCADE_LEVELS> farPlanes = {
 		nearPlanes[1],
 		nearPlanes[2],
 		nearPlanes[3],
 		nearPlanes[4],
-		s_ActiveCamera->m_FarClip
+		s_ActiveCamera->m_FarClip / 5.0f
 	};
 
 	for (size_t i = 0; i < nearPlanes.size(); i++)
@@ -1299,7 +1303,7 @@ void Renderer::AddDirectionalLight(const TransformComponent& transform, const Di
 		glm::vec4(dir, 1.0f),
 		glm::vec4(light.Color * light.Intensity, 1.0f) 
 	});
-	s_Data.Stats.DirLightCascadesPassed += 5;
+	s_Data.Stats.DirLightCascadesPassed += CASCADE_LEVELS;
 }
 
 void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)

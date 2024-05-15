@@ -240,7 +240,7 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
 {
 	vec4 fragPosViewSpace = u_Camera.view * vec4(fs_in.worldPos, 1.0);
 	float depth = abs(fragPosViewSpace.z);
-	int layer = 4;
+	int layer = -1;
 	for(int i = 0; i < 5; i++)
 	{
 		if(depth < u_CascadeDistances[i])
@@ -248,6 +248,11 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
 			layer = i;
 			break;
 		}
+	}
+
+	if(layer == -1)
+	{
+		return 1.0;
 	}
 
 	vec4 fragPosLightSpace = u_DirLights.lights[dirLightIdx].cascadeLightMatrices[layer] * vec4(fs_in.worldPos, 1.0);
@@ -261,8 +266,7 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
 	}
 
 	float shadow = 0.0;
-	float bias = max(0.05 * (1.0 - dot(N, L)), 0.005);
-	bias *= 1.0 / (u_CascadeDistances[layer] * 0.5);
+	float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
 	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
 	for(int i = 0; i < 20; i++)
 	{
