@@ -823,7 +823,7 @@ void Framebuffer::AddColorAttachment(ColorAttachmentSpec spec)
 		case GL_TEXTURE_2D_ARRAY:
 			if (spec.Type == ColorAttachmentType::TEX_2D_ARRAY_SHADOW)
 			{
-				GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE));
+				GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE));
 			}
 
 			GLCall(glTexParameterfv(type, GL_TEXTURE_BORDER_COLOR, &spec.BorderColor[0]));

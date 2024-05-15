@@ -266,11 +266,24 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
 	{
 		return 0.0;
 	}
+	
+	// Solid shadows, faster but uglier
+//	vec4 lookupCoord;
+//	lookupCoord.xyw = projCoords.xyz;
+//	lookupCoord.z = dirLightIdx + layer;
+//	return texture(u_DirLightCSM, lookupCoord);
 
-	vec4 lookupCoord;
-	lookupCoord.xyw = projCoords.xyz;
-	lookupCoord.z = dirLightIdx + layer;
-	return texture(u_DirLightCSM, lookupCoord);
+	// Soft shadows, look better but more performance heavy
+	const vec2 texelSize = 1.0 / textureSize(u_DirLightCSM, 0).xy;
+	float shadow = 0.0;
+	for(int i = 0; i < 20; i++)
+	{
+		vec2 texCoords = projCoords.xy + offsets[i].xy * texelSize;
+		float texelDepth = texture(u_DirLightCSM, vec4(texCoords, dirLightIdx + layer, projCoords.z));
+		shadow += texelDepth;
+	}
+	shadow /= 20.0;
+	return shadow;
 
 //	float shadow = 0.0;
 //	float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
@@ -298,10 +311,23 @@ float shadowFactor(sampler2DArrayShadow shadowMaps, mat4 lightSpaceMat, int laye
 		return 0.0;
 	}
 
-	vec4 lookupCoord;
-	lookupCoord.xyw = projCoords.xyz;
-	lookupCoord.z = layer;
-	return texture(shadowMaps, lookupCoord);
+	// Solid shadows, faster but uglier
+//	vec4 lookupCoord;
+//	lookupCoord.xyw = projCoords.xyz;
+//	lookupCoord.z = dirLightIdx + layer;
+//	return texture(u_DirLightCSM, lookupCoord);
+
+	// Soft shadows, look better but more performance heavy
+	const vec2 texelSize = 1.0 / textureSize(shadowMaps, 0).xy;
+	float shadow = 0.0;
+	for(int i = 0; i < 20; i++)
+	{
+		vec2 texCoords = projCoords.xy + offsets[i].xy * texelSize;
+		float texelDepth = texture(shadowMaps, vec4(texCoords, layer, projCoords.z));
+		shadow += texelDepth;
+	}
+	shadow /= 20.0;
+	return shadow;
 
 //	float shadow = 0.0;
 //	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
