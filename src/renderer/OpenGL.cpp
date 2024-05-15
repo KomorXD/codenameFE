@@ -624,6 +624,7 @@ static GLenum TexType(const ColorAttachmentType& type)
 		ret = GL_TEXTURE_2D_MULTISAMPLE;
 		break;
 	case ColorAttachmentType::TEX_2D_ARRAY:
+	case ColorAttachmentType::TEX_2D_ARRAY_SHADOW:
 		ret = GL_TEXTURE_2D_ARRAY;
 		break;
 	case ColorAttachmentType::TEX_CUBEMAP:
@@ -820,6 +821,11 @@ void Framebuffer::AddColorAttachment(ColorAttachmentSpec spec)
 			GLCall(glTexImage2D(type, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 0, texFmt.Format, texFmt.Type, nullptr));
 			break;
 		case GL_TEXTURE_2D_ARRAY:
+			if (spec.Type == ColorAttachmentType::TEX_2D_ARRAY_SHADOW)
+			{
+				GLCall(glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_R_TO_TEXTURE));
+			}
+
 			GLCall(glTexParameterfv(type, GL_TEXTURE_BORDER_COLOR, &spec.BorderColor[0]));
 			GLCall(glTexImage3D(type, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 16, 0, texFmt.Format, texFmt.Type, nullptr));
 			break;

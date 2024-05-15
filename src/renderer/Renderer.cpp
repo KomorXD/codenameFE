@@ -399,15 +399,15 @@ void Renderer::Init()
 		s_Data.ShadowMapsFBO = std::make_shared<Framebuffer>(1);
 
 		ColorAttachmentSpec spec{};
-		spec.Type = ColorAttachmentType::TEX_2D_ARRAY;
+		spec.Type = ColorAttachmentType::TEX_2D_ARRAY_SHADOW;
 		spec.Format = TextureFormat::DEPTH_32F;
 		spec.Wrap = GL_CLAMP_TO_BORDER;
-		spec.MinFilter = spec.MagFilter = GL_NEAREST;
+		spec.MinFilter = spec.MagFilter = GL_LINEAR;
 		spec.BorderColor = glm::vec4(1.0f);
 		spec.Size = { 4096, 4096 };
 		spec.GenMipmaps = false;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
-
+		
 		spec.Size = { 2048, 2048 };
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);

@@ -112,9 +112,9 @@ uniform sampler2D u_BRDF_LUT;
 uniform sampler2D u_Textures[64];
 
 uniform float u_CascadeDistances[5];
-uniform sampler2DArray u_DirLightCSM;
-uniform sampler2DArray u_PointLightShadowmaps;
-uniform sampler2DArray u_SpotlightShadowmaps;
+uniform sampler2DArrayShadow u_DirLightCSM;
+uniform sampler2DArrayShadow u_PointLightShadowmaps;
+uniform sampler2DArrayShadow u_SpotlightShadowmaps;
 
 const float PI = 3.14159265359;
 
@@ -256,8 +256,10 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
 	}
 
 	vec4 fragPosLightSpace = u_DirLights.lights[dirLightIdx].cascadeLightMatrices[layer] * vec4(fs_in.worldPos, 1.0);
+	float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
 	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 	projCoords = projCoords * 0.5 + 0.5;
+	projCoords.z -= bias;
 
 	float currentDepth = projCoords.z;
 	if(currentDepth > 1.0)
@@ -265,23 +267,30 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
 		return 0.0;
 	}
 
-	float shadow = 0.0;
-	float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
-	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
-	for(int i = 0; i < 20; i++)
-	{
-		float depth = texture(u_DirLightCSM, vec3(projCoords.xy + offsets[i].xy * texelSize, dirLightIdx + layer)).r;
-		shadow += float(currentDepth - bias > depth);
-	}
-	shadow /= 20.0;
-	return 1.0 - shadow;
+	vec4 lookupCoord;
+	lookupCoord.xyw = projCoords.xyz;
+	lookupCoord.z = dirLightIdx + layer;
+	return texture(u_DirLightCSM, lookupCoord);
+
+//	float shadow = 0.0;
+//	float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
+//	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
+//	for(int i = 0; i < 20; i++)
+//	{
+//		float depth = texture(u_DirLightCSM, vec3(projCoords.xy + offsets[i].xy * texelSize, dirLightIdx + layer)).r;
+//		shadow += float(currentDepth - bias > depth);
+//	}
+//	shadow /= 20.0;
+//	return 1.0 - shadow;
 }
 
-float shadowFactor(sampler2DArray shadowMaps, mat4 lightSpaceMat, int layer, vec3 N, vec3 L)
+float shadowFactor(sampler2DArrayShadow shadowMaps, mat4 lightSpaceMat, int layer, vec3 N, vec3 L)
 {
 	vec4 fragPosLightSpace = lightSpaceMat * vec4(fs_in.worldPos, 1.0);
+	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
 	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 	projCoords = projCoords * 0.5 + 0.5;
+	projCoords.z -= bias;
 
 	float currentDepth = projCoords.z;
 	if(currentDepth > 1.0)
@@ -289,16 +298,21 @@ float shadowFactor(sampler2DArray shadowMaps, mat4 lightSpaceMat, int layer, vec
 		return 0.0;
 	}
 
-	float shadow = 0.0;
-	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
-	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
-	for(int i = 0; i < 20; i++)
-	{
-		float depth = texture(shadowMaps, vec3(projCoords.xy + offsets[i].xy * texelSize, layer)).r;
-		shadow += float(currentDepth - bias > depth);
-	}
-	shadow /= 20.0;
-	return 1.0 - shadow;
+	vec4 lookupCoord;
+	lookupCoord.xyw = projCoords.xyz;
+	lookupCoord.z = layer;
+	return texture(shadowMaps, lookupCoord);
+
+//	float shadow = 0.0;
+//	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
+//	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
+//	for(int i = 0; i < 20; i++)
+//	{
+//		float depth = texture(shadowMaps, vec3(projCoords.xy + offsets[i].xy * texelSize, layer)).r;
+//		shadow += float(currentDepth - bias > depth);
+//	}
+//	shadow /= 20.0;
+//	return 1.0 - shadow;
 }
 
 void main()
