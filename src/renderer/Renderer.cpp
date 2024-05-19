@@ -524,9 +524,10 @@ void Renderer::Init()
 	{
 		SCOPE_PROFILE("Bloom setup");
 
+		constexpr uint32_t MIPS = 8;
 		glm::ivec2 mipSize(1024);
 		s_Data.BloomFBO = std::make_shared<Framebuffer>(1);
-		for (uint32_t i = 0; i < 5; i++)
+		for (uint32_t i = 0; i < MIPS; i++)
 		{
 			mipSize /= 2;
 			s_Data.BloomFBO->AddColorAttachment({
