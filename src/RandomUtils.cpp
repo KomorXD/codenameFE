@@ -120,6 +120,37 @@ std::optional<std::string> OpenFileDialog(const std::string& directory)
 	return std::nullopt;
 }
 
+void Replace(std::string& source, const std::string& pattern, const std::string& replacement)
+{
+	if (pattern.empty())
+	{
+		return;
+	}
+
+	size_t start = source.find(pattern);
+	if (start == std::string::npos)
+	{
+		return;
+	}
+
+	source.replace(start, pattern.length(), replacement);
+}
+
+void ReplaceAll(std::string& source, const std::string& pattern, const std::string& replacement)
+{
+	if (pattern.empty())
+	{
+		return;
+	}
+	
+	size_t start = std::string::npos;
+	while ((start = source.find(pattern)) != std::string::npos)
+	{
+		source.replace(start, pattern.length(), replacement);
+		start += pattern.length();
+	}
+}
+
 float MaxComponent(const glm::vec2& vec)
 {
 	return max(vec.x, vec.y);
