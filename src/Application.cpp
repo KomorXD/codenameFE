@@ -8,6 +8,7 @@
 #include <imgui/ImGuizmo.h>
 
 #include "Application.hpp"
+#include "Animations.hpp"
 #include "Logger.hpp"
 #include "Timer.hpp"
 #include "TriggerClock.hpp"
@@ -136,6 +137,7 @@ void Application::Run()
 		prevTime = currTime;
 		currTime = glfwGetTime();
 		timestep = currTime - prevTime;
+		Animations::Update(timestep);
 
 		m_Stats.FrameTime = timestep * 1000.0f;
 

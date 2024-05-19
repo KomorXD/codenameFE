@@ -1,15 +1,14 @@
 #include "RandomUtils.hpp"
-
 #include "Application.hpp"
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/matrix_decompose.hpp>
 
 #include <Windows.h>
 #include <GLFW/glfw3.h>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include <filesystem>
 
@@ -119,4 +118,19 @@ std::optional<std::string> OpenFileDialog(const std::string& directory)
 	}
 
 	return std::nullopt;
+}
+
+float MaxComponent(const glm::vec2& vec)
+{
+	return max(vec.x, vec.y);
+}
+
+float MaxComponent(const glm::vec3& vec)
+{
+	return max(vec.x, max(vec.y, vec.z));
+}
+
+float MaxComponent(const glm::vec4& vec)
+{
+	return max(vec.x, max(vec.y, max(vec.z, vec.w)));
 }

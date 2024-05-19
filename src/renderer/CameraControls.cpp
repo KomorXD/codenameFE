@@ -1,5 +1,6 @@
 #include "CameraControls.hpp"
 #include "Camera.hpp"
+#include "../Animations.hpp"
 
 CameraControls::CameraControls(Camera* parent)
 	: m_Parent(parent)
@@ -131,6 +132,7 @@ OrbitalControls::OrbitalControls(Camera* parent, glm::vec3* focusPoint)
 	: CameraControls(parent)
 	, m_PreviousMousePos(Input::GetMousePosition())
 	, m_FocusPoint(focusPoint)
+	, m_Distance(glm::length(*focusPoint - parent->Position))
 {
 }
 
@@ -138,8 +140,7 @@ void OrbitalControls::OnEvent(Event& ev)
 {
 	if (ev.Type == Event::MouseWheelScrolled)
 	{
-		m_Distance -= ev.MouseWheel.OffsetY * 0.2f;
-
+		Animations::DoFloat(m_Distance, m_Distance - ev.MouseWheel.OffsetY, 0.1f, AnimType::EaseOut);
 		return;
 	}
 }

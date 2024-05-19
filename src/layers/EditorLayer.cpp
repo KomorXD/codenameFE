@@ -2,6 +2,7 @@
 #include "MaterialEditLayer.hpp"
 
 #include "../Application.hpp"
+#include "../Animations.hpp"
 #include "../Timer.hpp"
 #include "../Logger.hpp"
 #include "../scenes/Entity.hpp"
@@ -107,6 +108,14 @@ void EditorLayer::OnEvent(Event& ev)
 			return;
 		}
 
+		if (ev.Key.Code == Key::F && m_SelectedEntity.Handle() != entt::null && !m_IsGizmoUsed)
+		{
+			TransformComponent& tc = m_SelectedEntity.GetComponent<TransformComponent>();
+			glm::vec3 dir = -m_EditorCamera.GetForwardDirection() * MaxComponent(tc.Scale) * 3.0f;
+			Animations::DoVec3(m_EditorCamera.Position, tc.Position + dir, 0.25f, AnimType::EaseInOut);
+			return;
+		}
+
 		if (ev.Key.Code == Key::Delete && m_SelectedEntity.Handle() != entt::null && !m_IsGizmoUsed)
 		{
 			m_Scene.DestroyEntity(m_SelectedEntity);
@@ -131,8 +140,24 @@ void EditorLayer::OnEvent(Event& ev)
 			}
 		}
 
+		if (ev.Key.Code == Key::LeftShift && m_SelectedEntity.Handle() != entt::null)
+		{
+			Input::ShowCursor();
+			m_EditorCamera.SetControls(std::make_unique<OrbitalControls>(&m_EditorCamera, &m_SelectedEntity.GetComponent<TransformComponent>().Position));
+			return;
+		}
+
 		m_EditorCamera.OnEvent(ev);
 		return;
+	}
+
+	if (ev.Type == Event::KeyReleased)
+	{
+		if (ev.Key.Code == Key::LeftShift && m_SelectedEntity.Handle() != entt::null)
+		{
+			m_EditorCamera.SetControls(std::make_unique<TrackballControls>(&m_EditorCamera));
+			return;
+		}
 	}
 
 	if (!m_LockFocus && ev.Type == Event::MouseButtonPressed && ev.MouseButton.Button == MouseButton::Left && m_ViewportHovered)
