@@ -119,6 +119,7 @@ void Application::Run()
 		TriggerClock::UpdateClocks();
 		if (m_DoPopLayer)
 		{
+			Animations::Clear();
 			m_DoPopLayer = false;
 			m_Layers.pop();
 
@@ -130,6 +131,7 @@ void Application::Run()
 
 		if (m_NextLayer)
 		{
+			Animations::Clear();
 			m_Layers.push(std::move(m_NextLayer));
 			m_Layers.top()->OnAttach();
 		}

@@ -73,6 +73,11 @@ void Animations::DoMat4(glm::mat4& value, const glm::mat4& target, float duratio
 	DoVec4(value[3], target[3], duration, type);
 }
 
+void Animations::Clear()
+{
+	s_ActiveAnimations.clear();
+}
+
 void Animations::Update(float ts)
 {
 	for (auto it = s_ActiveAnimations.begin(); it != s_ActiveAnimations.end();)

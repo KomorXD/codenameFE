@@ -28,6 +28,7 @@ private:
 	Animations(const Animations& other) = delete;
 	Animations(Animations&& other) = delete;
 
+	static void Clear();
 	static void Update(float ts);
 
 	static float Linear(float a, float b, float t);

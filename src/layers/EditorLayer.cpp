@@ -110,8 +110,10 @@ void EditorLayer::OnEvent(Event& ev)
 
 		if (ev.Key.Code == Key::F && m_SelectedEntity.Handle() != entt::null && !m_IsGizmoUsed)
 		{
+			// TODO: When bounding boxes are out (with frustrum culling), use them to determine offset
 			TransformComponent& tc = m_SelectedEntity.GetComponent<TransformComponent>();
-			glm::vec3 dir = -m_EditorCamera.GetForwardDirection() * MaxComponent(tc.Scale) * 3.0f;
+			glm::vec3 dir = -m_EditorCamera.GetForwardDirection() * MaxComponent(tc.Scale) * 2.5f;
+
 			Animations::DoVec3(m_EditorCamera.Position, tc.Position + dir, 0.25f, AnimType::EaseInOut);
 			return;
 		}
