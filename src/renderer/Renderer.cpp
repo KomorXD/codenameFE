@@ -153,6 +153,11 @@ static MaterialsBufferData MaterialToBuffer(const Material& material)
 	return mbd;
 }
 
+struct GpuSpecs
+{
+	uint32_t MaxTextureUnits = 64;
+};
+
 struct RendererData
 {
 	static constexpr uint32_t MaxQuads	   = 5000;
@@ -161,7 +166,16 @@ struct RendererData
 	static constexpr uint32_t MaxInstances = MaxQuads / 4;
 	static constexpr uint32_t MaxInstancesOfType = MaxInstances / 5;
 
+	int32_t CSM_Slot = -1;
+	int32_t PointShadowSlot = -1;
+	int32_t SpotlightShadowSlot = -1;
+
+	int32_t IrradianceSlot = -1;
+	int32_t PrefilterSlot = -1;
+	int32_t BRDF_Slot = -1;
+
 	RendererStats Stats;
+	GpuSpecs Specs;
 
 	uint32_t InstancesCount = 0;
 	std::unordered_map<int32_t, MeshBufferData> MeshesData;
@@ -209,7 +223,7 @@ struct RendererData
 	std::vector<SpotlightBufferData>  SpotlightsData;
 
 	uint32_t BoundTexturesCount = 0;
-	std::array<int32_t, 64> TextureBindings;
+	std::vector<int32_t> TextureBindings;
 };
 
 static RendererData s_Data{};
@@ -221,9 +235,17 @@ static void PrintDriversInfo()
 	GLCall(LOG_INFO("OpenGL version:\t{}", (char*)glGetString(GL_VERSION)));
 
 	int32_t data{};
-
 	GLCall(glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &data));
 	LOG_INFO("Texture units:\t{}", data);
+	data /= 2;
+	s_Data.Specs.MaxTextureUnits = data;
+	s_Data.CSM_Slot = data - 6;
+	s_Data.PointShadowSlot = data - 5;
+	s_Data.SpotlightShadowSlot = data - 4;
+	s_Data.IrradianceSlot = data - 3;
+	s_Data.PrefilterSlot = data - 2;
+	s_Data.BRDF_Slot = data - 1;
+	s_Data.TextureBindings.resize((size_t)data / 2 - 7);
 
 	GLCall(glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &data));
 	LOG_INFO("Max SSBO size:\t{} bytes", data);
@@ -336,7 +358,12 @@ void Renderer::Init()
 
 		ShaderSpec spec{};
 		spec.Vertex	  = { "resources/shaders/Default.vert", {} };
-		spec.Fragment = { "resources/shaders/Default.frag", {} };
+		spec.Fragment = { 
+			"resources/shaders/Default.frag",
+			{
+				{ "${TEXTURE_UNITS}", std::to_string(s_Data.Specs.MaxTextureUnits)}
+			}
+		};
 		s_Data.DefaultShader = std::make_shared<Shader>(spec);
 		s_Data.DefaultShader->Bind();
 		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
@@ -363,9 +390,9 @@ void Renderer::Init()
 		mat.HeightTextureID = AssetManager::TEXTURE_BLACK;
 		AssetManager::AddMaterial(mat, AssetManager::MATERIAL_DEFAULT);
 
-		s_Data.DefaultShader->SetUniform1i("u_DirLightCSM", 40);
-		s_Data.DefaultShader->SetUniform1i("u_PointLightShadowmaps", 41);
-		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", 42);
+		s_Data.DefaultShader->SetUniform1i("u_DirLightCSM", s_Data.CSM_Slot);
+		s_Data.DefaultShader->SetUniform1i("u_PointLightShadowmaps", s_Data.PointShadowSlot);
+		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", s_Data.SpotlightShadowSlot);
 		s_Data.CurrentShader = s_Data.DefaultShader;
 	}
 
@@ -698,9 +725,9 @@ void Renderer::Flush()
 	}
 
 	s_Data.MaterialsBuffer->SetData(s_Data.MaterialsData.data(), s_Data.MaterialsData.size() * sizeof(MaterialsBufferData));
-	s_Data.ShadowMapsFBO->BindColorAttachment(0, 40);
-	s_Data.ShadowMapsFBO->BindColorAttachment(1, 41);
-	s_Data.ShadowMapsFBO->BindColorAttachment(2, 42);
+	s_Data.ShadowMapsFBO->BindColorAttachment(0, s_Data.CSM_Slot);
+	s_Data.ShadowMapsFBO->BindColorAttachment(1, s_Data.PointShadowSlot);
+	s_Data.ShadowMapsFBO->BindColorAttachment(2, s_Data.SpotlightShadowSlot);
 
 	uint32_t count = s_Data.DirLightsData.size();
 	uint32_t offset = 128 * sizeof(DirLightBufferData);
@@ -1234,16 +1261,13 @@ void Renderer::DrawSkybox(std::shared_ptr<Framebuffer> cfb)
 	DrawArrays(s_Data.SkyboxShader, s_Data.EnvMapVertexArray, 36);
 	GLCall(glDepthFunc(GL_LESS));
 
-	uint32_t irradianceSlot = s_Data.TextureBindings.size();
-	uint32_t prefilterSlot = irradianceSlot + 1;
-	uint32_t brdfSlot = prefilterSlot + 1;
-	cfb->BindColorAttachment(1, irradianceSlot);
-	cfb->BindColorAttachment(2, prefilterSlot);
-	s_Data.BRDF_Map->Bind(brdfSlot);
+	cfb->BindColorAttachment(1, s_Data.IrradianceSlot);
+	cfb->BindColorAttachment(2, s_Data.PrefilterSlot);
+	s_Data.BRDF_Map->Bind(s_Data.BRDF_Slot);
 	s_Data.CurrentShader->Bind();
-	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", irradianceSlot);
-	s_Data.CurrentShader->SetUniform1i("u_PrefilterMap", prefilterSlot);
-	s_Data.CurrentShader->SetUniform1i("u_BRDF_LUT", brdfSlot);
+	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", s_Data.IrradianceSlot);
+	s_Data.CurrentShader->SetUniform1i("u_PrefilterMap", s_Data.PrefilterSlot);
+	s_Data.CurrentShader->SetUniform1i("u_BRDF_LUT", s_Data.BRDF_Slot);
 }
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)

@@ -1,5 +1,7 @@
 #version 430 core
 
+#define TEXTURE_UNITS ${TEXTURE_UNITS}
+
 layout(location = 0) out vec4 gDefault;
 layout(location = 1) out vec4 gPicker;
 
@@ -109,7 +111,7 @@ uniform bool u_IsLightSource = false;
 uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_PrefilterMap;
 uniform sampler2D u_BRDF_LUT;
-uniform sampler2D u_Textures[64];
+uniform sampler2D u_Textures[TEXTURE_UNITS];
 
 uniform float u_CascadeDistances[5];
 uniform sampler2DArrayShadow u_DirLightCSM;
