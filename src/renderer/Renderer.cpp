@@ -404,12 +404,16 @@ void Renderer::Init()
 		spec.Wrap = GL_CLAMP_TO_BORDER;
 		spec.MinFilter = spec.MagFilter = GL_LINEAR;
 		spec.BorderColor = glm::vec4(1.0f);
-		spec.Size = { 4096, 4096 };
+		spec.Size = { 2048, 2048 };
+		spec.Layers = 6;
 		spec.GenMipmaps = false;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 		
-		spec.Size = { 2048, 2048 };
+		spec.Size = { 1024, 1024 };
+		spec.Layers = 36;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
+
+		spec.Layers = 16;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 	}
 

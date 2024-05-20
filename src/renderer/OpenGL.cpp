@@ -827,11 +827,11 @@ void Framebuffer::AddColorAttachment(ColorAttachmentSpec spec)
 			}
 
 			GLCall(glTexParameterfv(type, GL_TEXTURE_BORDER_COLOR, &spec.BorderColor[0]));
-			GLCall(glTexImage3D(type, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 16, 0, texFmt.Format, texFmt.Type, nullptr));
+			GLCall(glTexImage3D(type, 0, texFmt.InternalFormat, spec.Size.x, spec.Size.y, spec.Layers, 0, texFmt.Format, texFmt.Type, nullptr));
 			break;
 		case GL_TEXTURE_CUBE_MAP_ARRAY:
 			GLCall(glTexParameterfv(type, GL_TEXTURE_BORDER_COLOR, &spec.BorderColor[0]));
-			GLCall(glTexStorage3D(type, 1, texFmt.InternalFormat, spec.Size.x, spec.Size.y, 6 * 16));
+			GLCall(glTexStorage3D(type, 1, texFmt.InternalFormat, spec.Size.x, spec.Size.y, spec.Layers * 6));
 			break;
 		case GL_TEXTURE_CUBE_MAP:
 			GLCall(glTexParameteri(type, GL_TEXTURE_WRAP_R, spec.Wrap));

@@ -264,7 +264,8 @@ struct ColorAttachmentSpec
 	int32_t MagFilter;
 	glm::vec4 BorderColor;
 	glm::ivec2 Size;
-	bool GenMipmaps;
+	int32_t Layers = 1;
+	bool GenMipmaps = false;
 };
 
 struct ColorAttachment
