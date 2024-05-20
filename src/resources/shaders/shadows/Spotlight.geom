@@ -1,7 +1,9 @@
 #version 430 core
 
-layout(triangles) in;
-layout(triangle_strip, max_vertices = 48) out;
+#define MAX_SPOTLIGHTS ${MAX_SPOTLIGHTS}
+
+layout(triangles, invocations = ${INVOCATIONS}) in;
+layout(triangle_strip, max_vertices = 3) out;
 
 struct Spotlight
 {
@@ -14,21 +16,23 @@ struct Spotlight
 
 layout(std140, binding = 4) uniform Spotlights
 {
-	Spotlight lights[128];
+	Spotlight lights[MAX_SPOTLIGHTS];
 	int count;
 } u_Spotlights;
 
 void main()
 {
-	for(int i = 0; i < u_Spotlights.count; i++)
+	if(gl_InvocationID >= u_Spotlights.count)
 	{
-		for(int j = 0; j < 3; j++)
-		{
-			gl_Layer = i;
-			gl_Position = u_Spotlights.lights[i].lightSpaceMatrix * gl_in[j].gl_Position;
-			EmitVertex();
-		}
-
-		EndPrimitive();
+		return;
 	}
+
+	for(int v = 0; v < 3; v++)
+	{
+		gl_Layer = gl_InvocationID;
+		gl_Position = u_Spotlights.lights[gl_InvocationID].lightSpaceMatrix * gl_in[v].gl_Position;
+		EmitVertex();
+	}
+
+	EndPrimitive();
 }

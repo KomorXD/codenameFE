@@ -166,6 +166,8 @@ struct RendererData
 	static constexpr uint32_t MaxInstances = MaxQuads / 4;
 	static constexpr uint32_t MaxInstancesOfType = MaxInstances / 5;
 
+	static constexpr int32_t CascadesCount = 5;
+
 	int32_t CSM_Slot = -1;
 	int32_t PointShadowSlot = -1;
 	int32_t SpotlightShadowSlot = -1;
@@ -173,6 +175,10 @@ struct RendererData
 	int32_t IrradianceSlot = -1;
 	int32_t PrefilterSlot = -1;
 	int32_t BRDF_Slot = -1;
+
+	int32_t MaxDirLights = 4;
+	int32_t MaxPointLights = 16;
+	int32_t MaxSpotlights = 64;
 
 	RendererStats Stats;
 	GpuSpecs Specs;
@@ -361,7 +367,11 @@ void Renderer::Init()
 		spec.Fragment = { 
 			"resources/shaders/Default.frag",
 			{
-				{ "${TEXTURE_UNITS}", std::to_string(s_Data.Specs.MaxTextureUnits)}
+				{ "${TEXTURE_UNITS}",		std::to_string(s_Data.Specs.MaxTextureUnits) },
+				{ "${MAX_DIR_LIGHTS}",		std::to_string(s_Data.MaxDirLights)			 },
+				{ "${MAX_POINT_LIGHTS}",	std::to_string(s_Data.MaxPointLights)		 },
+				{ "${MAX_SPOTLIGHTS}",		std::to_string(s_Data.MaxSpotlights)		 },
+				{ "${CASCADES_COUNT}",		std::to_string(s_Data.CascadesCount)		 }
 			}
 		};
 		s_Data.DefaultShader = std::make_shared<Shader>(spec);
@@ -403,7 +413,15 @@ void Renderer::Init()
 			ShaderSpec spec{};
 			spec.Vertex	  = { "resources/shaders/shadows/Directional.vert", {} };
 			spec.Fragment = { "resources/shaders/shadows/Directional.frag", {} };
-			spec.Geometry = { "resources/shaders/shadows/Directional.geom", {} };
+			spec.Geometry = { 
+				"resources/shaders/shadows/Directional.geom", 
+				{
+					{ "${MAX_DIR_LIGHTS}",	std::to_string(s_Data.MaxDirLights)		 },
+					{ "${INVOCATIONS}",		std::to_string(s_Data.MaxDirLights)		 },
+					{ "${MAX_VERTICES}",	std::to_string(s_Data.CascadesCount * 3) },
+					{ "${CASCADES_COUNT}",	std::to_string(s_Data.CascadesCount)	 }
+				} 
+			};
 			s_Data.DirectionalShadowShader = std::make_shared<Shader>(spec);
 		}
 
@@ -411,7 +429,13 @@ void Renderer::Init()
 			ShaderSpec spec{};
 			spec.Vertex   = { "resources/shaders/shadows/Point.vert", {} };
 			spec.Fragment = { "resources/shaders/shadows/Point.frag", {} };
-			spec.Geometry = { "resources/shaders/shadows/Point.geom", {} };
+			spec.Geometry = {
+				"resources/shaders/shadows/Point.geom",
+				{
+					{ "${MAX_POINT_LIGHTS}", std::to_string(s_Data.MaxPointLights) },
+					{ "${INVOCATIONS}",		 std::to_string(s_Data.MaxPointLights) }
+				}
+			};
 			s_Data.PointShadowShader = std::make_shared<Shader>(spec);
 		}
 
@@ -419,7 +443,13 @@ void Renderer::Init()
 			ShaderSpec spec{};
 			spec.Vertex	  = { "resources/shaders/shadows/Spotlight.vert", {} };
 			spec.Fragment = { "resources/shaders/shadows/Spotlight.frag", {} };
-			spec.Geometry = { "resources/shaders/shadows/Spotlight.geom", {} };
+			spec.Geometry = {
+				"resources/shaders/shadows/Spotlight.geom",
+				{
+					{ "${MAX_SPOTLIGHTS}",	std::to_string(s_Data.MaxSpotlights)  },
+					{ "${INVOCATIONS}",		std::to_string(s_Data.MaxPointLights) }
+				}
+			};
 			s_Data.SpotlightShadowShader = std::make_shared<Shader>(spec);
 		}
 
@@ -542,14 +572,14 @@ void Renderer::Init()
 		s_Data.MaterialsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(MaterialsBufferData));
 		s_Data.MaterialsBuffer->BindBufferRange(1, 0, 128 * sizeof(MaterialsBufferData));
 
-		s_Data.DirLightsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(DirLightBufferData) + sizeof(int32_t));
-		s_Data.DirLightsBuffer->BindBufferRange(2, 0, 128 * sizeof(DirLightBufferData) + sizeof(int32_t));
+		s_Data.DirLightsBuffer = std::make_shared<UniformBuffer>(nullptr, s_Data.MaxDirLights * sizeof(DirLightBufferData) + sizeof(int32_t));
+		s_Data.DirLightsBuffer->BindBufferRange(2, 0, s_Data.MaxDirLights * sizeof(DirLightBufferData) + sizeof(int32_t));
 
-		s_Data.PointLightsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(PointLightBufferData) + sizeof(int32_t));
-		s_Data.PointLightsBuffer->BindBufferRange(3, 0, 64 * sizeof(PointLightBufferData) + sizeof(int32_t));
+		s_Data.PointLightsBuffer = std::make_shared<UniformBuffer>(nullptr, s_Data.MaxPointLights * sizeof(PointLightBufferData) + sizeof(int32_t));
+		s_Data.PointLightsBuffer->BindBufferRange(3, 0, s_Data.MaxPointLights * sizeof(PointLightBufferData) + sizeof(int32_t));
 
-		s_Data.SpotlightsBuffer = std::make_shared<UniformBuffer>(nullptr, 128 * sizeof(SpotlightBufferData) + sizeof(int32_t));
-		s_Data.SpotlightsBuffer->BindBufferRange(4, 0, 128 * sizeof(SpotlightBufferData) + sizeof(int32_t));
+		s_Data.SpotlightsBuffer = std::make_shared<UniformBuffer>(nullptr, s_Data.MaxSpotlights * sizeof(SpotlightBufferData) + sizeof(int32_t));
+		s_Data.SpotlightsBuffer->BindBufferRange(4, 0, s_Data.MaxSpotlights * sizeof(SpotlightBufferData) + sizeof(int32_t));
 	}
 
 	{
@@ -711,7 +741,7 @@ void Renderer::SceneEnd()
 
 void Renderer::Flush()
 {
-	std::array<float, 5> cascades = {
+	std::array<float, s_Data.CascadesCount> cascades = {
 		s_ActiveCamera->m_FarClip / 50.0f,
 		s_ActiveCamera->m_FarClip / 25.0f,
 		s_ActiveCamera->m_FarClip / 10.0f,
@@ -730,17 +760,17 @@ void Renderer::Flush()
 	s_Data.ShadowMapsFBO->BindColorAttachment(2, s_Data.SpotlightShadowSlot);
 
 	uint32_t count = s_Data.DirLightsData.size();
-	uint32_t offset = 128 * sizeof(DirLightBufferData);
+	uint32_t offset = s_Data.MaxDirLights * sizeof(DirLightBufferData);
 	s_Data.DirLightsBuffer->SetData(s_Data.DirLightsData.data(), s_Data.DirLightsData.size() * sizeof(DirLightBufferData));
 	s_Data.DirLightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
 	count = s_Data.PointLightsData.size();
-	offset = 128 * sizeof(PointLightBufferData);
+	offset = s_Data.MaxPointLights * sizeof(PointLightBufferData);
 	s_Data.PointLightsBuffer->SetData(s_Data.PointLightsData.data(), s_Data.PointLightsData.size() * sizeof(PointLightBufferData));
 	s_Data.PointLightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
 	count = s_Data.SpotlightsData.size();
-	offset = 128 * sizeof(SpotlightBufferData);
+	offset = s_Data.MaxSpotlights * sizeof(SpotlightBufferData);
 	s_Data.SpotlightsBuffer->SetData(s_Data.SpotlightsData.data(), s_Data.SpotlightsData.size() * sizeof(SpotlightBufferData));
 	s_Data.SpotlightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
@@ -783,17 +813,17 @@ void Renderer::BeginShadowMapPass()
 void Renderer::EndShadowMapPass()
 {
 	uint32_t count = s_Data.DirLightsData.size();
-	uint32_t offset = 128 * sizeof(DirLightBufferData);
+	uint32_t offset = s_Data.MaxDirLights * sizeof(DirLightBufferData);
 	s_Data.DirLightsBuffer->SetData(s_Data.DirLightsData.data(), s_Data.DirLightsData.size() * sizeof(DirLightBufferData));
 	s_Data.DirLightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
 	count = s_Data.PointLightsData.size();
-	offset = 64 * sizeof(PointLightBufferData);
+	offset = s_Data.MaxPointLights * sizeof(PointLightBufferData);
 	s_Data.PointLightsBuffer->SetData(s_Data.PointLightsData.data(), s_Data.PointLightsData.size() * sizeof(PointLightBufferData));
 	s_Data.PointLightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
 	count = s_Data.SpotlightsData.size();
-	offset = 128 * sizeof(SpotlightBufferData);
+	offset = s_Data.MaxSpotlights * sizeof(SpotlightBufferData);
 	s_Data.SpotlightsBuffer->SetData(s_Data.SpotlightsData.data(), s_Data.SpotlightsData.size() * sizeof(SpotlightBufferData));
 	s_Data.SpotlightsBuffer->SetData(&count, sizeof(int32_t), offset);
 
@@ -1272,17 +1302,21 @@ void Renderer::DrawSkybox(std::shared_ptr<Framebuffer> cfb)
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
 {
-	constexpr size_t CASCADE_LEVELS = 5;
-	std::array<glm::mat4, CASCADE_LEVELS> cascadedMatrices{};
+	if (s_Data.DirLightsData.size() >= s_Data.MaxDirLights)
+	{
+		return;
+	}
+	
+	std::array<glm::mat4, s_Data.CascadesCount> cascadedMatrices{};
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
-	std::array<float, CASCADE_LEVELS> nearPlanes = {
+	std::array<float, s_Data.CascadesCount> nearPlanes = {
 		s_ActiveCamera->m_NearClip,
 		s_ActiveCamera->m_FarClip / 50.0f,
 		s_ActiveCamera->m_FarClip / 25.0f,
 		s_ActiveCamera->m_FarClip / 10.0f,
 		s_ActiveCamera->m_FarClip / 2.0f
 	};
-	std::array<float, CASCADE_LEVELS> farPlanes = {
+	std::array<float, s_Data.CascadesCount> farPlanes = {
 		nearPlanes[1],
 		nearPlanes[2],
 		nearPlanes[3],
@@ -1332,11 +1366,16 @@ void Renderer::AddDirectionalLight(const TransformComponent& transform, const Di
 		glm::vec4(dir, 1.0f),
 		glm::vec4(light.Color * light.Intensity, 1.0f) 
 	});
-	s_Data.Stats.DirLightCascadesPassed += CASCADE_LEVELS;
+	s_Data.Stats.DirLightCascadesPassed += s_Data.CascadesCount;
 }
 
 void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponent& light)
 {
+	if (s_Data.PointLightsData.size() >= s_Data.MaxPointLights)
+	{
+		return;
+	}
+
 	glm::mat4 proj = glm::perspective(glm::radians(91.0f), 1.0f, 0.1f, 1000.0f);
 	std::array<glm::vec4, 6> dirs = {
 		glm::vec4( 1.0f,  0.0f,  0.0f,  0.0f),
@@ -1367,6 +1406,11 @@ void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponen
 
 void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light)
 {
+	if (s_Data.SpotlightsData.size() >= s_Data.MaxSpotlights)
+	{
+		return;
+	}
+
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
 	glm::mat4 proj = glm::perspective(glm::radians(2.0f * light.Cutoff), 1.0f, 0.1f, 100.0f);
 	glm::mat4 view = glm::lookAt(transform.Position, transform.Position + dir, glm::vec3(0.0, 1.0f, 0.0f));

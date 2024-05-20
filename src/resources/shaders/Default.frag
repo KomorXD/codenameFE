@@ -1,13 +1,16 @@
 #version 430 core
 
 #define TEXTURE_UNITS ${TEXTURE_UNITS}
+#define MAX_DIR_LIGHTS ${MAX_DIR_LIGHTS}
+#define MAX_POINT_LIGHTS ${MAX_POINT_LIGHTS}
+#define MAX_SPOTLIGHTS ${MAX_SPOTLIGHTS}
 
 layout(location = 0) out vec4 gDefault;
 layout(location = 1) out vec4 gPicker;
 
 struct DirectionalLight
 {
-	mat4 cascadeLightMatrices[5];
+	mat4 cascadeLightMatrices[${CASCADES_COUNT}];
 	vec4 direction;
 	vec4 color;
 };
@@ -91,19 +94,19 @@ layout(std140, binding = 1) uniform Materials
 
 layout(std140, binding = 2) uniform DirectionalLights
 {
-	DirectionalLight lights[128];
+	DirectionalLight lights[MAX_DIR_LIGHTS];
 	int count;
 } u_DirLights;
 
 layout(std140, binding = 3) uniform PointLights
 {
-	PointLight lights[64];
+	PointLight lights[MAX_POINT_LIGHTS];
 	int count;
 } u_PointLights;
 
 layout(std140, binding = 4) uniform Spotlights
 {
-	Spotlight lights[128];
+	Spotlight lights[MAX_SPOTLIGHTS];
 	int count;
 } u_Spotlights;
 
@@ -113,7 +116,7 @@ uniform samplerCube u_PrefilterMap;
 uniform sampler2D u_BRDF_LUT;
 uniform sampler2D u_Textures[TEXTURE_UNITS];
 
-uniform float u_CascadeDistances[5];
+uniform float u_CascadeDistances[${CASCADES_COUNT}];
 uniform sampler2DArrayShadow u_DirLightCSM;
 uniform sampler2DArrayShadow u_PointLightShadowmaps;
 uniform sampler2DArrayShadow u_SpotlightShadowmaps;
@@ -396,7 +399,7 @@ void main()
 	
 	vec3 Lo = vec3(0.0);
 	vec3 F0 = mix(vec3(0.04), diffuseColor.rgb, metallic);
-	for(int i = 0; i < 128; i++)
+	for(int i = 0; i < MAX_DIR_LIGHTS; i++)
 	{
 		if(i >= u_DirLights.count)
 		{
@@ -423,7 +426,7 @@ void main()
 	}
 
 	int layer = 0;
-	for(int i = 0; i < 64; i++)
+	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
 	{
 		if(i >= u_PointLights.count)
 		{
@@ -477,7 +480,7 @@ void main()
 	
 	vec3 totalDiffuse = vec3(0.0);
 	vec3 totalSpecular = vec3(0.0);
-	for(int i = 0; i < 128; i++)
+	for(int i = 0; i < MAX_SPOTLIGHTS; i++)
 	{
 		if(i >= u_Spotlights.count)
 		{

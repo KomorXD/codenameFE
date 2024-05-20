@@ -1,37 +1,39 @@
 #version 430 core
 
-layout(triangles) in;
-layout(triangle_strip, max_vertices = 48) out;
+layout(triangles, invocations = ${INVOCATIONS}) in;
+layout(triangle_strip, max_vertices = ${MAX_VERTICES}) out;
 
 struct DirectionalLight
 {
-	mat4 cascadeLightMatrices[5];
+	mat4 cascadeLightMatrices[${CASCADES_COUNT}];
 	vec4 direction;
 	vec4 color;
 };
 
 layout(std140, binding = 2) uniform DirectionalLights
 {
-	DirectionalLight lights[128];
+	DirectionalLight lights[${MAX_DIR_LIGHTS}];
 	int count;
 } u_DirLights;
 
 void main()
 {
-	int layer = 0;
-	for(int i = 0; i < 1; i++)
+	if(gl_InvocationID >= u_DirLights.count)
 	{
-		for(int cascade = 0; cascade < 5; cascade++)
-		{
-			for(int j = 0; j < 3; j++)
-			{
-				gl_Layer = layer;
-				gl_Position = u_DirLights.lights[i].cascadeLightMatrices[cascade] * gl_in[j].gl_Position;
-				EmitVertex();
-			}
+		return;
+	}
 
-			layer++;
-			EndPrimitive();
+	int layer = gl_InvocationID * ${CASCADES_COUNT};
+	for(int cascade = 0; cascade < ${CASCADES_COUNT}; cascade++)
+	{
+		for(int v = 0; v < 3; v++)
+		{
+			gl_Layer = layer;
+			gl_Position = u_DirLights.lights[gl_InvocationID].cascadeLightMatrices[cascade] * gl_in[v].gl_Position;
+			EmitVertex();
 		}
+
+		layer++;
+		EndPrimitive();
 	}
 }

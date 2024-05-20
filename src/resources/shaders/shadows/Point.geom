@@ -1,7 +1,9 @@
 #version 430 core
 
-layout(triangles) in;
-layout(triangle_strip, max_vertices = 48) out;
+#define MAX_POINT_LIGHTS ${MAX_POINT_LIGHTS}
+
+layout(triangles, invocations = ${INVOCATIONS}) in;
+layout(triangle_strip, max_vertices = 18) out;
 
 struct PointLight
 {
@@ -18,26 +20,28 @@ struct PointLight
 
 layout(std140, binding = 3) uniform PointLights
 {
-	PointLight lights[64];
+	PointLight lights[MAX_POINT_LIGHTS];
 	int count;
 } u_PointLights;
 
 void main()
 {
-	int layer = 0;
-	for(int i = 0; i < u_PointLights.count; i++)
+	if(gl_InvocationID >= u_PointLights.count)
 	{
-		for(int face = 0; face < u_PointLights.lights[i].facesRendered; face++)
-		{
-			for(int j = 0; j < 3; j++)
-			{
-				gl_Layer = layer;
-				gl_Position = u_PointLights.lights[i].lightSpaceMatrices[face] * gl_in[j].gl_Position;
-				EmitVertex();
-			}
+		return;
+	}
 
-			layer++;
-			EndPrimitive();
+	int layer = gl_InvocationID * 6;
+	for(int face = 0; face < u_PointLights.lights[gl_InvocationID].facesRendered; face++)
+	{
+		for(int v = 0; v < 3; v++)
+		{
+			gl_Layer = layer;
+			gl_Position = u_PointLights.lights[gl_InvocationID].lightSpaceMatrices[face] * gl_in[v].gl_Position;
+			EmitVertex();
 		}
+
+		layer++;
+		EndPrimitive();
 	}
 }
