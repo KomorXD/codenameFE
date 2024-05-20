@@ -1,5 +1,6 @@
 #include "OpenGL.hpp"
 #include "../Logger.hpp"
+#include "../RandomUtils.hpp"
 
 #include <fstream>
 #include <filesystem>
@@ -230,6 +231,10 @@ Shader::Shader(const ShaderSpec& spec)
 
 		return;
 	}
+	for (const StringReplacement& rep : spec.Vertex.Replacement)
+	{
+		ReplaceAll(vertex.value(), rep.Pattern, rep.Target);
+	}
 
 	std::optional<std::string> fragment = ParseShaderSource(spec.Fragment.Path);
 	if (!fragment.has_value())
@@ -237,6 +242,10 @@ Shader::Shader(const ShaderSpec& spec)
 		LOG_ERROR("Failed to open fragment shader file: {}", spec.Fragment.Path);
 
 		return;
+	}
+	for (const StringReplacement& rep : spec.Fragment.Replacement)
+	{
+		ReplaceAll(fragment.value(), rep.Pattern, rep.Target);
 	}
 
 	std::optional<std::string> geometry{};
@@ -248,6 +257,10 @@ Shader::Shader(const ShaderSpec& spec)
 			LOG_ERROR("Failed to open geometry shader file: {}", spec.Geometry.value().Path);
 
 			return;
+		}
+		for (const StringReplacement& rep : spec.Geometry.value().Replacement)
+		{
+			ReplaceAll(geometry.value(), rep.Pattern, rep.Target);
 		}
 	}
 
@@ -275,6 +288,8 @@ void Shader::Unbind() const
 
 void Shader::Reload()
 {
+	ASSERT(false && "Not wok 3:");
+
 	m_UniformLocations.clear();
 
 	if (m_ID != 0)
