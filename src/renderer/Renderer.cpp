@@ -1367,7 +1367,8 @@ void Renderer::AddPointLight(const glm::vec3& position, const PointLightComponen
 		return;
 	}
 
-	glm::mat4 proj = glm::perspective(glm::radians(91.0f), 1.0f, 0.1f, 1000.0f);
+	float radius = LightRadius(1.0f, light.LinearTerm, light.QuadraticTerm, MaxComponent(light.Color * light.Intensity));
+	glm::mat4 proj = glm::perspective(glm::radians(91.0f), 1.0f, 0.1f, radius);
 	std::array<glm::vec4, 6> dirs = {
 		glm::vec4( 1.0f,  0.0f,  0.0f,  0.0f),
 		glm::vec4(-1.0f,  0.0f,  0.0f,  0.0f),
@@ -1402,8 +1403,9 @@ void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLight
 		return;
 	}
 
+	float radius = LightRadius(1.0f, light.LinearTerm, light.QuadraticTerm, MaxComponent(light.Color * light.Intensity));
 	glm::vec3 dir = glm::toMat3(glm::quat(transform.Rotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
-	glm::mat4 proj = glm::perspective(glm::radians(2.0f * light.Cutoff), 1.0f, 0.1f, 100.0f);
+	glm::mat4 proj = glm::perspective(glm::radians(2.0f * light.Cutoff), 1.0f, 0.1f, radius);
 	glm::mat4 view = glm::lookAt(transform.Position, transform.Position + dir, glm::vec3(0.0, 1.0f, 0.0f));
 
 	s_Data.SpotlightsData.push_back({

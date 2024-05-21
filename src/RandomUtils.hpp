@@ -15,3 +15,5 @@ void ReplaceAll(std::string& source, const std::string& pattern, const std::stri
 float MaxComponent(const glm::vec2& vec);
 float MaxComponent(const glm::vec3& vec);
 float MaxComponent(const glm::vec4& vec);
+
+float LightRadius(float constantTerm, float linearTerm, float quadraticTerm, float maxBrightness);

@@ -165,3 +165,12 @@ float MaxComponent(const glm::vec4& vec)
 {
 	return max(vec.x, max(vec.y, max(vec.z, vec.w)));
 }
+
+float LightRadius(float constantTerm, float linearTerm, float quadraticTerm, float maxBrightness)
+{
+	float num = -linearTerm + glm::sqrt(
+		linearTerm * linearTerm - 4.0f * quadraticTerm * (constantTerm - (256.0f / 5.0f) * maxBrightness)
+	);
+
+	return num / (2.0f * quadraticTerm);
+}
