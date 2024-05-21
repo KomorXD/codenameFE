@@ -20,6 +20,6 @@ void main()
 {
 	vec3 N = normalize(localPos);
 	vec2 uv = sampleEquiMap(N);
-	vec3 color = min(texture(u_EquirectangularEnvMap, uv).rgb, 32000.0);
+	vec3 color = min(texture(u_EquirectangularEnvMap, uv).rgb, 1024.0);
 	fragColor = vec4(color, 1.0);
 }

@@ -524,7 +524,7 @@ void main()
 		}
 	}
 
-	const float MAX_REFL_LOD = 4.0;
+	const float MAX_REFL_LOD = 7.0;
 	N = transpose(fs_in.TBN) * N;
 	V = normalize(fs_in.eyePos - fs_in.worldPos);
 	vec3 R = reflect(-V, N);

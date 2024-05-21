@@ -25,7 +25,7 @@ void main()
 			vec3 tangentSample = vec3(sin(theta) * cos(phi),  sin(theta) * sin(phi), cos(theta));
 			vec3 sampleVec = tangentSample.x * right + tangentSample.y * up + tangentSample.z * N;
 
-			irradiance += min(texture(u_EnvMap, sampleVec).rgb * cos(theta) * sin(theta), 16.0) / samples;
+			irradiance += min(texture(u_EnvMap, sampleVec).rgb * cos(theta) * sin(theta), 4.0) / samples;
 		}
 	}
 

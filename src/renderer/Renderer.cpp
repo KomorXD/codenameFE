@@ -1256,27 +1256,18 @@ std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture>
 	});
 	GLCall(glViewport(0, 0, 128, 128));
 
-	constexpr uint32_t MIPMAP_LEVELS = 5;
 	cfb->BindColorAttachment(0);
 	s_Data.PrefilterShader->Bind();
-	for (uint32_t mip = 0; mip < MIPMAP_LEVELS; mip++)
+	cfb->ResizeRenderbuffer({ 128, 128 });
+	s_Data.PrefilterShader->SetUniform1f("u_Roughness", 0.0f);
+	for (uint32_t i = 0; i < 6; i++)
 	{
-		uint32_t mipW = 128 / (mip + 1);
-		uint32_t mipH = 128 / (mip + 1);
-		cfb->ResizeRenderbuffer({ mipW, mipH });
-		GLCall(glViewport(0, 0, mipW, mipH));
-
-		float roughness = (float)mip / (float)(MIPMAP_LEVELS - 1);
-		s_Data.PrefilterShader->SetUniform1f("u_Roughness", roughness);
-
-		for (uint32_t i = 0; i < 6; i++)
-		{
-			s_Data.CameraBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
-			cfb->DrawToCubeColorAttachment(2, 0, i, mip);
-			Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			DrawArrays(s_Data.PrefilterShader, s_Data.EnvMapVertexArray, 36);
-		}
+		s_Data.CameraBuffer->SetData(glm::value_ptr(captureViews[i]), sizeof(glm::mat4), sizeof(glm::mat4));
+		cfb->DrawToCubeColorAttachment(2, 0, i);
+		Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		DrawArrays(s_Data.PrefilterShader, s_Data.EnvMapVertexArray, 36);
 	}
+	GLCall(glGenerateMipmap(GL_TEXTURE_CUBE_MAP));
 	
 	cfb->ResizeRenderbuffer(faceSize);
 	cfb->BindRenderbuffer();
