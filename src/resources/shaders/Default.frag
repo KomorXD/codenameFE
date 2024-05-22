@@ -121,6 +121,13 @@ uniform sampler2DArrayShadow u_DirLightCSM;
 uniform sampler2DArrayShadow u_PointLightShadowmaps;
 uniform sampler2DArrayShadow u_SpotlightShadowmaps;
 
+uniform int u_OffsetsTexSize;
+uniform int u_OffsetsFilterSize;
+uniform float u_OffsetsRadius;
+uniform sampler3D u_OffsetsTexture;
+
+uniform bool u_FasterShadows = true;
+
 const float PI = 3.14159265359;
 
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
@@ -272,34 +279,52 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
 		return 0.0;
 	}
 	
-	// Solid shadows, faster but uglier
-//	vec4 lookupCoord;
-//	lookupCoord.xyw = projCoords.xyz;
-//	lookupCoord.z = dirLightIdx + layer;
-//	return texture(u_DirLightCSM, lookupCoord);
+	vec2 f = mod(gl_FragCoord.xy, vec2(u_OffsetsTexSize));
+	ivec3 offsetCoord;
+	offsetCoord.yz = ivec2(f);
 
-	// Soft shadows, look better but more performance heavy
+	int samplesDiv2 = int(u_OffsetsFilterSize * u_OffsetsFilterSize / 2.0);
+	vec4 sc = vec4(projCoords, 1.0);
 	const vec2 texelSize = 1.0 / textureSize(u_DirLightCSM, 0).xy;
-	float shadow = 0.0;
-	for(int i = 0; i < 20; i++)
-	{
-		vec2 texCoords = projCoords.xy + offsets[i].xy * texelSize;
-		float texelDepth = texture(u_DirLightCSM, vec4(texCoords, dirLightIdx + layer, projCoords.z));
-		shadow += texelDepth;
-	}
-	shadow /= 20.0;
-	return shadow;
 
-//	float shadow = 0.0;
-//	float bias = max(0.005 * (1.0 - dot(N, L)), 0.0005);
-//	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
-//	for(int i = 0; i < 20; i++)
-//	{
-//		float depth = texture(u_DirLightCSM, vec3(projCoords.xy + offsets[i].xy * texelSize, dirLightIdx + layer)).r;
-//		shadow += float(currentDepth - bias > depth);
-//	}
-//	shadow /= 20.0;
-//	return 1.0 - shadow;
+	float shadow = 0.0;
+	for(int i = 0; i < 4; i++)
+	{
+		offsetCoord.x = i;
+		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
+
+		sc.xy = projCoords.xy + offsets.rg * texelSize;
+		depth = texture(u_DirLightCSM, vec4(sc.xy, dirLightIdx + layer, projCoords.z));
+		shadow += depth;
+
+		sc.xy = projCoords.xy + offsets.ba * texelSize;
+		depth = texture(u_DirLightCSM, vec4(sc.xy, dirLightIdx + layer, projCoords.z));
+		shadow += depth;
+	}
+
+	shadow /= 8.0;
+	if(shadow == 0.0 || shadow == 1.0)
+	{
+		return shadow;
+	}
+
+	shadow *= 8.0;
+	for(int i = 4; i < 32; i++)
+	{
+		offsetCoord.x = i;
+		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
+
+		sc.xy = projCoords.xy + offsets.rg * texelSize;
+		depth = texture(u_DirLightCSM, vec4(sc.xy, dirLightIdx + layer, projCoords.z));
+		shadow += depth;
+
+		sc.xy = projCoords.xy + offsets.ba * texelSize;
+		depth = texture(u_DirLightCSM, vec4(sc.xy, dirLightIdx + layer, projCoords.z));
+		shadow += depth;
+	}
+
+	shadow /= float(samplesDiv2) * 2.0;
+	return shadow;
 }
 
 float shadowFactor(sampler2DArrayShadow shadowMaps, mat4 lightSpaceMat, int layer, vec3 N, vec3 L)
@@ -315,14 +340,70 @@ float shadowFactor(sampler2DArrayShadow shadowMaps, mat4 lightSpaceMat, int laye
 	{
 		return 0.0;
 	}
+	
+	vec2 f = mod(gl_FragCoord.xy, vec2(u_OffsetsTexSize));
+	ivec3 offsetCoord;
+	offsetCoord.yz = ivec2(f);
 
-	// Solid shadows, faster but uglier
-//	vec4 lookupCoord;
-//	lookupCoord.xyw = projCoords.xyz;
-//	lookupCoord.z = dirLightIdx + layer;
-//	return texture(u_DirLightCSM, lookupCoord);
+	int samplesDiv2 = int(u_OffsetsFilterSize * u_OffsetsFilterSize / 2.0);
+	vec4 sc = vec4(projCoords, 1.0);
+	const vec2 texelSize = 1.0 / textureSize(shadowMaps, 0).xy;
 
-	// Soft shadows, look better but more performance heavy
+	float depth = 0.0;
+	float shadow = 0.0;
+	for(int i = 0; i < 4; i++)
+	{
+		offsetCoord.x = i;
+		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
+
+		sc.xy = projCoords.xy + offsets.rg * texelSize;
+		depth = texture(shadowMaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+
+		sc.xy = projCoords.xy + offsets.ba * texelSize;
+		depth = texture(shadowMaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+	}
+
+	shadow /= 8.0;
+	if(shadow == 0.0 || shadow == 1.0)
+	{
+		return shadow;
+	}
+
+	shadow *= 8.0;
+	for(int i = 4; i < 32; i++)
+	{
+		offsetCoord.x = i;
+		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
+
+		sc.xy = projCoords.xy + offsets.rg * texelSize;
+		depth = texture(shadowMaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+
+		sc.xy = projCoords.xy + offsets.ba * texelSize;
+		depth = texture(shadowMaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+	}
+
+	shadow /= float(samplesDiv2) * 2.0;
+	return shadow;
+}
+
+float worseShadowFactor(sampler2DArrayShadow shadowMaps, mat4 lightSpaceMat, int layer, vec3 N, vec3 L)
+{
+	vec4 fragPosLightSpace = lightSpaceMat * vec4(fs_in.worldPos, 1.0);
+	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	projCoords = projCoords * 0.5 + 0.5;
+	projCoords.z -= bias;
+
+	float currentDepth = projCoords.z;
+	if(currentDepth > 1.0)
+	{
+		return 0.0;
+	}
+
 	const vec2 texelSize = 1.0 / textureSize(shadowMaps, 0).xy;
 	float shadow = 0.0;
 	for(int i = 0; i < 20; i++)
@@ -331,19 +412,9 @@ float shadowFactor(sampler2DArrayShadow shadowMaps, mat4 lightSpaceMat, int laye
 		float texelDepth = texture(shadowMaps, vec4(texCoords, layer, projCoords.z));
 		shadow += texelDepth;
 	}
+
 	shadow /= 20.0;
 	return shadow;
-
-//	float shadow = 0.0;
-//	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
-//	vec2 texelSize = 1.0 / vec2(1024.0, 1024.0);
-//	for(int i = 0; i < 20; i++)
-//	{
-//		float depth = texture(shadowMaps, vec3(projCoords.xy + offsets[i].xy * texelSize, layer)).r;
-//		shadow += float(currentDepth - bias > depth);
-//	}
-//	shadow /= 20.0;
-//	return 1.0 - shadow;
 }
 
 void main()
@@ -474,7 +545,16 @@ void main()
 		}
 		
 		layer += pointLight.facesRendered;
-		float shadow = shadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
+		float shadow = 1.0;
+		if(u_FasterShadows)
+		{
+			shadow = worseShadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
+		}
+		else
+		{
+			// shadow = shadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
+		}
+
 		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * shadow;
 	}
 	
@@ -519,7 +599,16 @@ void main()
 			vec3 kD = vec3(1.0) - kS;
 			kD *= 1.0 - metallic;
 
-			float shadow = shadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, i, N, L);
+			float shadow = 1.0;
+			if(u_FasterShadows)
+			{
+				shadow = worseShadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, i, N, L);
+			}
+			else
+			{
+				// shadow = shadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, i, N, L);
+			}
+
 			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity * shadow;
 		}
 	}

@@ -51,6 +51,9 @@ private:
 	bool m_ViewportHovered = false;
 	bool m_ViewportFocused = false;
 
+	bool m_FasterShadows = true;
+	float m_ShadowOffsetsRadius = 3.0f;
+
 	std::unique_ptr<Framebuffer> m_MainFB;
 	std::unique_ptr<Framebuffer> m_ScreenFB;
 	std::shared_ptr<Framebuffer> m_SkyboxFB;

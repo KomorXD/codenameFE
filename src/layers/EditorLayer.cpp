@@ -343,6 +343,8 @@ void EditorLayer::RenderScenePanel()
 		ImGui::PrettyDragFloat("Brightness", &m_EditorCamera.Gamma, 0.001f, 0.0f, FLT_MAX);
 		ImGui::PrettyDragFloat("Bloom strength", &m_BloomStrength, 0.001f, 0.0f, FLT_MAX);
 		ImGui::PrettyDragFloat("Bloom threshold", &m_BloomThreshold, 0.001f, 0.0f, FLT_MAX);
+		ImGui::PrettyDragFloat("Offsets radius", &m_ShadowOffsetsRadius, 0.01f, 1.0f, 32.0f);
+		ImGui::Checkbox("Faster shadows", &m_FasterShadows);
 		ImGui::PrettyDragFloat("Pitch", &m_EditorCamera.m_Pitch, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::PrettyDragFloat("Yaw", &m_EditorCamera.m_Yaw, 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::Checkbox("Bloom", &m_UseBloom);
@@ -484,6 +486,8 @@ void EditorLayer::RenderViewport()
 	}
 
 	// Normal pass
+	Renderer::SetFasterShadows(m_FasterShadows);
+	Renderer::SetOffsetsRadius(m_ShadowOffsetsRadius);
 	Renderer::SetWireframe(m_DrawWireframe);
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
 	Renderer::SetStencilMask(0x00);

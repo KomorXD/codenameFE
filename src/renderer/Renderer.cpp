@@ -7,6 +7,7 @@
 #include "AssetManager.hpp"
 #include "../RandomUtils.hpp"
 
+#include <random>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -176,6 +177,8 @@ struct RendererData
 	int32_t PrefilterSlot = -1;
 	int32_t BRDF_Slot = -1;
 
+	int32_t OffsetsSlot = -1;
+
 	int32_t MaxDirLights = 4;
 	int32_t MaxPointLights = 16;
 	int32_t MaxSpotlights = 64;
@@ -228,6 +231,9 @@ struct RendererData
 	std::vector<PointLightBufferData> PointLightsData;
 	std::vector<SpotlightBufferData>  SpotlightsData;
 
+	uint32_t OffsetsTexID = 0;
+	float OffsetsRadius = 3.0f;
+
 	uint32_t BoundTexturesCount = 0;
 	std::vector<int32_t> TextureBindings;
 };
@@ -245,13 +251,14 @@ static void PrintDriversInfo()
 	LOG_INFO("Texture units:\t{}", data);
 	data /= 2;
 	s_Data.Specs.MaxTextureUnits = data;
-	s_Data.CSM_Slot = data - 6;
-	s_Data.PointShadowSlot = data - 5;
-	s_Data.SpotlightShadowSlot = data - 4;
-	s_Data.IrradianceSlot = data - 3;
-	s_Data.PrefilterSlot = data - 2;
-	s_Data.BRDF_Slot = data - 1;
-	s_Data.TextureBindings.resize((size_t)data / 2 - 7);
+	s_Data.CSM_Slot = data - 7;
+	s_Data.PointShadowSlot = data - 6;
+	s_Data.SpotlightShadowSlot = data - 5;
+	s_Data.IrradianceSlot = data - 4;
+	s_Data.PrefilterSlot = data - 3;
+	s_Data.BRDF_Slot = data - 2;
+	s_Data.OffsetsSlot = data - 1;
+	s_Data.TextureBindings.resize((size_t)data / 2 - 8);
 
 	GLCall(glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &data));
 	LOG_INFO("Max SSBO size:\t{} bytes", data);
@@ -403,6 +410,11 @@ void Renderer::Init()
 		s_Data.DefaultShader->SetUniform1i("u_DirLightCSM", s_Data.CSM_Slot);
 		s_Data.DefaultShader->SetUniform1i("u_PointLightShadowmaps", s_Data.PointShadowSlot);
 		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", s_Data.SpotlightShadowSlot);
+
+		s_Data.DefaultShader->SetUniform1i("u_OffsetsTexSize", 16);
+		s_Data.DefaultShader->SetUniform1i("u_OffsetsFilterSize", 8);
+		s_Data.DefaultShader->SetUniform1f("u_OffsetsRadius", s_Data.OffsetsRadius);
+		s_Data.DefaultShader->SetUniform1i("u_OffsetsTexture", s_Data.OffsetsSlot);
 		s_Data.CurrentShader = s_Data.DefaultShader;
 	}
 
@@ -658,6 +670,51 @@ void Renderer::Init()
 		GLCall(glDeleteFramebuffers(1, &fbo));
 	}
 
+	{
+		SCOPE_PROFILE("Random offset texture");
+
+		std::default_random_engine eng{};
+		std::uniform_real_distribution<float> dist(-0.5f, 0.5f);
+
+		constexpr int32_t windowSize = 16;
+		constexpr int32_t filterSize = 8;
+		constexpr int32_t bufferSize = windowSize * windowSize * filterSize * filterSize * 2;
+
+		std::vector<float> textureData{};
+		textureData.resize(bufferSize);
+
+		size_t idx = 0;
+		for (int32_t texY = 0; texY < windowSize; texY++)
+		{
+			for (int32_t texX = 0; texX < windowSize; texX++)
+			{
+				for (int32_t v = filterSize - 1; v >= 0; v--)
+				{
+					for (int32_t u = 0; u < filterSize; u++)
+					{
+						assert(idx + 1 < textureData.size());
+
+						float x = ((float)u + 0.5f + dist(eng)) / (float)filterSize;
+						float y = ((float)v + 0.5f + dist(eng)) / (float)filterSize;
+
+						textureData[idx	+ 0] = glm::sqrt(y) * glm::cos(glm::two_pi<float>() * x);
+						textureData[idx + 1] = glm::sqrt(y) * glm::sin(glm::two_pi<float>() * x);
+						idx += 2;
+					}
+				}
+			}
+		}
+
+		constexpr int32_t filterSamples = filterSize * filterSize;
+		GLCall(glGenTextures(1, &s_Data.OffsetsTexID));
+		GLCall(glBindTexture(GL_TEXTURE_3D, s_Data.OffsetsTexID));
+		GLCall(glTexStorage3D(GL_TEXTURE_3D, 1, GL_RGBA32F, filterSamples / 2, windowSize, windowSize));
+		GLCall(glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, filterSamples / 2, windowSize, windowSize, GL_RGBA, GL_FLOAT, textureData.data()));
+		GLCall(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+		GLCall(glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
+		GLCall(glBindTexture(GL_TEXTURE_3D, 0));
+	}
+
 	memset(&s_Data.Stats, 0, sizeof(RendererStats));
 }
 
@@ -698,6 +755,13 @@ void Renderer::Shutdown()
 	s_Data.PointLightsBuffer = nullptr;
 	s_Data.SpotlightsBuffer = nullptr;
 	s_Data.MaterialsBuffer = nullptr;
+
+	if (s_Data.OffsetsTexID != 0)
+	{
+		GLCall(glBindTexture(GL_TEXTURE_3D, 0));
+		GLCall(glDeleteTextures(1, &s_Data.OffsetsTexID));
+		s_Data.OffsetsTexID = 0;
+	}
 }
 
 void Renderer::ReloadShaders()
@@ -779,6 +843,9 @@ void Renderer::Flush()
 		GLCall(glActiveTexture(GL_TEXTURE0 + i));
 		GLCall(glBindTexture(GL_TEXTURE_2D, s_Data.TextureBindings[i]));
 	}
+
+	GLCall(glActiveTexture(GL_TEXTURE0 + s_Data.OffsetsSlot));
+	GLCall(glBindTexture(GL_TEXTURE_3D, s_Data.OffsetsTexID));
 
 	for (auto& [meshID, meshData] : s_Data.MeshesData)
 	{
@@ -1179,6 +1246,20 @@ void Renderer::SetBloomThreshold(float threshold)
 {
 	s_Data.BloomDownsamplerShader->Bind();
 	s_Data.BloomDownsamplerShader->SetUniform1f("u_Threshold", threshold);
+}
+
+void Renderer::SetFasterShadows(bool faster)
+{
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniformBool("u_FasterShadows", faster);
+}
+
+void Renderer::SetOffsetsRadius(float radius)
+{
+	s_Data.OffsetsRadius = radius;
+	
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniform1f("u_OffsetsRadius", radius);
 }
 
 std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
