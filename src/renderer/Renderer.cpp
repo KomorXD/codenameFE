@@ -179,6 +179,8 @@ struct RendererData
 
 	int32_t OffsetsSlot = -1;
 
+	int32_t MaxMaterials = 32;
+
 	int32_t MaxDirLights = 4;
 	int32_t MaxPointLights = 16;
 	int32_t MaxSpotlights = 64;
@@ -227,6 +229,7 @@ struct RendererData
 	std::shared_ptr<UniformBuffer> SpotlightsBuffer;
 
 	std::vector<MaterialsBufferData>  MaterialsData;
+
 	std::vector<DirLightBufferData>	  DirLightsData;
 	std::vector<PointLightBufferData> PointLightsData;
 	std::vector<SpotlightBufferData>  SpotlightsData;
@@ -374,6 +377,7 @@ void Renderer::Init()
 		spec.Fragment = { 
 			"resources/shaders/Default.frag",
 			{
+				{ "${MATERIALS_COUNT}",		std::to_string(s_Data.MaxMaterials)			 },
 				{ "${TEXTURE_UNITS}",		std::to_string(s_Data.Specs.MaxTextureUnits) },
 				{ "${MAX_DIR_LIGHTS}",		std::to_string(s_Data.MaxDirLights)			 },
 				{ "${MAX_POINT_LIGHTS}",	std::to_string(s_Data.MaxPointLights)		 },
@@ -477,12 +481,12 @@ void Renderer::Init()
 		spec.Layers = 6;
 		spec.GenMipmaps = false;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
-		
+
 		spec.Size = { 1024, 1024 };
-		spec.Layers = 36;
+		spec.Layers = 12;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 
-		spec.Layers = 16;
+		spec.Layers = 3;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 	}
 
@@ -1246,12 +1250,6 @@ void Renderer::SetBloomThreshold(float threshold)
 {
 	s_Data.BloomDownsamplerShader->Bind();
 	s_Data.BloomDownsamplerShader->SetUniform1f("u_Threshold", threshold);
-}
-
-void Renderer::SetFasterShadows(bool faster)
-{
-	s_Data.DefaultShader->Bind();
-	s_Data.DefaultShader->SetUniformBool("u_FasterShadows", faster);
 }
 
 void Renderer::SetOffsetsRadius(float radius)

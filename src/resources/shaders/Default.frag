@@ -1,5 +1,6 @@
 #version 430 core
 
+#define MATERIALS_COUNT ${MATERIALS_COUNT}
 #define TEXTURE_UNITS ${TEXTURE_UNITS}
 #define MAX_DIR_LIGHTS ${MAX_DIR_LIGHTS}
 #define MAX_POINT_LIGHTS ${MAX_POINT_LIGHTS}
@@ -89,7 +90,7 @@ layout (std140, binding = 0) uniform Camera
 
 layout(std140, binding = 1) uniform Materials
 {
-	Material materials[128];
+	Material materials[MATERIALS_COUNT];
 } u_Materials;
 
 layout(std140, binding = 2) uniform DirectionalLights
@@ -309,7 +310,7 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L)
 	}
 
 	shadow *= 8.0;
-	for(int i = 4; i < 32; i++)
+	for(int i = 4; i < samplesDiv2; i++)
 	{
 		offsetCoord.x = i;
 		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
@@ -372,7 +373,7 @@ float shadowFactor(sampler2DArrayShadow shadowMaps, mat4 lightSpaceMat, int laye
 	}
 
 	shadow *= 8.0;
-	for(int i = 4; i < 32; i++)
+	for(int i = 4; i < samplesDiv2; i++)
 	{
 		offsetCoord.x = i;
 		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
@@ -544,18 +545,10 @@ void main()
 			localLayer = int(mix(layer + face, localLayer, float(d < maxDot)));
 		}
 		
-		layer += pointLight.facesRendered;
-		float shadow = 1.0;
-		if(u_FasterShadows)
-		{
-			shadow = worseShadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
-		}
-		else
-		{
-			// shadow = shadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
-		}
-
+		float shadow = shadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
 		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * shadow;
+
+		layer += pointLight.facesRendered;
 	}
 	
 	vec3 totalDiffuse = vec3(0.0);
@@ -599,16 +592,7 @@ void main()
 			vec3 kD = vec3(1.0) - kS;
 			kD *= 1.0 - metallic;
 
-			float shadow = 1.0;
-			if(u_FasterShadows)
-			{
-				shadow = worseShadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, i, N, L);
-			}
-			else
-			{
-				// shadow = shadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, i, N, L);
-			}
-
+			float shadow = shadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, i, N, L);
 			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity * shadow;
 		}
 	}

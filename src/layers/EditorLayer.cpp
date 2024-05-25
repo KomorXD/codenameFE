@@ -486,7 +486,6 @@ void EditorLayer::RenderViewport()
 	}
 
 	// Normal pass
-	Renderer::SetFasterShadows(m_FasterShadows);
 	Renderer::SetOffsetsRadius(m_ShadowOffsetsRadius);
 	Renderer::SetWireframe(m_DrawWireframe);
 	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
