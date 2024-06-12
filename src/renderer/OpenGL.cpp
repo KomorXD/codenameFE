@@ -727,9 +727,13 @@ void Framebuffer::ResizeRenderbuffer(const glm::uvec2& size)
 
 void Framebuffer::ResizeEverything(const glm::uvec2& size)
 {
+	if (m_RenderbufferID == 0)
+	{
+		return;
+	}
+
 	bool multisampled = m_Samples > 1;
 	GLCall(glBindRenderbuffer(GL_RENDERBUFFER, m_RenderbufferID));
-
 	if (multisampled)
 	{
 		for (auto& [id, spec] : m_ColorAttachments)
