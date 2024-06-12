@@ -31,6 +31,12 @@ struct RendererStats
 	float SpotlightShadowPassTime = 0.0f;
 };
 
+enum class Pipeline
+{
+	FORWARD = 0,
+	DEFERRED
+};
+
 class Renderer
 {
 public:
@@ -64,6 +70,8 @@ public:
 	static void DrawArrays(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t vertexCount, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawScreenQuad();
+
+	static void SetRenderingPipeline(Pipeline pipeline);
 
 	static void Bloom(const std::unique_ptr<Framebuffer>& hdrFBO);
 	static void SetBloomStrength(float strength);
@@ -99,6 +107,9 @@ public:
 private:
 	static void StartBatch();
 	static void NextBatch();
+
+	static void ForwardRender();
+	static void DeferredRender();
 
 	static Camera* s_ActiveCamera;
 	static Viewport s_Viewport;

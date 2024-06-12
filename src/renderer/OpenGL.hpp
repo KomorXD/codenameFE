@@ -277,7 +277,7 @@ struct ColorAttachment
 class Framebuffer
 {
 public:
-	Framebuffer(uint32_t samples);
+	Framebuffer(uint32_t samples = 1);
 	~Framebuffer();
 
 	void Bind() const;

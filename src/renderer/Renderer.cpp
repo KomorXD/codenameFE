@@ -6,6 +6,7 @@
 #include "PrimitivesGen.hpp"
 #include "AssetManager.hpp"
 #include "../RandomUtils.hpp"
+#include "../Application.hpp"
 
 #include <random>
 #include <glm/gtc/matrix_transform.hpp>
@@ -239,6 +240,11 @@ struct RendererData
 
 	uint32_t BoundTexturesCount = 0;
 	std::vector<int32_t> TextureBindings;
+
+	std::unique_ptr<Framebuffer> G_FBO;
+	std::shared_ptr<Shader> G_PassShader;
+
+	Pipeline RenderPipe = Pipeline::DEFERRED;
 };
 
 static RendererData s_Data{};
@@ -719,6 +725,56 @@ void Renderer::Init()
 		GLCall(glBindTexture(GL_TEXTURE_3D, 0));
 	}
 
+	{
+		SCOPE_PROFILE("Deferred G buffer + shaders init");
+		
+		{
+			const WindowSpec& wSpec = Application::Instance()->Spec();
+			ColorAttachmentSpec spec;
+			spec.Type = ColorAttachmentType::TEX_2D;
+			spec.Format = TextureFormat::RGBA16F;
+			spec.Wrap = GL_REPEAT;
+			spec.MinFilter = GL_NEAREST;
+			spec.MagFilter = GL_NEAREST;
+			spec.BorderColor = glm::vec4(1.0f);
+			spec.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height };
+			s_Data.G_FBO = std::make_unique<Framebuffer>();
+			s_Data.G_FBO->AddColorAttachment(spec);
+			s_Data.G_FBO->AddColorAttachment(spec);
+
+			spec.Format = TextureFormat::RGBA8;
+			s_Data.G_FBO->AddColorAttachment(spec);
+			s_Data.G_FBO->FillDrawBuffers();
+
+			s_Data.G_FBO->AddRenderbuffer({
+				.Type = RenderbufferType::DEPTH,
+				.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height }
+			});
+			assert(s_Data.G_FBO->IsComplete() && "Incomplete framebuffer!");
+		}
+
+		{
+			ShaderSpec spec{};
+			spec.Vertex = {
+				"resources/shaders/deferred/GBuf.vert", {}
+			};
+			spec.Fragment = {
+				"resources/shaders/deferred/GBuf.frag",
+				{
+					{ "${MATERIALS_COUNT}",	std::to_string(s_Data.MaxMaterials)			 },
+					{ "${TEXTURE_UNITS}",	std::to_string(s_Data.Specs.MaxTextureUnits) }
+				}
+			};
+			s_Data.G_PassShader = std::make_shared<Shader>(spec);
+			s_Data.G_PassShader->Bind();
+			for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
+			{
+				s_Data.G_PassShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
+			}
+		}
+		
+	}
+
 	memset(&s_Data.Stats, 0, sizeof(RendererStats));
 }
 
@@ -759,6 +815,9 @@ void Renderer::Shutdown()
 	s_Data.PointLightsBuffer = nullptr;
 	s_Data.SpotlightsBuffer = nullptr;
 	s_Data.MaterialsBuffer = nullptr;
+
+	s_Data.G_FBO = nullptr;
+	s_Data.G_PassShader = nullptr;
 
 	if (s_Data.OffsetsTexID != 0)
 	{
@@ -850,29 +909,18 @@ void Renderer::Flush()
 
 	GLCall(glActiveTexture(GL_TEXTURE0 + s_Data.OffsetsSlot));
 	GLCall(glBindTexture(GL_TEXTURE_3D, s_Data.OffsetsTexID));
-
-	for (auto& [meshID, meshData] : s_Data.MeshesData)
+	
+	switch (s_Data.RenderPipe)
 	{
-		if (meshData.CurrentInstancesCount == 0)
-		{
-			continue;
-		}
-
-		Mesh& mesh = AssetManager::GetMesh(meshID);
-		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
-		DrawIndexedInstanced(s_Data.CurrentShader, mesh.VAO, meshData.CurrentInstancesCount);
-		s_Data.Stats.RenderPassDrawCalls++;
-	}
-
-	if (s_Data.LineVertexCount)
-	{
-		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.LineBufferPtr - (uint8_t*)s_Data.LineBufferBase);
-		s_Data.LineVertexBuffer->SetData(s_Data.LineBufferBase, dataSize);
-
-		GLCall(glDisable(GL_CULL_FACE));
-		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
-		GLCall(glEnable(GL_CULL_FACE));
-		s_Data.Stats.RenderPassDrawCalls++;
+	case Pipeline::FORWARD:
+		ForwardRender();
+		break;
+	case Pipeline::DEFERRED:
+		DeferredRender();
+		break;
+	default:
+		assert(false && "Invalid rendering pipeline passed");
+		break;
 	}
 }
 
@@ -1190,6 +1238,11 @@ void Renderer::DrawScreenQuad()
 	GLCall(glEnable(GL_DEPTH_TEST));
 }
 
+void Renderer::SetRenderingPipeline(Pipeline pipeline)
+{
+	s_Data.RenderPipe = pipeline;
+}
+
 void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
 {
 	const std::vector<ColorAttachment>& mips = s_Data.BloomFBO->ColorAttachments();
@@ -1262,6 +1315,7 @@ void Renderer::SetOffsetsRadius(float radius)
 
 std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
 {
+	// Mapping env map to a cubemap
 	std::shared_ptr<Framebuffer> cfb = std::make_shared<Framebuffer>(1);
 	cfb->AddRenderbuffer({
 		.Type = RenderbufferType::DEPTH,
@@ -1305,6 +1359,7 @@ std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture>
 	cfb->BindColorAttachment(0);
 	GLCall(glGenerateMipmap(GL_TEXTURE_CUBE_MAP));
 
+	// Irradiance map
 	cfb->AddColorAttachment({
 		.Type = ColorAttachmentType::TEX_CUBEMAP,
 		.Format = TextureFormat::RGB16F,
@@ -1335,6 +1390,7 @@ std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture>
 	});
 	GLCall(glViewport(0, 0, 128, 128));
 
+	// Reflection maps
 	cfb->BindColorAttachment(0);
 	s_Data.PrefilterShader->Bind();
 	cfb->ResizeRenderbuffer({ 128, 128 });
@@ -1596,4 +1652,55 @@ void Renderer::NextBatch()
 	s_Data.LineVertexCount = 0;
 	s_Data.LineBufferPtr = s_Data.LineBufferBase;
 	s_Data.BoundTexturesCount = 0;
+}
+
+void Renderer::ForwardRender()
+{
+	for (auto& [meshID, meshData] : s_Data.MeshesData)
+	{
+		if (meshData.CurrentInstancesCount == 0)
+		{
+			continue;
+		}
+
+		Mesh& mesh = AssetManager::GetMesh(meshID);
+		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
+		DrawIndexedInstanced(s_Data.CurrentShader, mesh.VAO, meshData.CurrentInstancesCount);
+		s_Data.Stats.RenderPassDrawCalls++;
+	}
+
+	if (s_Data.LineVertexCount)
+	{
+		uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.LineBufferPtr - (uint8_t*)s_Data.LineBufferBase);
+		s_Data.LineVertexBuffer->SetData(s_Data.LineBufferBase, dataSize);
+
+		GLCall(glDisable(GL_CULL_FACE));
+		DrawArrays(s_Data.LineShader, s_Data.LineVertexArray, s_Data.LineVertexCount, GL_LINES);
+		GLCall(glEnable(GL_CULL_FACE));
+		s_Data.Stats.RenderPassDrawCalls++;
+	}
+}
+
+void Renderer::DeferredRender()
+{
+	s_Data.G_FBO->Bind();
+	s_Data.G_FBO->BindRenderbuffer();
+	s_Data.G_FBO->DrawToColorAttachment(0, 0);
+	s_Data.G_FBO->DrawToColorAttachment(1, 1);
+	s_Data.G_FBO->DrawToColorAttachment(2, 2);
+	s_Data.G_FBO->FillDrawBuffers();
+	Renderer::ClearColor(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	Renderer::Clear();
+	
+	for (auto& [meshID, meshData] : s_Data.MeshesData)
+	{
+		if (meshData.CurrentInstancesCount == 0)
+		{
+			continue;
+		}
+
+		Mesh& mesh = AssetManager::GetMesh(meshID);
+		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
+		DrawIndexedInstanced(s_Data.G_PassShader, mesh.VAO, meshData.CurrentInstancesCount);
+	}
 }
