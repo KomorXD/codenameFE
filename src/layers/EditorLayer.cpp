@@ -312,8 +312,6 @@ void EditorLayer::RenderScenePanel()
 
 	if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-		static MSAA s_MSAA = MSAA::Off;
-
 		ImGui::Indent(16.0f);
 		ImGui::PrettyDragFloat3("Position", glm::value_ptr(m_EditorCamera.Position), 1.0f, -FLT_MAX, FLT_MAX);
 		ImGui::PrettyDragFloat("Exposure", &m_EditorCamera.Exposure, 0.001f, 0.0f, FLT_MAX);
@@ -434,6 +432,7 @@ void EditorLayer::RenderScenePanel()
 void EditorLayer::RenderViewport()
 {
 	Renderer::ResetStats();
+	Renderer::SetRenderingPipeline(Pipeline::FORWARD);
 
 	m_Scene.RenderShadowMaps();
 	m_ScreenFB->Bind();
@@ -469,8 +468,16 @@ void EditorLayer::RenderViewport()
 	Renderer::SetStencilMask(0x00);
 	Renderer::DrawSkybox(m_SkyboxFB);
 	m_ScreenFB->ClearColorAttachment(1);
+	Renderer::SetRenderingPipeline(Pipeline::DEFERRED);
 	m_Scene.Render(m_EditorCamera);
+	
+	m_ScreenFB->Bind();
+	m_ScreenFB->BindRenderbuffer();
+	m_ScreenFB->DrawToColorAttachment(0, 0);
+	m_ScreenFB->DrawToColorAttachment(1, 1);
+	m_ScreenFB->FillDrawBuffers();
 	Renderer::SetWireframe(false);
+	Renderer::SetRenderingPipeline(Pipeline::FORWARD);
 
 	// Grid
 	if (m_DrawGrid)
