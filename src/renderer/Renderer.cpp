@@ -36,6 +36,7 @@ static void OpenGLMessageCallback(
 
 Camera* Renderer::s_ActiveCamera = nullptr;
 Viewport Renderer::s_Viewport;
+std::shared_ptr<Framebuffer> Renderer::s_TargetFBO;
 
 struct ScreenQuadVertex
 {
@@ -216,6 +217,7 @@ struct RendererData
 	LineVertex* LineBufferPtr   = nullptr;
 
 	std::shared_ptr<Shader>	DefaultShader;
+	std::shared_ptr<Shader> FlatShader;
 	std::shared_ptr<Shader> CurrentShader;
 
 	std::shared_ptr<Framebuffer> ShadowMapsFBO;
@@ -243,8 +245,9 @@ struct RendererData
 
 	std::unique_ptr<Framebuffer> G_FBO;
 	std::shared_ptr<Shader> G_PassShader;
+	std::shared_ptr<Shader> G_LightShader;
 
-	Pipeline RenderPipe = Pipeline::DEFERRED;
+	RenderMode RenderMode = RenderMode::FORWARD;
 };
 
 static RendererData s_Data{};
@@ -426,6 +429,21 @@ void Renderer::Init()
 		s_Data.DefaultShader->SetUniform1f("u_OffsetsRadius", s_Data.OffsetsRadius);
 		s_Data.DefaultShader->SetUniform1i("u_OffsetsTexture", s_Data.OffsetsSlot);
 		s_Data.CurrentShader = s_Data.DefaultShader;
+
+		spec.Vertex = { "resources/shaders/FlatColor.vert", {} };
+		spec.Fragment = {
+			"resources/shaders/FlatColor.frag",
+			{
+				{ "${MATERIALS_COUNT}",	std::to_string(s_Data.MaxMaterials)			 },
+				{ "${TEXTURE_UNITS}",	std::to_string(s_Data.Specs.MaxTextureUnits) }
+			}
+		};
+		s_Data.FlatShader = std::make_shared<Shader>(spec);
+		s_Data.FlatShader->Bind();
+		for (int32_t i = 0; i < s_Data.TextureBindings.size(); i++)
+		{
+			s_Data.FlatShader->SetUniform1i("u_Textures[" + std::to_string(i) + "]", i);
+		}
 	}
 
 	{
@@ -541,26 +559,26 @@ void Renderer::Init()
 		s_Data.EnvMapVertexArray->AddVertexBuffer(s_Data.EnvMapVertexBuffer, layout);
 
 		ShaderSpec spec{};
-		spec.Vertex   = { "resources/shaders/EnvMapper.vert", {} };
-		spec.Fragment = { "resources/shaders/EnvMapper.frag", {} };
+		spec.Vertex   = { "resources/shaders/env_map/EnvMapper.vert", {} };
+		spec.Fragment = { "resources/shaders/env_map/EnvMapper.frag", {} };
 		s_Data.EnvMapShader = std::make_shared<Shader>(spec);
 		s_Data.EnvMapShader->Bind();
 		s_Data.EnvMapShader->SetUniform1i("u_EquirectangularEnvMap", 0);
 
-		spec.Vertex   = { "resources/shaders/EnvMapper.vert", {} };
-		spec.Fragment = { "resources/shaders/Irradiance.frag", {} };
+		spec.Vertex   = { "resources/shaders/env_map/EnvMapper.vert", {} };
+		spec.Fragment = { "resources/shaders/env_map/Irradiance.frag", {} };
 		s_Data.IrradianceShader = std::make_shared<Shader>(spec);
 		s_Data.IrradianceShader->Bind();
 		s_Data.IrradianceShader->SetUniform1i("u_EnvMap", 0);
 
-		spec.Vertex   = { "resources/shaders/EnvMapper.vert", {} };
-		spec.Fragment = { "resources/shaders/EnvPrefilter.frag", {} };
+		spec.Vertex   = { "resources/shaders/env_map/EnvMapper.vert", {} };
+		spec.Fragment = { "resources/shaders/env_map/EnvPrefilter.frag", {} };
 		s_Data.PrefilterShader = std::make_shared<Shader>(spec);
 		s_Data.PrefilterShader->Bind();
 		s_Data.PrefilterShader->SetUniform1i("u_EnvironmentMap", 0);
 
-		spec.Vertex   = { "resources/shaders/Skybox.vert", {} };
-		spec.Fragment = { "resources/shaders/Skybox.frag", {} };
+		spec.Vertex   = { "resources/shaders/env_map/Skybox.vert", {} };
+		spec.Fragment = { "resources/shaders/env_map/Skybox.frag", {} };
 		s_Data.SkyboxShader = std::make_shared<Shader>(spec);
 		s_Data.SkyboxShader->Bind();
 		s_Data.SkyboxShader->SetUniform1i("u_Cubemap", 0);
@@ -667,7 +685,7 @@ void Renderer::Init()
 
 		ShaderSpec spec{};
 		spec.Vertex   = { "resources/shaders/ScreenQuad.vert", {} };
-		spec.Fragment = { "resources/shaders/BRDF.frag", {} };
+		spec.Fragment = { "resources/shaders/env_map/BRDF.frag", {} };
 		std::shared_ptr<Shader> brdfShader = std::make_shared<Shader>(spec);
 		brdfShader->Bind();
 		Clear();
@@ -739,11 +757,11 @@ void Renderer::Init()
 			spec.BorderColor = glm::vec4(1.0f);
 			spec.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height };
 			s_Data.G_FBO = std::make_unique<Framebuffer>();
-			s_Data.G_FBO->AddColorAttachment(spec);
-			s_Data.G_FBO->AddColorAttachment(spec);
+			s_Data.G_FBO->AddColorAttachment(spec);	// gPosition
+			s_Data.G_FBO->AddColorAttachment(spec);	// gNormal
 
 			spec.Format = TextureFormat::RGBA8;
-			s_Data.G_FBO->AddColorAttachment(spec);
+			s_Data.G_FBO->AddColorAttachment(spec);	// gColor
 			s_Data.G_FBO->FillDrawBuffers();
 
 			s_Data.G_FBO->AddRenderbuffer({
@@ -773,6 +791,16 @@ void Renderer::Init()
 			}
 		}
 		
+		{
+			ShaderSpec spec{};
+			spec.Vertex		= { "resources/shaders/deferred/LightPass.vert", {} };
+			spec.Fragment	= { "resources/shaders/deferred/LightPass.frag", {} };
+			s_Data.G_LightShader = std::make_shared<Shader>(spec);
+			s_Data.G_LightShader->Bind();
+			s_Data.G_LightShader->SetUniform1i("gPosition", 0);
+			s_Data.G_LightShader->SetUniform1i("gNormal", 1);
+			s_Data.G_LightShader->SetUniform1i("gColor", 2);
+		}
 	}
 
 	memset(&s_Data.Stats, 0, sizeof(RendererStats));
@@ -780,6 +808,8 @@ void Renderer::Init()
 
 void Renderer::Shutdown()
 {
+	s_TargetFBO = nullptr;
+
 	delete[] s_Data.LineBufferBase;
 
 	s_Data.ScreenQuadVertexArray = nullptr;
@@ -803,6 +833,7 @@ void Renderer::Shutdown()
 	s_Data.BloomUpsamplerShader = nullptr;
 
 	s_Data.DefaultShader = nullptr;
+	s_Data.FlatShader = nullptr;
 	s_Data.CurrentShader = nullptr;
 
 	s_Data.ShadowMapsFBO = nullptr;
@@ -818,6 +849,7 @@ void Renderer::Shutdown()
 
 	s_Data.G_FBO = nullptr;
 	s_Data.G_PassShader = nullptr;
+	s_Data.G_LightShader = nullptr;
 
 	if (s_Data.OffsetsTexID != 0)
 	{
@@ -910,12 +942,17 @@ void Renderer::Flush()
 	GLCall(glActiveTexture(GL_TEXTURE0 + s_Data.OffsetsSlot));
 	GLCall(glBindTexture(GL_TEXTURE_3D, s_Data.OffsetsTexID));
 	
-	switch (s_Data.RenderPipe)
+	switch (s_Data.RenderMode)
 	{
-	case Pipeline::FORWARD:
+	case RenderMode::FORWARD:
+		s_Data.CurrentShader = s_Data.DefaultShader;
 		ForwardRender();
 		break;
-	case Pipeline::DEFERRED:
+	case RenderMode::FLAT_SHADING:
+		s_Data.CurrentShader = s_Data.FlatShader;
+		ForwardRender();
+		break;
+	case RenderMode::DEFERRED:
 		DeferredRender();
 		break;
 	default:
@@ -1238,12 +1275,17 @@ void Renderer::DrawScreenQuad()
 	GLCall(glEnable(GL_DEPTH_TEST));
 }
 
-void Renderer::SetRenderingPipeline(Pipeline pipeline)
+void Renderer::SetRenderMode(RenderMode mode)
 {
-	s_Data.RenderPipe = pipeline;
+	s_Data.RenderMode = mode;
 }
 
-void Renderer::Bloom(const std::unique_ptr<Framebuffer>& hdrFBO)
+void Renderer::SetTargetFBO(std::shared_ptr<Framebuffer>& fbo)
+{
+	s_TargetFBO = fbo;
+}
+
+void Renderer::Bloom(std::shared_ptr<Framebuffer> hdrFBO)
 {
 	const std::vector<ColorAttachment>& mips = s_Data.BloomFBO->ColorAttachments();
 	s_Data.BloomFBO->Bind();
@@ -1420,10 +1462,10 @@ void Renderer::DrawSkybox(std::shared_ptr<Framebuffer> cfb)
 	cfb->BindColorAttachment(1, s_Data.IrradianceSlot);
 	cfb->BindColorAttachment(2, s_Data.PrefilterSlot);
 	s_Data.BRDF_Map->Bind(s_Data.BRDF_Slot);
-	s_Data.CurrentShader->Bind();
-	s_Data.CurrentShader->SetUniform1i("u_IrradianceMap", s_Data.IrradianceSlot);
-	s_Data.CurrentShader->SetUniform1i("u_PrefilterMap", s_Data.PrefilterSlot);
-	s_Data.CurrentShader->SetUniform1i("u_BRDF_LUT", s_Data.BRDF_Slot);
+	s_Data.DefaultShader->Bind();
+	s_Data.DefaultShader->SetUniform1i("u_IrradianceMap", s_Data.IrradianceSlot);
+	s_Data.DefaultShader->SetUniform1i("u_PrefilterMap", s_Data.PrefilterSlot);
+	s_Data.DefaultShader->SetUniform1i("u_BRDF_LUT", s_Data.BRDF_Slot);
 }
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
@@ -1553,18 +1595,6 @@ void Renderer::AddSpotLight(const TransformComponent& transform, const SpotLight
 	s_Data.Stats.SpotlightFacesShadowPassed++;
 }
 
-void Renderer::SetBlur(bool enabled)
-{
-	s_Data.ScreenQuadShader->Bind();
-	s_Data.ScreenQuadShader->SetUniform1i("u_BlurEnabled", enabled ? 1 : 0);
-}
-
-void Renderer::SetLight(bool enabled)
-{
-	s_Data.CurrentShader->Bind();
-	s_Data.CurrentShader->SetUniformBool("u_IsLightSource", enabled);
-}
-
 void Renderer::EnableStencil()
 {
 	GLCall(glEnable(GL_STENCIL_TEST));
@@ -1689,7 +1719,7 @@ void Renderer::DeferredRender()
 	s_Data.G_FBO->DrawToColorAttachment(1, 1);
 	s_Data.G_FBO->DrawToColorAttachment(2, 2);
 	s_Data.G_FBO->FillDrawBuffers();
-	Renderer::ClearColor(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+	Renderer::ClearColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
 	Renderer::Clear();
 	
 	for (auto& [meshID, meshData] : s_Data.MeshesData)
@@ -1703,4 +1733,17 @@ void Renderer::DeferredRender()
 		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
 		DrawIndexedInstanced(s_Data.G_PassShader, mesh.VAO, meshData.CurrentInstancesCount);
 	}
+	
+	s_Data.G_FBO->BindColorAttachment(0, 0);
+	s_Data.G_FBO->BindColorAttachment(1, 1);
+	s_Data.G_FBO->BindColorAttachment(2, 2);
+	
+	s_TargetFBO->Bind();
+	s_TargetFBO->BindRenderbuffer();
+	s_TargetFBO->DrawToColorAttachment(0, 0);
+	s_TargetFBO->DrawToColorAttachment(1, 1);
+	s_TargetFBO->FillDrawBuffers();
+	GLCall(glDisable(GL_DEPTH_TEST));
+	DrawArrays(s_Data.G_LightShader, s_Data.ScreenQuadVertexArray, 6);
+	GLCall(glEnable(GL_DEPTH_TEST));
 }

@@ -31,10 +31,13 @@ struct RendererStats
 	float SpotlightShadowPassTime = 0.0f;
 };
 
-enum class Pipeline
+enum class RenderMode
 {
 	FORWARD = 0,
-	DEFERRED
+	DEFERRED,
+	FLAT_SHADING,
+
+	COUNT
 };
 
 class Renderer
@@ -71,9 +74,10 @@ public:
 	static void DrawArraysInstanced(const std::shared_ptr<Shader>& shader, const std::shared_ptr<VertexArray>& vao, uint32_t instances, uint32_t primitiveType = GL_TRIANGLES);
 	static void DrawScreenQuad();
 
-	static void SetRenderingPipeline(Pipeline pipeline);
+	static void SetRenderMode(RenderMode pipeline);
+	static void SetTargetFBO(std::shared_ptr<Framebuffer>& fbo);
 
-	static void Bloom(const std::unique_ptr<Framebuffer>& hdrFBO);
+	static void Bloom(std::shared_ptr<Framebuffer> hdrFBO);
 	static void SetBloomStrength(float strength);
 	static void SetBloomThreshold(float threshold);
 
@@ -85,9 +89,6 @@ public:
 	static void AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light);
 	static void AddPointLight(const glm::vec3& position, const PointLightComponent& light);
 	static void AddSpotLight(const TransformComponent& transform, const SpotLightComponent& light);
-
-	static void SetBlur(bool enabled);
-	static void SetLight(bool enabled);
 
 	static void EnableStencil();
 	static void DisableStencil();
@@ -113,4 +114,5 @@ private:
 
 	static Camera* s_ActiveCamera;
 	static Viewport s_Viewport;
+	static std::shared_ptr<Framebuffer> s_TargetFBO;
 };
