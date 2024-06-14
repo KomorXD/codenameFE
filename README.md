@@ -25,11 +25,12 @@ I've been interested in 3D graphics for quite some time - my engineering thesis 
  - [x] Point light shadow maps
  - [x] Directional light shadow maps
  - [x] Cascaded shadow maps
+ - [x] Deffered rendering
+ - [ ] Volumetric point lights for deferred pipeline
  - [ ] Bloom with compute shaders
  - [ ] Uploading custom models (+ making sure they have normals and tangents, or calculating them)
  - [ ] SSAO
  - [ ] Managing textures to optimize draw calls, probably texture atlas
- - [ ] Deffered rendering
  - [ ] Point light volumetric lights
  - [ ] Forward+ rendering
  - [ ] Whatever comes to my mind next
