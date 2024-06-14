@@ -3,9 +3,8 @@
 #define MATERIALS_COUNT ${MATERIALS_COUNT}
 #define TEXTURE_UNITS ${TEXTURE_UNITS}
 
-layout (location = 0) out vec4 gPosition;
-layout (location = 1) out vec4 gNormal;
-layout (location = 2) out vec4 gColor;
+layout (location = 0) out vec4 o_Color;
+layout (location = 1) out vec4 o_Picker;
 
 struct Material
 {
@@ -42,12 +41,6 @@ uniform sampler2D u_Textures[TEXTURE_UNITS];
 in VS_OUT
 {
 	vec3 worldPos;
-	vec3 viewSpacePos;
-	vec3 eyePos;
-	vec3 normal;
-	mat3 TBN;
-	vec3 tangentWorldPos;
-	vec3 tangentViewPos;
 	vec2 textureUV;
 	flat float materialSlot;
 	flat float entityID;
@@ -55,12 +48,16 @@ in VS_OUT
 
 void main()
 {
-	gPosition = vec4(fs_in.worldPos, 1.0);
-	
 	Material mat = u_Materials.materials[int(fs_in.materialSlot)];
-	vec3 N = texture(u_Textures[mat.normalTextureSlot], fs_in.textureUV).rgb;
-	N = N * 2.0 - 1.0;
-	gNormal = vec4(transpose(fs_in.TBN) * normalize(N), 1.0);
+	vec2 texCoords = fs_in.textureUV * mat.tilingFactor + mat.texOffset;
+	o_Color = texture(u_Textures[mat.albedoTextureSlot], texCoords) * mat.color;
 
-	gColor = texture(u_Textures[mat.albedoTextureSlot], fs_in.textureUV) * mat.color;
+	int entID = int(fs_in.entityID);
+	int rInt = int(mod(int(entID / 65025.0), 255));
+	int gInt = int(mod(int(entID / 255.0), 255));
+	int bInt = int(mod(entID, 255));
+	float r = float(rInt) / 255.0;
+	float g = float(gInt) / 255.0;
+	float b = float(bInt) / 255.0;
+	o_Picker = vec4(r, g, b, 1.0);
 }
