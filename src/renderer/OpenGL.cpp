@@ -697,7 +697,7 @@ void Framebuffer::Unbind() const
 	GLCall(glBindFramebuffer(GL_FRAMEBUFFER, 0));
 }
 
-void Framebuffer::BlitBuffers(uint32_t sourceAttachment, uint32_t targetAttachment, const Framebuffer& target) const
+void Framebuffer::BlitColorAttachment(uint32_t sourceAttachment, uint32_t targetAttachment, const Framebuffer& target) const
 {
 	assert(m_ID != 0 && target.m_ID != 0 && "One of the framebuffers is empty.");
 
@@ -705,7 +705,26 @@ void Framebuffer::BlitBuffers(uint32_t sourceAttachment, uint32_t targetAttachme
 	GLCall(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target.m_ID));
 	GLCall(glReadBuffer(GL_COLOR_ATTACHMENT0 + sourceAttachment));
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0 + targetAttachment));
-	GLCall(glBlitFramebuffer(0, 0, m_RBO_Spec.Size.x, m_RBO_Spec.Size.y, 0, 0, m_RBO_Spec.Size.x, m_RBO_Spec.Size.y, GL_COLOR_BUFFER_BIT, GL_LINEAR));
+	GLCall(glBlitFramebuffer(
+		0, 0,
+		m_RBO_Spec.Size.x, m_RBO_Spec.Size.y,
+		0, 0,
+		m_RBO_Spec.Size.x, m_RBO_Spec.Size.y,
+		GL_COLOR_BUFFER_BIT, GL_LINEAR));
+}
+
+void Framebuffer::BlitRenderbuffer(std::shared_ptr<Framebuffer> target) const
+{
+	assert(m_RenderbufferID != 0 && target->m_RenderbufferID != 0 && "One of the framebuffers has no renderbuffer");
+	
+	GLCall(glBindFramebuffer(GL_READ_FRAMEBUFFER, m_ID));
+	GLCall(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target->m_ID));
+	GLCall(glBlitFramebuffer(
+		0, 0,
+		m_RBO_Spec.Size.x, m_RBO_Spec.Size.y,
+		0, 0,
+		target->m_RBO_Spec.Size.x, target->m_RBO_Spec.Size.y,
+		GL_DEPTH_BUFFER_BIT, GL_NEAREST));
 }
 
 void Framebuffer::ResizeRenderbuffer(const glm::uvec2& size)

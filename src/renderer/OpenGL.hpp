@@ -282,7 +282,8 @@ public:
 
 	void Bind() const;
 	void Unbind() const;
-	void BlitBuffers(uint32_t sourceAttachment, uint32_t targetAttachment, const Framebuffer& target) const;
+	void BlitColorAttachment(uint32_t sourceAttachment, uint32_t targetAttachment, const Framebuffer& target) const;
+	void BlitRenderbuffer(std::shared_ptr<Framebuffer> target) const;
 	void ResizeRenderbuffer(const glm::uvec2& size);
 	void ResizeEverything(const glm::uvec2& size);
 	void FillDrawBuffers();

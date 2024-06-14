@@ -270,7 +270,7 @@ static void PrintDriversInfo()
 	s_Data.PrefilterSlot = data - 3;
 	s_Data.BRDF_Slot = data - 2;
 	s_Data.OffsetsSlot = data - 1;
-	s_Data.TextureBindings.resize((size_t)data / 2 - 8);
+	s_Data.TextureBindings.resize((size_t)data - 8);
 
 	GLCall(glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &data));
 	LOG_INFO("Max SSBO size:\t{} bytes", data);
@@ -752,8 +752,8 @@ void Renderer::Init()
 			spec.Type = ColorAttachmentType::TEX_2D;
 			spec.Format = TextureFormat::RGBA16F;
 			spec.Wrap = GL_REPEAT;
-			spec.MinFilter = GL_NEAREST;
-			spec.MagFilter = GL_NEAREST;
+			spec.MinFilter = GL_LINEAR;
+			spec.MagFilter = GL_LINEAR;
 			spec.BorderColor = glm::vec4(1.0f);
 			spec.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height };
 			s_Data.G_FBO = std::make_unique<Framebuffer>();
@@ -762,6 +762,11 @@ void Renderer::Init()
 
 			spec.Format = TextureFormat::RGBA8;
 			s_Data.G_FBO->AddColorAttachment(spec);	// gColor
+			s_Data.G_FBO->AddColorAttachment(spec);	// gMaterial
+
+			spec.Format = TextureFormat::RGBA16F;
+			s_Data.G_FBO->AddColorAttachment(spec); // gTangentPos
+			s_Data.G_FBO->AddColorAttachment(spec);	// gTangentView
 			s_Data.G_FBO->FillDrawBuffers();
 
 			s_Data.G_FBO->AddRenderbuffer({
@@ -779,8 +784,8 @@ void Renderer::Init()
 			spec.Fragment = {
 				"resources/shaders/deferred/GBuf.frag",
 				{
-					{ "${MATERIALS_COUNT}",	std::to_string(s_Data.MaxMaterials)			 },
-					{ "${TEXTURE_UNITS}",	std::to_string(s_Data.Specs.MaxTextureUnits) }
+					{ "${MATERIALS_COUNT}",		std::to_string(s_Data.MaxMaterials)			 },
+					{ "${TEXTURE_UNITS}",		std::to_string(s_Data.Specs.MaxTextureUnits) }
 				}
 			};
 			s_Data.G_PassShader = std::make_shared<Shader>(spec);
@@ -794,12 +799,22 @@ void Renderer::Init()
 		{
 			ShaderSpec spec{};
 			spec.Vertex		= { "resources/shaders/deferred/LightPass.vert", {} };
-			spec.Fragment	= { "resources/shaders/deferred/LightPass.frag", {} };
+			spec.Fragment	= { "resources/shaders/deferred/LightPass.frag",
+				{
+					{ "${MAX_DIR_LIGHTS}",	 std::to_string(s_Data.MaxDirLights)	},
+					{ "${MAX_POINT_LIGHTS}", std::to_string(s_Data.MaxPointLights)	},
+					{ "${MAX_SPOTLIGHTS}",	 std::to_string(s_Data.MaxSpotlights)	},
+					{ "${CASCADES_COUNT}",	 std::to_string(s_Data.CascadesCount)	}
+				}
+			};
 			s_Data.G_LightShader = std::make_shared<Shader>(spec);
 			s_Data.G_LightShader->Bind();
 			s_Data.G_LightShader->SetUniform1i("gPosition", 0);
 			s_Data.G_LightShader->SetUniform1i("gNormal", 1);
 			s_Data.G_LightShader->SetUniform1i("gColor", 2);
+			s_Data.G_LightShader->SetUniform1i("gMaterial", 3);
+			s_Data.G_LightShader->SetUniform1i("gTangentPos", 4);
+			s_Data.G_LightShader->SetUniform1i("gTangentView", 5);
 		}
 	}
 
@@ -1466,6 +1481,11 @@ void Renderer::DrawSkybox(std::shared_ptr<Framebuffer> cfb)
 	s_Data.DefaultShader->SetUniform1i("u_IrradianceMap", s_Data.IrradianceSlot);
 	s_Data.DefaultShader->SetUniform1i("u_PrefilterMap", s_Data.PrefilterSlot);
 	s_Data.DefaultShader->SetUniform1i("u_BRDF_LUT", s_Data.BRDF_Slot);
+
+	s_Data.G_LightShader->Bind();
+	s_Data.G_LightShader->SetUniform1i("u_IrradianceMap", s_Data.IrradianceSlot);
+	s_Data.G_LightShader->SetUniform1i("u_PrefilterMap", s_Data.PrefilterSlot);
+	s_Data.G_LightShader->SetUniform1i("u_BRDF_LUT", s_Data.BRDF_Slot);
 }
 
 void Renderer::AddDirectionalLight(const TransformComponent& transform, const DirectionalLightComponent& light)
@@ -1718,6 +1738,9 @@ void Renderer::DeferredRender()
 	s_Data.G_FBO->DrawToColorAttachment(0, 0);
 	s_Data.G_FBO->DrawToColorAttachment(1, 1);
 	s_Data.G_FBO->DrawToColorAttachment(2, 2);
+	s_Data.G_FBO->DrawToColorAttachment(3, 3);
+	s_Data.G_FBO->DrawToColorAttachment(4, 4);
+	s_Data.G_FBO->DrawToColorAttachment(5, 5);
 	s_Data.G_FBO->FillDrawBuffers();
 	Renderer::ClearColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
 	Renderer::Clear();
@@ -1737,6 +1760,10 @@ void Renderer::DeferredRender()
 	s_Data.G_FBO->BindColorAttachment(0, 0);
 	s_Data.G_FBO->BindColorAttachment(1, 1);
 	s_Data.G_FBO->BindColorAttachment(2, 2);
+	s_Data.G_FBO->BindColorAttachment(3, 3);
+	s_Data.G_FBO->BindColorAttachment(4, 4);
+	s_Data.G_FBO->BindColorAttachment(5, 5);
+	s_Data.G_FBO->BlitRenderbuffer(s_TargetFBO);
 	
 	s_TargetFBO->Bind();
 	s_TargetFBO->BindRenderbuffer();
