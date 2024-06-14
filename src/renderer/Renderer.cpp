@@ -423,7 +423,6 @@ void Renderer::Init()
 		s_Data.DefaultShader->SetUniform1i("u_DirLightCSM", s_Data.CSM_Slot);
 		s_Data.DefaultShader->SetUniform1i("u_PointLightShadowmaps", s_Data.PointShadowSlot);
 		s_Data.DefaultShader->SetUniform1i("u_SpotlightShadowmaps", s_Data.SpotlightShadowSlot);
-
 		s_Data.DefaultShader->SetUniform1i("u_OffsetsTexSize", 16);
 		s_Data.DefaultShader->SetUniform1i("u_OffsetsFilterSize", 8);
 		s_Data.DefaultShader->SetUniform1f("u_OffsetsRadius", s_Data.OffsetsRadius);
@@ -813,6 +812,13 @@ void Renderer::Init()
 			s_Data.G_LightShader->SetUniform1i("gNormal", 1);
 			s_Data.G_LightShader->SetUniform1i("gColor", 2);
 			s_Data.G_LightShader->SetUniform1i("gMaterial", 3);
+			s_Data.G_LightShader->SetUniform1i("u_DirLightCSM", s_Data.CSM_Slot);
+			s_Data.G_LightShader->SetUniform1i("u_PointLightShadowmaps", s_Data.PointShadowSlot);
+			s_Data.G_LightShader->SetUniform1i("u_SpotlightShadowmaps", s_Data.SpotlightShadowSlot);
+			s_Data.G_LightShader->SetUniform1i("u_OffsetsTexSize", 16);
+			s_Data.G_LightShader->SetUniform1i("u_OffsetsFilterSize", 8);
+			s_Data.G_LightShader->SetUniform1f("u_OffsetsRadius", s_Data.OffsetsRadius);
+			s_Data.G_LightShader->SetUniform1i("u_OffsetsTexture", s_Data.OffsetsSlot);
 		}
 	}
 
@@ -924,6 +930,11 @@ void Renderer::Flush()
 	for (size_t i = 0; i < cascades.size(); i++)
 	{
 		s_Data.DefaultShader->SetUniform1f("u_CascadeDistances[" + std::to_string(i) + "]", cascades[i]);
+	}
+	s_Data.G_LightShader->Bind();
+	for (size_t i = 0; i < cascades.size(); i++)
+	{
+		s_Data.G_LightShader->SetUniform1f("u_CascadeDistances[" + std::to_string(i) + "]", cascades[i]);
 	}
 
 	s_Data.MaterialsBuffer->SetData(s_Data.MaterialsData.data(), s_Data.MaterialsData.size() * sizeof(MaterialsBufferData));
@@ -1764,7 +1775,5 @@ void Renderer::DeferredRender()
 	s_TargetFBO->DrawToColorAttachment(0, 0);
 	s_TargetFBO->DrawToColorAttachment(1, 1);
 	s_TargetFBO->FillDrawBuffers();
-	GLCall(glDisable(GL_DEPTH_TEST));
 	DrawArrays(s_Data.G_LightShader, s_Data.ScreenQuadVertexArray, 6);
-	GLCall(glEnable(GL_DEPTH_TEST));
 }
