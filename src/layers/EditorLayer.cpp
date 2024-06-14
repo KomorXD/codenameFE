@@ -37,7 +37,7 @@ EditorLayer::EditorLayer()
 	Renderer::OnWindowResize({ 0, 0, (int32_t)(spec.Width * 0.6f), spec.Height });
 
 	glm::uvec2 fbSize((uint32_t)(spec.Width * 0.6f), spec.Height);
-	m_ScreenFB = std::make_unique<Framebuffer>(1);
+	m_ScreenFB = std::make_shared<Framebuffer>();
 	m_ScreenFB->AddRenderbuffer({
 		.Type = RenderbufferType::DEPTH_STENCIL,
 		.Size = fbSize
@@ -299,6 +299,21 @@ void EditorLayer::RenderScenePanel()
 		}
 	);
 
+	const char* labels[] = { "Forward", "Deferred", "Flat" };
+	size_t modeIdx = (size_t)m_Mode;
+	ImGui::BeginPrettyCombo("Rendering pipeline", labels[modeIdx],
+		[this, &labels, &modeIdx]()
+		{
+			for (size_t i = 0; i < (size_t)RenderMode::COUNT; i++)
+			{
+				if (ImGui::Selectable(labels[i], modeIdx == i))
+				{
+					m_Mode = RenderMode(i);
+				}
+			}
+		}
+	);
+
 	if (ImGui::PrettyButton("Add environment map"))
 	{
 		std::optional<std::string> fileOpt = OpenFileDialog(std::filesystem::current_path().string());
@@ -432,7 +447,7 @@ void EditorLayer::RenderScenePanel()
 void EditorLayer::RenderViewport()
 {
 	Renderer::ResetStats();
-	Renderer::SetRenderingPipeline(Pipeline::FORWARD);
+	Renderer::SetTargetFBO(m_ScreenFB);
 
 	m_Scene.RenderShadowMaps();
 	m_ScreenFB->Bind();
@@ -452,12 +467,12 @@ void EditorLayer::RenderViewport()
 		Renderer::SetStencilFunc(GL_ALWAYS, 1, 0xFF);
 		Renderer::SetStencilMask(0xFF);
 		Renderer::DisableDepthTest();
-		Renderer::SetLight(true);
+		Renderer::SetRenderMode(RenderMode::FLAT_SHADING);
 		Renderer::SceneBegin(m_EditorCamera);
 		Renderer::SubmitMesh(transform.ToMat4(), mesh, {}, (int32_t)m_SelectedEntity.Handle());
 		Renderer::SceneEnd();
+		Renderer::SetRenderMode(RenderMode::FORWARD);
 		Renderer::EnableDepthTest();
-		Renderer::SetLight(false);
 		Renderer::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
@@ -468,75 +483,8 @@ void EditorLayer::RenderViewport()
 	Renderer::SetStencilMask(0x00);
 	Renderer::DrawSkybox(m_SkyboxFB);
 	m_ScreenFB->ClearColorAttachment(1);
-	Renderer::SetRenderingPipeline(Pipeline::DEFERRED);
-	m_Scene.Render(m_EditorCamera);
-	
-	m_ScreenFB->Bind();
-	m_ScreenFB->BindRenderbuffer();
-	m_ScreenFB->DrawToColorAttachment(0, 0);
-	m_ScreenFB->DrawToColorAttachment(1, 1);
-	m_ScreenFB->FillDrawBuffers();
+	m_Scene.Render(m_EditorCamera, m_Mode);
 	Renderer::SetWireframe(false);
-	Renderer::SetRenderingPipeline(Pipeline::FORWARD);
-
-	// Grid
-	if (m_DrawGrid)
-	{
-		constexpr float distance = 100.0f;
-		constexpr float offset = 5.0f;
-		constexpr glm::vec4 lineColor(glm::vec3(0.22f), 1.0f);
-		constexpr glm::vec4 darkLineColor(glm::vec3(0.11f), 1.0f);
-		constexpr glm::vec4 mainAxisLineColor(0.98f, 0.24f, 0.0f, 1.0f);
-		glm::vec3 cameraPos = m_EditorCamera.Position;
-		int32_t xOffset = cameraPos.x / (int32_t)offset;
-		int32_t zOffset = cameraPos.z / (int32_t)offset;
-
-		Renderer::SceneBegin(m_EditorCamera);
-		GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
-		for (float x = -distance + xOffset * offset; x <= distance + xOffset * offset; x += offset)
-		{
-			glm::vec4 color = (x == 0.0f ? mainAxisLineColor : ((int32_t)x % 10 == 0 ? darkLineColor : lineColor));
-
-			Renderer::DrawLine({ x, 0.0f, -distance + zOffset * offset },
-				{ x, 0.0f, distance + zOffset * offset }, color);
-		}
-
-		for (float z = -distance + zOffset * offset; z <= distance + zOffset * offset; z += offset)
-		{
-			glm::vec4 color = (z == 0.0f ? mainAxisLineColor : ((int32_t)z % 10 == 0 ? darkLineColor : lineColor));
-
-			Renderer::DrawLine({ -distance + xOffset * offset, 0.0f, z },
-				{ distance + xOffset * offset, 0.0f, z }, color);
-		}
-		Renderer::SceneEnd();
-	}
-
-	// Render selected entity outline
-	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())
-	{
-		TransformComponent transform = m_SelectedEntity.GetComponent<TransformComponent>();
-		MeshComponent mesh = m_SelectedEntity.GetComponent<MeshComponent>();
-		Material material{};
-
-		transform.Scale += 0.1f;
-		material.Color = { 0.98f, 0.24f, 0.0f, 1.0f };
-		material.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
-
-		Renderer::SetStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-		Renderer::SetStencilMask(0x00);
-		Renderer::DisableDepthTest();
-		Renderer::DisableFaceCulling();
-		Renderer::SetLight(true);
-		Renderer::SceneBegin(m_EditorCamera);
-		Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)m_SelectedEntity.Handle());
-		Renderer::SceneEnd();
-		Renderer::EnableDepthTest();
-		Renderer::EnableFaceCulling();
-		Renderer::SetLight(false);
-	}
-
-	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
-	Renderer::SetStencilMask(0xFF);
 
 	if (m_UseBloom)
 	{
@@ -549,10 +497,38 @@ void EditorLayer::RenderViewport()
 		Renderer::SetBloomStrength(0.0f);
 	}
 
+	m_ScreenFB->Bind();
 	m_ScreenFB->BindColorAttachment(0);
 	m_ScreenFB->DrawToColorAttachment(2, 2);
 	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT2));
 	Renderer::DrawScreenQuad();
+	
+	// Render selected entity outline (skip gamma correction and tone mapping for the outline)
+	if (m_SelectedEntity.Handle() != entt::null && m_SelectedEntity.HasComponent<MeshComponent>())
+	{
+		TransformComponent transform = m_SelectedEntity.GetComponent<TransformComponent>();
+		MeshComponent mesh = m_SelectedEntity.GetComponent<MeshComponent>();
+		Material material{};
+
+		transform.Scale += 0.1f;
+		material.Color = { 0.76f, 0.20f, 0.0f, 1.0f };
+		material.AlbedoTextureID = AssetManager::TEXTURE_WHITE;
+
+		Renderer::SetStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+		Renderer::SetStencilMask(0x00);
+		Renderer::DisableDepthTest();
+		Renderer::DisableFaceCulling();
+		Renderer::SetRenderMode(RenderMode::FLAT_SHADING);
+		Renderer::SceneBegin(m_EditorCamera);
+		Renderer::SubmitMesh(transform.ToMat4(), mesh, material, (int32_t)m_SelectedEntity.Handle());
+		Renderer::SceneEnd();
+		Renderer::EnableDepthTest();
+		Renderer::EnableFaceCulling();
+		Renderer::SetRenderMode(RenderMode::FORWARD);
+	}
+
+	Renderer::SetStencilFunc(GL_ALWAYS, 0, 0xFF);
+	Renderer::SetStencilMask(0xFF);
 	m_ScreenFB->Unbind();
 
 	m_Stats = Renderer::Stats();
