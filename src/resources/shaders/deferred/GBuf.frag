@@ -55,7 +55,7 @@ in VS_OUT
 
 void main()
 {
-	gPosition = vec4(fs_in.worldPos, 1.0);
+	gPosition = vec4(fs_in.worldPos, fs_in.entityID);
 	
 	Material mat = u_Materials.materials[int(fs_in.materialSlot)];
 	vec3 N = texture(u_Textures[mat.normalTextureSlot], fs_in.textureUV).rgb;
