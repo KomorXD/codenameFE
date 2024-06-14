@@ -758,13 +758,13 @@ void Renderer::Init()
 			s_Data.G_FBO = std::make_unique<Framebuffer>();
 			s_Data.G_FBO->AddColorAttachment(spec);	// gPosition
 
-			spec.Format = TextureFormat::RGB16F;
+			spec.Format = TextureFormat::RGBA16F;
 			s_Data.G_FBO->AddColorAttachment(spec);	// gNormal
 
 			spec.Format = TextureFormat::RGBA8;
 			s_Data.G_FBO->AddColorAttachment(spec);	// gColor
 
-			spec.Format = TextureFormat::RGB8;
+			spec.Format = TextureFormat::RGBA8;
 			s_Data.G_FBO->AddColorAttachment(spec);	// gMaterial
 			s_Data.G_FBO->FillDrawBuffers();
 
@@ -965,7 +965,7 @@ void Renderer::Flush()
 
 	GLCall(glActiveTexture(GL_TEXTURE0 + s_Data.OffsetsSlot));
 	GLCall(glBindTexture(GL_TEXTURE_3D, s_Data.OffsetsTexID));
-	
+
 	switch (s_Data.RenderMode)
 	{
 	case RenderMode::FORWARD:
@@ -1742,6 +1742,8 @@ void Renderer::ForwardRender()
 
 void Renderer::DeferredRender()
 {
+	GLCall(glBlendFunc(GL_ONE, GL_ZERO));
+
 	s_Data.G_FBO->Bind();
 	s_Data.G_FBO->BindRenderbuffer();
 	s_Data.G_FBO->DrawToColorAttachment(0, 0);
@@ -1776,4 +1778,6 @@ void Renderer::DeferredRender()
 	s_TargetFBO->DrawToColorAttachment(1, 1);
 	s_TargetFBO->FillDrawBuffers();
 	DrawArrays(s_Data.G_LightShader, s_Data.ScreenQuadVertexArray, 6);
+
+	GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 }
