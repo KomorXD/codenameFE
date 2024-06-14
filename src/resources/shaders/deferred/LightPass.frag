@@ -46,6 +46,7 @@ uniform sampler2D u_BRDF_LUT;
 
 uniform float u_CascadeDistances[${CASCADES_COUNT}];
 uniform sampler2DArrayShadow u_DirLightCSM;
+uniform sampler2DArrayShadow u_SpotlightShadowmaps;
 
 uniform int u_OffsetsTexSize;
 uniform int u_OffsetsFilterSize;
@@ -209,6 +210,69 @@ float cascadedShadowFactor(int dirLightIdx, vec3 N, vec3 L, vec3 worldPos)
 	return shadow;
 }
 
+float shadowFactor(sampler2DArrayShadow shadowMaps, mat4 lightSpaceMat, int layer, vec3 N, vec3 L, vec3 worldPos)
+{
+	vec4 fragPosLightSpace = lightSpaceMat * vec4(worldPos, 1.0);
+	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	projCoords = projCoords * 0.5 + 0.5;
+	projCoords.z -= bias;
+
+	float currentDepth = projCoords.z;
+	if(currentDepth > 1.0)
+	{
+		return 0.0;
+	}
+	
+	vec2 f = mod(gl_FragCoord.xy, vec2(u_OffsetsTexSize));
+	ivec3 offsetCoord;
+	offsetCoord.yz = ivec2(f);
+
+	int samplesDiv2 = int(u_OffsetsFilterSize * u_OffsetsFilterSize / 2.0);
+	vec4 sc = vec4(projCoords, 1.0);
+	const vec2 texelSize = 1.0 / textureSize(shadowMaps, 0).xy;
+
+	float depth = 0.0;
+	float shadow = 0.0;
+	for(int i = 0; i < 4; i++)
+	{
+		offsetCoord.x = i;
+		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
+
+		sc.xy = projCoords.xy + offsets.rg * texelSize;
+		depth = texture(shadowMaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+
+		sc.xy = projCoords.xy + offsets.ba * texelSize;
+		depth = texture(shadowMaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+	}
+
+	shadow /= 8.0;
+	if(shadow == 0.0 || shadow == 1.0)
+	{
+		return shadow;
+	}
+
+	shadow *= 8.0;
+	for(int i = 4; i < samplesDiv2; i++)
+	{
+		offsetCoord.x = i;
+		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
+
+		sc.xy = projCoords.xy + offsets.rg * texelSize;
+		depth = texture(shadowMaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+
+		sc.xy = projCoords.xy + offsets.ba * texelSize;
+		depth = texture(shadowMaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+	}
+
+	shadow /= float(samplesDiv2) * 2.0;
+	return shadow;
+}
+
 void main()
 {
 	int entID = int(texture(gPosition, fs_in.textureUV).a);
@@ -332,8 +396,9 @@ void main()
 			vec3 kS = F;
 			vec3 kD = vec3(1.0) - kS;
 			kD *= 1.0 - metallic;
-
-			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity;
+			
+			float shadow = shadowFactor(u_SpotlightShadowmaps, spotlight.lightSpaceMatrix, i, N, L, worldPos);
+			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity * shadow;
 		}
 	}
 	
