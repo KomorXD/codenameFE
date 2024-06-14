@@ -4,6 +4,7 @@
 #include <string>
 
 #include "../renderer/Camera.hpp"
+#include "../renderer/Renderer.hpp"
 
 class Entity;
 
@@ -13,7 +14,7 @@ struct Scene
 	void DestroyEntity(Entity entity);
 
 	void RenderShadowMaps();
-	void Render(Camera& editorCamera);
+	void Render(Camera& editorCamera, RenderMode mode);
 
 private:
 	entt::registry m_Registry;

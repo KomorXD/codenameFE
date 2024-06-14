@@ -1,7 +1,6 @@
 #include "Scene.hpp"
 #include "Entity.hpp"
 #include "Components.hpp"
-#include "../renderer/Renderer.hpp"
 #include "../Logger.hpp"
 
 Entity Scene::SpawnEntity(const std::string& name)
@@ -71,7 +70,7 @@ void Scene::RenderShadowMaps()
 	Renderer::EndShadowMapPass();
 }
 
-void Scene::Render(Camera& editorCamera)
+void Scene::Render(Camera& editorCamera, RenderMode mode)
 {
 	Renderer::SceneBegin(editorCamera);
 
@@ -105,7 +104,8 @@ void Scene::Render(Camera& editorCamera)
 		}
 	}
 
-	// Render meshes without point light component
+	// Render meshes without point light component (shading)
+	Renderer::SetRenderMode(mode);
 	{
 		auto view = m_Registry.view<TransformComponent, MeshComponent, MaterialComponent>(entt::exclude<DirectionalLightComponent, PointLightComponent, SpotLightComponent>);
 		for (entt::entity entity : view)
@@ -121,10 +121,10 @@ void Scene::Render(Camera& editorCamera)
 	}
 
 	Renderer::SceneEnd();
-	Renderer::SetLight(true);
 	Renderer::SceneBegin(editorCamera);
 
 	// Render meshes with light component (no shading)
+	Renderer::SetRenderMode(RenderMode::FLAT_SHADING);
 	{
 		auto view = m_Registry.view<TransformComponent, DirectionalLightComponent, MeshComponent, MaterialComponent>();
 		for (entt::entity entity : view)
@@ -163,5 +163,5 @@ void Scene::Render(Camera& editorCamera)
 	}
 
 	Renderer::SceneEnd();
-	Renderer::SetLight(false);
+	Renderer::SetRenderMode(RenderMode::FORWARD);
 }
