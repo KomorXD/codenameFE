@@ -4,9 +4,9 @@
 #define TEXTURE_UNITS ${TEXTURE_UNITS}
 
 layout (location = 0) out vec4 gPosition;
-layout (location = 1) out vec4 gNormal;
+layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gColor;
-layout (location = 3) out vec4 gMaterial;
+layout (location = 3) out vec3 gMaterial;
 
 struct Material
 {
@@ -110,10 +110,10 @@ void main()
 
 	vec3 N = texture(u_Textures[mat.normalTextureSlot], texCoords).rgb;
 	N = N * 2.0 - 1.0;
-	gNormal = vec4(normalize(transpose(fs_in.TBN) * N), 1.0);
+	gNormal = normalize(transpose(fs_in.TBN) * N);
 
 	float roughness = texture(u_Textures[mat.roughnessTextureSlot], texCoords).r * mat.roughnessFactor;
 	float metallic = texture(u_Textures[mat.metallicTextureSlot], texCoords).r * mat.metallicFactor;
 	float AO = texture(u_Textures[mat.ambientOccTextureSlot], texCoords).r * mat.ambientOccFactor;
-	gMaterial = vec4(roughness, metallic, AO, 1.0);
+	gMaterial = vec3(roughness, metallic, AO);
 }

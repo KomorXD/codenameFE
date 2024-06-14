@@ -758,15 +758,15 @@ void Renderer::Init()
 			spec.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height };
 			s_Data.G_FBO = std::make_unique<Framebuffer>();
 			s_Data.G_FBO->AddColorAttachment(spec);	// gPosition
+
+			spec.Format = TextureFormat::RGB16F;
 			s_Data.G_FBO->AddColorAttachment(spec);	// gNormal
 
 			spec.Format = TextureFormat::RGBA8;
 			s_Data.G_FBO->AddColorAttachment(spec);	// gColor
-			s_Data.G_FBO->AddColorAttachment(spec);	// gMaterial
 
-			spec.Format = TextureFormat::RGBA16F;
-			s_Data.G_FBO->AddColorAttachment(spec); // gTangentPos
-			s_Data.G_FBO->AddColorAttachment(spec);	// gTangentView
+			spec.Format = TextureFormat::RGB8;
+			s_Data.G_FBO->AddColorAttachment(spec);	// gMaterial
 			s_Data.G_FBO->FillDrawBuffers();
 
 			s_Data.G_FBO->AddRenderbuffer({
@@ -813,8 +813,6 @@ void Renderer::Init()
 			s_Data.G_LightShader->SetUniform1i("gNormal", 1);
 			s_Data.G_LightShader->SetUniform1i("gColor", 2);
 			s_Data.G_LightShader->SetUniform1i("gMaterial", 3);
-			s_Data.G_LightShader->SetUniform1i("gTangentPos", 4);
-			s_Data.G_LightShader->SetUniform1i("gTangentView", 5);
 		}
 	}
 
@@ -1739,8 +1737,6 @@ void Renderer::DeferredRender()
 	s_Data.G_FBO->DrawToColorAttachment(1, 1);
 	s_Data.G_FBO->DrawToColorAttachment(2, 2);
 	s_Data.G_FBO->DrawToColorAttachment(3, 3);
-	s_Data.G_FBO->DrawToColorAttachment(4, 4);
-	s_Data.G_FBO->DrawToColorAttachment(5, 5);
 	s_Data.G_FBO->FillDrawBuffers();
 	Renderer::ClearColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
 	Renderer::Clear();
@@ -1761,8 +1757,6 @@ void Renderer::DeferredRender()
 	s_Data.G_FBO->BindColorAttachment(1, 1);
 	s_Data.G_FBO->BindColorAttachment(2, 2);
 	s_Data.G_FBO->BindColorAttachment(3, 3);
-	s_Data.G_FBO->BindColorAttachment(4, 4);
-	s_Data.G_FBO->BindColorAttachment(5, 5);
 	s_Data.G_FBO->BlitRenderbuffer(s_TargetFBO);
 	
 	s_TargetFBO->Bind();
