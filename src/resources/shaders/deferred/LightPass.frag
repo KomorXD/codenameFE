@@ -1,19 +1,135 @@
 #version 430 core
 
+#define MAX_DIR_LIGHTS ${MAX_DIR_LIGHTS}
+#define MAX_POINT_LIGHTS ${MAX_POINT_LIGHTS}
+#define MAX_SPOTLIGHTS ${MAX_SPOTLIGHTS}
+
+struct DirectionalLight
+{
+	mat4 cascadeLightMatrices[${CASCADES_COUNT}];
+	vec4 direction;
+	vec4 color;
+};
+
+struct PointLight
+{
+	mat4 lightSpaceMatrices[6];
+	vec4 renderedDirs[6];
+	vec4 positionAndLin;
+	vec4 colorAndQuad;
+	int facesRendered;
+
+	int pad1;
+	int pad2;
+	int pad3;
+};
+
+struct Spotlight
+{
+	mat4 lightSpaceMatrix;
+	vec4 positionAndCutoff;
+	vec4 directionAndOuterCutoff;
+	vec4 colorAndLin;
+	vec4 quadraticTerm;
+};
+
 layout (location = 0) out vec4 o_Color;
 layout (location = 1) out vec4 o_Picker;
-
-in vec2 textureUV;
 
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gColor;
+uniform sampler2D gMaterial;
+uniform samplerCube u_IrradianceMap;
+uniform samplerCube u_PrefilterMap;
+uniform sampler2D u_BRDF_LUT;
+
+layout (std140, binding = 0) uniform Camera
+{
+	mat4 projection;
+	mat4 view;
+	vec4 position;
+	float exposure;
+	float gamma;
+	float near;
+	float far;
+} u_Camera;
+
+layout(std140, binding = 2) uniform DirectionalLights
+{
+	DirectionalLight lights[MAX_DIR_LIGHTS];
+	int count;
+} u_DirLights;
+
+layout(std140, binding = 3) uniform PointLights
+{
+	PointLight lights[MAX_POINT_LIGHTS];
+	int count;
+} u_PointLights;
+
+layout(std140, binding = 4) uniform Spotlights
+{
+	Spotlight lights[MAX_SPOTLIGHTS];
+	int count;
+} u_Spotlights;
+
+in VS_OUT
+{
+	vec2 textureUV;
+} fs_in;
+
+const float PI = 3.14159265359;
+
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
+{
+	return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float distGGX(vec3 N, vec3 H, float roughness)
+{
+	float a	  = roughness * roughness;
+	float a2  = a * a;
+	float NH  = max(dot(N, H), 0.0);
+	float NH2 = NH * NH;
+	float denom = (NH2 * (a2 - 1.0) + 1.0);
+	denom = PI * denom * denom;
+
+	return a2 / denom;
+}
+
+float geoSchlickGGX(float NV, float roughness)
+{
+	float a = roughness + 1.0;
+	float k = (a * a) / 8.0;
+	float denom = NV * (1.0 - k) + k;
+
+	return NV / denom;
+}
+
+float geoSmith(vec3 N, vec3 V, vec3 L, float roughness)
+{
+	float NV = max(dot(N, V), 0.0);
+	float NL = max(dot(N, L), 0.0);
+
+	float ggx2 = geoSchlickGGX(NV, roughness);
+	float ggx1 = geoSchlickGGX(NL, roughness);
+
+	return ggx1 * ggx2;
+}
 
 void main()
 {
-	o_Color = texture(gColor, textureUV);
+	int entID = int(texture(gPosition, fs_in.textureUV).a);
+	if(entID == 0)
+	{
+		discard;
+	}
 
-	int entID = int(texture(gPosition, textureUV).a);
 	int rInt = int(mod(int(entID / 65025.0), 255));
 	int gInt = int(mod(int(entID / 255.0), 255));
 	int bInt = int(mod(entID, 255));
@@ -21,4 +137,132 @@ void main()
 	float g = float(gInt) / 255.0;
 	float b = float(bInt) / 255.0;
 	o_Picker = vec4(r, g, b, 1.0);
+
+	vec3 worldPos = texture(gPosition, fs_in.textureUV).rgb;
+	vec3 N = texture(gNormal, fs_in.textureUV).rgb;
+
+	vec3 V = normalize(u_Camera.position.xyz - worldPos);
+
+	vec3 materialData = texture(gMaterial, fs_in.textureUV).rgb;
+	float roughness = materialData.r;
+	float metallic = materialData.g;
+	float ao = materialData.b;
+
+	vec3 Lo = vec3(0.0);
+	vec4 diffuseColor = texture(gColor, fs_in.textureUV);
+	vec3 F0 = mix(vec3(0.04), diffuseColor.rgb, metallic);
+	for(int i = 0; i < MAX_DIR_LIGHTS; i++)
+	{
+		if(i >= u_DirLights.count)
+		{
+			break;
+		}
+
+		DirectionalLight light = u_DirLights.lights[i];
+		vec3 radiance = light.color.rgb;
+		vec3 L = light.direction.xyz;
+		vec3 H = normalize(V + L);
+
+		float NDF = distGGX(N, H, roughness);
+		float G	  = geoSmith(N, V, L, roughness);
+		vec3 F	  = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+
+		float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+		vec3 specular = NDF * G * F / denom;
+		vec3 kS = F;
+		vec3 kD = vec3(1.0) - kS;
+		kD *= 1.0 - metallic;
+		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
+	}
+
+	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
+	{
+		if(i >= u_PointLights.count)
+		{
+			break;
+		}
+
+		PointLight pointLight = u_PointLights.lights[i];
+		vec3 lightPos	= pointLight.positionAndLin.xyz;
+		vec3 color		= pointLight.colorAndQuad.xyz;
+		float linear	= pointLight.positionAndLin.w;
+		float quadratic = pointLight.colorAndQuad.w;
+
+		vec3 L = normalize(lightPos - worldPos);
+		vec3 H = normalize(V + L);
+		float dist = length(lightPos - worldPos);
+		float attenuation = 1.0 / (1.0 + linear * dist + quadratic * dist * dist);
+		vec3 radiance = color * attenuation;
+
+		float NDF = distGGX(N, H, roughness);
+		float G	  = geoSmith(N, V, L, roughness);
+		vec3 F	  = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+
+		float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+		vec3 specular = NDF * G * F / denom;
+		vec3 kS = F;
+		vec3 kD = vec3(1.0) - kS;
+		kD *= 1.0 - metallic;
+		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
+	}
+
+	for(int i = 0; i < MAX_SPOTLIGHTS; i++)
+	{
+		if(i >= u_Spotlights.count)
+		{
+			break;
+		}
+
+		Spotlight spotlight = u_Spotlights.lights[i];
+		vec3 lightPos	  = spotlight.positionAndCutoff.xyz;
+		vec3 direction	  = spotlight.directionAndOuterCutoff.xyz;
+		vec3 color		  = spotlight.colorAndLin.xyz;
+		float cutoff	  = spotlight.positionAndCutoff.w;
+		float outerCutoff = spotlight.directionAndOuterCutoff.w;
+		float linear	  = spotlight.colorAndLin.w;
+		float quadratic	  = spotlight.quadraticTerm.x;
+		
+		vec3 L = normalize(lightPos - worldPos);
+		float theta = dot(L, normalize(-direction));
+		float epsilon = abs(cutoff - outerCutoff) + 0.0001;
+		float intensity = clamp((theta - outerCutoff) / epsilon, 0.0, 1.0);
+
+		if(theta > cutoff)
+		{
+			vec3 H = normalize(V + L);
+			float dist = length(lightPos - worldPos);
+			float attenuation = 1.0 / (1.0 + linear * dist + quadratic * dist * dist);
+			vec3 radiance = color * attenuation;
+
+			float NDF = distGGX(N, H, roughness);
+			float G	  = geoSmith(N, V, L, roughness);
+			vec3 F	  = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
+
+			float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+			vec3 specular = NDF * G * F / denom;
+			vec3 kS = F;
+			vec3 kD = vec3(1.0) - kS;
+			kD *= 1.0 - metallic;
+
+			Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * intensity;
+		}
+	}
+	
+	const float MAX_REFL_LOD = 7.0;
+	vec3 R = reflect(-V, N);
+	vec3 prefilteredColor = textureLod(u_PrefilterMap, R, roughness * MAX_REFL_LOD).rgb;
+	vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughness);
+	vec2 envBRDF = texture(u_BRDF_LUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+	vec3 specular = prefilteredColor * (F * envBRDF.x + envBRDF.y);
+
+	vec3 kS = F;
+	vec3 kD = 1.0 - kS;
+	kD *= 1.0 - metallic;
+
+	vec3 irradiance = texture(u_IrradianceMap, N).rgb;
+	vec3 diffuse = irradiance * diffuseColor.rgb;
+	vec3 ambient = (kD * diffuse + specular) * ao;
+
+	o_Color.rgb = ambient + Lo;
+	o_Color.a = diffuseColor.a;
 }
