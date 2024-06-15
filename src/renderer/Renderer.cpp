@@ -1765,6 +1765,7 @@ void Renderer::DeferredRender()
 		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
 		DrawIndexedInstanced(s_Data.G_PassShader, mesh.VAO, meshData.CurrentInstancesCount);
 	}
+	GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 	
 	s_Data.G_FBO->BindColorAttachment(0, 0);
 	s_Data.G_FBO->BindColorAttachment(1, 1);
@@ -1777,7 +1778,8 @@ void Renderer::DeferredRender()
 	s_TargetFBO->DrawToColorAttachment(0, 0);
 	s_TargetFBO->DrawToColorAttachment(1, 1);
 	s_TargetFBO->FillDrawBuffers();
-	DrawArrays(s_Data.G_LightShader, s_Data.ScreenQuadVertexArray, 6);
 
-	GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+	DisableDepthTest();
+	DrawArrays(s_Data.G_LightShader, s_Data.ScreenQuadVertexArray, 6);
+	EnableDepthTest();
 }
