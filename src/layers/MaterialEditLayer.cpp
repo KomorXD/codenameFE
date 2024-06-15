@@ -159,19 +159,19 @@ void MaterialEditLayer::OnRender()
 	Renderer::Clear();
 	Renderer::DrawSkybox(m_SkyboxFBO);
 	m_MainFB->ClearColorAttachment(1);
-	m_Scene.Render(m_Camera);
+	m_Scene.Render(m_Camera, RenderMode::FORWARD);
 	m_MainFB->DrawToColorAttachment(0, 0);
 	m_MainFB->DrawToColorAttachment(1, 1);
 	m_ScreenFB->DrawToColorAttachment(0, 0);
 	m_ScreenFB->DrawToColorAttachment(1, 1);
-	m_MainFB->BlitBuffers(0, 0, *m_ScreenFB);
-	m_MainFB->BlitBuffers(1, 1, *m_ScreenFB);
+	m_MainFB->BlitColorAttachment(0, 0, *m_ScreenFB);
+	m_MainFB->BlitColorAttachment(1, 1, *m_ScreenFB);
 
 	if (m_UseBloom)
 	{
 		Renderer::SetBloomStrength(m_BloomStrength);
 		Renderer::SetBloomThreshold(m_BloomThreshold);
-		Renderer::Bloom(m_ScreenFB);
+		// Renderer::Bloom(m_ScreenFB);
 	}
 	else
 	{

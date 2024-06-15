@@ -551,8 +551,6 @@ void main()
 		layer += pointLight.facesRendered;
 	}
 	
-	vec3 totalDiffuse = vec3(0.0);
-	vec3 totalSpecular = vec3(0.0);
 	for(int i = 0; i < MAX_SPOTLIGHTS; i++)
 	{
 		if(i >= u_Spotlights.count)
