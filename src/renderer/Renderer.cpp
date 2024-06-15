@@ -756,6 +756,10 @@ void Renderer::Init()
 			spec.BorderColor = glm::vec4(1.0f);
 			spec.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height };
 			s_Data.G_FBO = std::make_unique<Framebuffer>();
+			s_Data.G_FBO->AddRenderbuffer({
+				.Type = RenderbufferType::DEPTH,
+				.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height }
+			});
 			s_Data.G_FBO->AddColorAttachment(spec);	// gPosition
 
 			spec.Format = TextureFormat::RGBA16F;
@@ -768,10 +772,6 @@ void Renderer::Init()
 			s_Data.G_FBO->AddColorAttachment(spec);	// gMaterial
 			s_Data.G_FBO->FillDrawBuffers();
 
-			s_Data.G_FBO->AddRenderbuffer({
-				.Type = RenderbufferType::DEPTH,
-				.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height }
-			});
 			assert(s_Data.G_FBO->IsComplete() && "Incomplete framebuffer!");
 		}
 
@@ -1377,6 +1377,9 @@ void Renderer::SetOffsetsRadius(float radius)
 	
 	s_Data.DefaultShader->Bind();
 	s_Data.DefaultShader->SetUniform1f("u_OffsetsRadius", radius);
+	
+	s_Data.G_LightShader->Bind();
+	s_Data.G_LightShader->SetUniform1f("u_OffsetsRadius", radius);
 }
 
 std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
@@ -1672,6 +1675,16 @@ void Renderer::SetWireframe(bool enabled)
 Viewport Renderer::CurrentViewport()
 {
 	return s_Viewport;
+}
+
+G_BuffersIDs Renderer::G_Buffers()
+{
+	return {
+		s_Data.G_FBO->GetColorAttachmentID(0),
+		s_Data.G_FBO->GetColorAttachmentID(1),
+		s_Data.G_FBO->GetColorAttachmentID(2),
+		s_Data.G_FBO->GetColorAttachmentID(3)
+	};
 }
 
 void Renderer::StartBatch()

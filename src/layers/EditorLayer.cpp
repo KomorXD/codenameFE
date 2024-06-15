@@ -212,7 +212,7 @@ void EditorLayer::RenderScenePanel()
 	glm::vec2 windowSize = { Application::Instance()->Spec().Width, Application::Instance()->Spec().Height };
 	ImGui::SetNextWindowPos({ 0.0f, 0.0f });
 	ImGui::SetNextWindowSize({ (float)Application::Instance()->Spec().Width * 0.2f, (float)Application::Instance()->Spec().Height });
-	ImGui::Begin("Scene panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+	ImGui::Begin("Scene panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
 	ImVec2 avSpace = ImGui::GetContentRegionAvail();
 	ImGui::Text("Spawned entities");
@@ -313,6 +313,27 @@ void EditorLayer::RenderScenePanel()
 			}
 		}
 	);
+
+	if (ImGui::PrettyButton("GBuffers"))
+	{
+		ImGui::OpenPopup("gbuffers_group");
+	}
+
+	if (ImGui::BeginPopup("gbuffers_group"))
+	{
+		ImVec4 tint{ 1.0f, 1.0f, 1.0f, 1.0f };
+		ImVec4 bord{ 0.33f, 0.33f, 0.33f, 1.0f };
+		G_BuffersIDs gs = Renderer::G_Buffers();
+		ImGui::Image((ImTextureID)gs.G_Position, ImVec2(256.0f * m_EditorCamera.m_AspectRatio, 256.0f), { 0.0f, 1.0f }, { 1.0f, 0.0f }, tint, bord);
+		ImGui::SameLine();
+		ImGui::Image((ImTextureID)gs.G_Normal, ImVec2(256.0f * m_EditorCamera.m_AspectRatio, 256.0f), { 0.0f, 1.0f }, { 1.0f, 0.0f }, tint, bord);
+
+		ImGui::Image((ImTextureID)gs.G_Color, ImVec2(256.0f * m_EditorCamera.m_AspectRatio, 256.0f), { 0.0f, 1.0f }, { 1.0f, 0.0f }, tint, bord);
+		ImGui::SameLine();
+		ImGui::Image((ImTextureID)gs.G_Material, ImVec2(256.0f * m_EditorCamera.m_AspectRatio, 256.0f), { 0.0f, 1.0f }, { 1.0f, 0.0f }, tint, bord);
+
+		ImGui::EndPopup();
+	}
 
 	if (ImGui::PrettyButton("Add environment map"))
 	{
@@ -539,7 +560,7 @@ void EditorLayer::RenderEntityData()
 	const WindowSpec& spec = Application::Instance()->Spec();
 	ImGui::SetNextWindowPos({ spec.Width * 0.8f, 0.0f });
 	ImGui::SetNextWindowSize({ spec.Width * 0.2f, spec.Height * 1.0f });
-	ImGui::Begin("Entity panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+	ImGui::Begin("Entity panel", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
 	if (m_SelectedEntity.Handle() == entt::null)
 	{

@@ -31,6 +31,14 @@ struct RendererStats
 	float SpotlightShadowPassTime = 0.0f;
 };
 
+struct G_BuffersIDs
+{
+	uint32_t G_Position;
+	uint32_t G_Normal;
+	uint32_t G_Color;
+	uint32_t G_Material;
+};
+
 enum class RenderMode
 {
 	FORWARD = 0,
@@ -104,6 +112,7 @@ public:
 	static void SetWireframe(bool enabled);
 
 	static Viewport CurrentViewport();
+	static G_BuffersIDs G_Buffers();
 
 private:
 	static void StartBatch();

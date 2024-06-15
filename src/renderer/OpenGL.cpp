@@ -724,7 +724,8 @@ void Framebuffer::BlitRenderbuffer(std::shared_ptr<Framebuffer> target) const
 		m_RBO_Spec.Size.x, m_RBO_Spec.Size.y,
 		0, 0,
 		target->m_RBO_Spec.Size.x, target->m_RBO_Spec.Size.y,
-		GL_DEPTH_BUFFER_BIT, GL_NEAREST));
+		GL_DEPTH_BUFFER_BIT,
+		GL_NEAREST));
 }
 
 void Framebuffer::ResizeRenderbuffer(const glm::uvec2& size)
