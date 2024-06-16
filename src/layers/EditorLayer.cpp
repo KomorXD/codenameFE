@@ -332,6 +332,8 @@ void EditorLayer::RenderScenePanel()
 		ImGui::SameLine();
 		ImGui::Image((ImTextureID)gs.G_Material, ImVec2(256.0f * m_EditorCamera.m_AspectRatio, 256.0f), { 0.0f, 1.0f }, { 1.0f, 0.0f }, tint, bord);
 
+		ImGui::Image((ImTextureID)gs.G_Lights, ImVec2(256.0f * m_EditorCamera.m_AspectRatio, 256.0f), { 0.0f, 1.0f }, { 1.0f, 0.0f }, tint, bord);
+
 		ImGui::EndPopup();
 	}
 

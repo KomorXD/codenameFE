@@ -247,6 +247,8 @@ struct RendererData
 	std::unique_ptr<Framebuffer> G_FBO;
 	std::shared_ptr<Shader> G_PassShader;
 	std::shared_ptr<Shader> G_LightShader;
+	std::shared_ptr<Shader> G_PointLightShader;
+	std::shared_ptr<Shader> G_PassThrough;
 
 	RenderMode RenderMode = RenderMode::FORWARD;
 };
@@ -758,7 +760,7 @@ void Renderer::Init()
 			spec.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height };
 			s_Data.G_FBO = std::make_unique<Framebuffer>();
 			s_Data.G_FBO->AddRenderbuffer({
-				.Type = RenderbufferType::DEPTH,
+				.Type = RenderbufferType::DEPTH_STENCIL,
 				.Size = { static_cast<int32_t>(wSpec.Width * 0.6f), wSpec.Height }
 			});
 			s_Data.G_FBO->AddColorAttachment(spec);	// gPosition
@@ -771,6 +773,9 @@ void Renderer::Init()
 
 			spec.Format = TextureFormat::RGBA8;
 			s_Data.G_FBO->AddColorAttachment(spec);	// gMaterial
+
+			spec.Format = TextureFormat::RGBA16F;
+			s_Data.G_FBO->AddColorAttachment(spec);	// gLights
 			s_Data.G_FBO->FillDrawBuffers();
 
 			assert(s_Data.G_FBO->IsComplete() && "Incomplete framebuffer!");
@@ -802,7 +807,6 @@ void Renderer::Init()
 			spec.Fragment	= { "resources/shaders/deferred/LightPass.frag",
 				{
 					{ "${MAX_DIR_LIGHTS}",	 std::to_string(s_Data.MaxDirLights)	},
-					{ "${MAX_POINT_LIGHTS}", std::to_string(s_Data.MaxPointLights)	},
 					{ "${MAX_SPOTLIGHTS}",	 std::to_string(s_Data.MaxSpotlights)	},
 					{ "${CASCADES_COUNT}",	 std::to_string(s_Data.CascadesCount)	}
 				}
@@ -813,13 +817,36 @@ void Renderer::Init()
 			s_Data.G_LightShader->SetUniform1i("gNormal", 1);
 			s_Data.G_LightShader->SetUniform1i("gColor", 2);
 			s_Data.G_LightShader->SetUniform1i("gMaterial", 3);
+			s_Data.G_LightShader->SetUniform1i("gLights", 4);
 			s_Data.G_LightShader->SetUniform1i("u_DirLightCSM", s_Data.CSM_Slot);
-			s_Data.G_LightShader->SetUniform1i("u_PointLightShadowmaps", s_Data.PointShadowSlot);
 			s_Data.G_LightShader->SetUniform1i("u_SpotlightShadowmaps", s_Data.SpotlightShadowSlot);
 			s_Data.G_LightShader->SetUniform1i("u_OffsetsTexSize", 16);
 			s_Data.G_LightShader->SetUniform1i("u_OffsetsFilterSize", 8);
 			s_Data.G_LightShader->SetUniform1f("u_OffsetsRadius", s_Data.OffsetsRadius);
 			s_Data.G_LightShader->SetUniform1i("u_OffsetsTexture", s_Data.OffsetsSlot);
+		}
+		
+		{
+			ShaderSpec spec{};
+			spec.Vertex		= { "resources/shaders/deferred/PrepLightPass.vert", {} };
+			spec.Fragment	= { "resources/shaders/deferred/PointLightPass.frag",
+				{
+					{ "${MAX_POINT_LIGHTS}", std::to_string(s_Data.MaxPointLights)	}
+				}
+			};
+			s_Data.G_PointLightShader = std::make_shared<Shader>(spec);
+			s_Data.G_PointLightShader->Bind();
+			s_Data.G_PointLightShader->SetUniform1i("gPosition", 0);
+			s_Data.G_PointLightShader->SetUniform1i("gNormal", 1);
+			s_Data.G_PointLightShader->SetUniform1i("gColor", 2);
+			s_Data.G_PointLightShader->SetUniform1i("gMaterial", 3);
+		}
+
+		{
+			ShaderSpec spec{};
+			spec.Vertex		= { "resources/shaders/deferred/PrepLightPass.vert", {} };
+			spec.Fragment	= { "resources/shaders/Empty.frag", {} };
+			s_Data.G_PassThrough = std::make_shared<Shader>(spec);
 		}
 	}
 
@@ -870,6 +897,8 @@ void Renderer::Shutdown()
 	s_Data.G_FBO = nullptr;
 	s_Data.G_PassShader = nullptr;
 	s_Data.G_LightShader = nullptr;
+	s_Data.G_PointLightShader = nullptr;
+	s_Data.G_PassThrough = nullptr;
 
 	if (s_Data.OffsetsTexID != 0)
 	{
@@ -1685,7 +1714,8 @@ G_BuffersIDs Renderer::G_Buffers()
 		s_Data.G_FBO->GetColorAttachmentID(0),
 		s_Data.G_FBO->GetColorAttachmentID(1),
 		s_Data.G_FBO->GetColorAttachmentID(2),
-		s_Data.G_FBO->GetColorAttachmentID(3)
+		s_Data.G_FBO->GetColorAttachmentID(3),
+		s_Data.G_FBO->GetColorAttachmentID(4)
 	};
 }
 
@@ -1757,8 +1787,7 @@ void Renderer::ForwardRender()
 
 void Renderer::DeferredRender()
 {
-	GLCall(glBlendFunc(GL_ONE, GL_ZERO));
-
+	// Geometry pass
 	s_Data.G_FBO->Bind();
 	s_Data.G_FBO->BindRenderbuffer();
 	s_Data.G_FBO->DrawToColorAttachment(0, 0);
@@ -1766,8 +1795,13 @@ void Renderer::DeferredRender()
 	s_Data.G_FBO->DrawToColorAttachment(2, 2);
 	s_Data.G_FBO->DrawToColorAttachment(3, 3);
 	s_Data.G_FBO->FillDrawBuffers();
-	Renderer::ClearColor(glm::vec4(0.0f, 0.0f, 0.0f, 0.0f));
-	Renderer::Clear();
+	
+	GLCall(glDepthMask(GL_TRUE));
+	GLCall(glDisable(GL_BLEND));
+	GLCall(glCullFace(GL_BACK));
+	Renderer::ClearColor(glm::vec4(0.0f));
+	Renderer::Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	Renderer::EnableDepthTest();
 	
 	for (auto& [meshID, meshData] : s_Data.MeshesData)
 	{
@@ -1780,21 +1814,69 @@ void Renderer::DeferredRender()
 		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
 		DrawIndexedInstanced(s_Data.G_PassShader, mesh.VAO, meshData.CurrentInstancesCount);
 	}
-	
+	GLCall(glDepthMask(GL_FALSE));
+
+	// Point light pass
 	s_Data.G_FBO->BindColorAttachment(0, 0);
 	s_Data.G_FBO->BindColorAttachment(1, 1);
 	s_Data.G_FBO->BindColorAttachment(2, 2);
 	s_Data.G_FBO->BindColorAttachment(3, 3);
-	s_Data.G_FBO->BlitRenderbuffer(s_TargetFBO);
+	s_Data.G_FBO->DrawToColorAttachment(4, 0);
+	GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
+	Renderer::Clear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	Renderer::EnableStencil();
+	Renderer::SetStencilMask(0xFF);
 	
+	Mesh& mesh = AssetManager::GetMesh(AssetManager::MESH_SPHERE);
+	for (size_t i = 0; i < s_Data.PointLightsData.size(); i++)
+	{
+		const PointLightBufferData& light = s_Data.PointLightsData[i];
+		TransformComponent tc{};
+		tc.Position = glm::vec3(light.PosAndLinear);
+		tc.Scale = glm::vec3(LightRadius(1.0f, light.PosAndLinear.w, light.ColorAndQuadratic.w, 1.0));
+
+		// Stencil pass
+		Renderer::EnableDepthTest();
+		Renderer::DisableFaceCulling();
+		Renderer::Clear(GL_STENCIL_BUFFER_BIT);
+		Renderer::SetStencilFunc(GL_ALWAYS, 0, 0);
+		GLCall(glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_KEEP));
+		GLCall(glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_KEEP));
+		GLCall(glDrawBuffer(GL_NONE));
+
+		s_Data.G_PassThrough->Bind();
+		s_Data.G_PassThrough->SetUniformMat4("u_Transform", tc.ToMat4());
+		DrawIndexed(s_Data.G_PassThrough, mesh.VAO);
+
+		// Color pass
+		Renderer::DisableDepthTest();
+		Renderer::EnableFaceCulling();
+		Renderer::SetStencilFunc(GL_NOTEQUAL, 0, 0xFF);
+		GLCall(glEnable(GL_BLEND));
+		GLCall(glBlendEquation(GL_FUNC_ADD));
+		GLCall(glBlendFunc(GL_ONE, GL_ONE));
+		GLCall(glCullFace(GL_FRONT));
+		GLCall(glDrawBuffer(GL_COLOR_ATTACHMENT0));
+	
+		s_Data.G_PointLightShader->Bind();
+		s_Data.G_PointLightShader->SetUniformMat4("u_Transform", tc.ToMat4());
+		s_Data.G_PointLightShader->SetUniform1i("u_LightID", i);
+		DrawIndexed(s_Data.G_PointLightShader, mesh.VAO);
+	}
+
+	// Rest of the scene (ambient, directional, spotlight)
+	Renderer::DisableStencil();
+	s_Data.G_FBO->BindColorAttachment(4, 4);
+	s_Data.G_FBO->BlitRenderbuffer(s_TargetFBO);
 	s_TargetFBO->Bind();
 	s_TargetFBO->BindRenderbuffer();
 	s_TargetFBO->DrawToColorAttachment(0, 0);
 	s_TargetFBO->DrawToColorAttachment(1, 1);
 	s_TargetFBO->FillDrawBuffers();
-
-	DisableDepthTest();
-	DrawArrays(s_Data.G_LightShader, s_Data.ScreenQuadVertexArray, 6);
-	EnableDepthTest();
+	
+	GLCall(glCullFace(GL_BACK));
 	GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+	DrawArrays(s_Data.G_LightShader, s_Data.ScreenQuadVertexArray, 6);
+	GLCall(glDepthMask(GL_TRUE));
+	Renderer::EnableDepthTest();
 }

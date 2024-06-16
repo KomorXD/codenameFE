@@ -404,12 +404,9 @@ uint32_t Shader::CreateShader(const std::string& vsrc, const std::string& fsrc, 
 	}
 
 	GLCall(glLinkProgram(program));
-	GLCall(glValidateProgram(program));
 
 	int success = 0;
-
 	GLCall(glGetProgramiv(program, GL_LINK_STATUS, &success));
-
 	if (success == GL_FALSE)
 	{
 		int len = 0;
@@ -424,6 +421,7 @@ uint32_t Shader::CreateShader(const std::string& vsrc, const std::string& fsrc, 
 		return 0;
 	}
 
+	GLCall(glValidateProgram(program));
 	GLCall(glDeleteShader(vsID));
 	GLCall(glDeleteShader(fsID));
 

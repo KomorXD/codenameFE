@@ -546,8 +546,8 @@ void main()
 			localLayer = int(mix(layer + face, localLayer, float(d < maxDot)));
 		}
 		
-		float shadow = shadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
-		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * shadow;
+		// float shadow = shadowFactor(u_PointLightShadowmaps, pointLight.lightSpaceMatrices[targetDir], localLayer, N, L);
+		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
 
 		layer += pointLight.facesRendered;
 	}

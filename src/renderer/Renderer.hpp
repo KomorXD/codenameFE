@@ -37,6 +37,7 @@ struct G_BuffersIDs
 	uint32_t G_Normal;
 	uint32_t G_Color;
 	uint32_t G_Material;
+	uint32_t G_Lights;
 };
 
 enum class RenderMode

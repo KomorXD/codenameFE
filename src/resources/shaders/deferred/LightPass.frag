@@ -1,7 +1,6 @@
 #version 430 core
 
 #define MAX_DIR_LIGHTS ${MAX_DIR_LIGHTS}
-#define MAX_POINT_LIGHTS ${MAX_POINT_LIGHTS}
 #define MAX_SPOTLIGHTS ${MAX_SPOTLIGHTS}
 
 struct DirectionalLight
@@ -9,19 +8,6 @@ struct DirectionalLight
 	mat4 cascadeLightMatrices[${CASCADES_COUNT}];
 	vec4 direction;
 	vec4 color;
-};
-
-struct PointLight
-{
-	mat4 lightSpaceMatrices[6];
-	vec4 renderedDirs[6];
-	vec4 positionAndLin;
-	vec4 colorAndQuad;
-	int facesRendered;
-
-	int pad1;
-	int pad2;
-	int pad3;
 };
 
 struct Spotlight
@@ -40,6 +26,7 @@ uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gColor;
 uniform sampler2D gMaterial;
+uniform sampler2D gLights;
 uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_PrefilterMap;
 uniform sampler2D u_BRDF_LUT;
@@ -70,12 +57,6 @@ layout(std140, binding = 2) uniform DirectionalLights
 	DirectionalLight lights[MAX_DIR_LIGHTS];
 	int count;
 } u_DirLights;
-
-layout(std140, binding = 3) uniform PointLights
-{
-	PointLight lights[MAX_POINT_LIGHTS];
-	int count;
-} u_PointLights;
 
 layout(std140, binding = 4) uniform Spotlights
 {
@@ -329,37 +310,6 @@ void main()
 		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * shadow;
 	}
 
-	for(int i = 0; i < MAX_POINT_LIGHTS; i++)
-	{
-		if(i >= u_PointLights.count)
-		{
-			break;
-		}
-
-		PointLight pointLight = u_PointLights.lights[i];
-		vec3 lightPos	= pointLight.positionAndLin.xyz;
-		vec3 color		= pointLight.colorAndQuad.xyz;
-		float linear	= pointLight.positionAndLin.w;
-		float quadratic = pointLight.colorAndQuad.w;
-
-		vec3 L = normalize(lightPos - worldPos);
-		vec3 H = normalize(V + L);
-		float dist = length(lightPos - worldPos);
-		float attenuation = 1.0 / (1.0 + linear * dist + quadratic * dist * dist);
-		vec3 radiance = color * attenuation;
-
-		float NDF = distGGX(N, H, roughness);
-		float G	  = geoSmith(N, V, L, roughness);
-		vec3 F	  = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
-
-		float denom = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-		vec3 specular = NDF * G * F / denom;
-		vec3 kS = F;
-		vec3 kD = vec3(1.0) - kS;
-		kD *= 1.0 - metallic;
-		Lo += (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
-	}
-
 	for(int i = 0; i < MAX_SPOTLIGHTS; i++)
 	{
 		if(i >= u_Spotlights.count)
@@ -418,6 +368,7 @@ void main()
 	vec3 diffuse = irradiance * diffuseColor.rgb;
 	vec3 ambient = (kD * diffuse + specular) * ao;
 
+	Lo += texture(gLights, gl_FragCoord.xy / u_Camera.screenSize).rgb;
 	o_Color.rgb = ambient + Lo;
 	o_Color.a = diffuseColor.a;
 }
