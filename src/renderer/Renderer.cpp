@@ -495,7 +495,7 @@ void Renderer::Init()
 			s_Data.SpotlightShadowShader = std::make_shared<Shader>(spec);
 		}
 
-		s_Data.ShadowMapsFBO = std::make_shared<Framebuffer>(1);
+		s_Data.ShadowMapsFBO = std::make_shared<Framebuffer>();
 
 		ColorAttachmentSpec spec{};
 		spec.Type = ColorAttachmentType::TEX_2D_ARRAY_SHADOW;
@@ -508,8 +508,8 @@ void Renderer::Init()
 		spec.GenMipmaps = false;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 
-		spec.Size = { 1024, 1024 };
-		spec.Layers = 12;
+		spec.Size = { 256, 256 };
+		spec.Layers = 16 * 6;
 		s_Data.ShadowMapsFBO->AddColorAttachment(spec);
 
 		spec.Layers = 3;
@@ -840,6 +840,11 @@ void Renderer::Init()
 			s_Data.G_PointLightShader->SetUniform1i("gNormal", 1);
 			s_Data.G_PointLightShader->SetUniform1i("gColor", 2);
 			s_Data.G_PointLightShader->SetUniform1i("gMaterial", 3);
+			s_Data.G_PointLightShader->SetUniform1i("u_PointLightShadowmaps", s_Data.PointShadowSlot);
+			s_Data.G_PointLightShader->SetUniform1i("u_OffsetsTexSize", 16);
+			s_Data.G_PointLightShader->SetUniform1i("u_OffsetsFilterSize", 8);
+			s_Data.G_PointLightShader->SetUniform1f("u_OffsetsRadius", s_Data.OffsetsRadius);
+			s_Data.G_PointLightShader->SetUniform1i("u_OffsetsTexture", s_Data.OffsetsSlot);
 		}
 
 		{
@@ -1055,7 +1060,6 @@ void Renderer::EndShadowMapPass()
 	GLCall(glDrawBuffer(GL_NONE));
 	GLCall(glDrawBuffer(GL_NONE));
 	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
-	// GLCall(glCullFace(GL_FRONT));
 
 	Clock cock;
 	cock.Restart();
@@ -1076,7 +1080,6 @@ void Renderer::EndShadowMapPass()
 	s_Data.Stats.DirLightShadowPassTime = cock.GetElapsedTime();
 
 	s_Data.ShadowMapsFBO->DrawToDepthMap(1);
-	// GLCall(glCullFace(GL_BACK));
 	GLCall(glClear(GL_DEPTH_BUFFER_BIT));
 	cock.Restart();
 	if (!s_Data.PointLightsData.empty())
@@ -1112,8 +1115,8 @@ void Renderer::EndShadowMapPass()
 		}
 		GLCall(glFinish());
 	}
-	s_Data.Stats.SpotlightShadowPassTime = cock.GetElapsedTime();
 
+	s_Data.Stats.SpotlightShadowPassTime = cock.GetElapsedTime();
 	s_Data.Stats.DirLightCascadesPassed = 0;
 	s_Data.Stats.PointLightFacesShadowPassed = 0;
 	s_Data.Stats.SpotlightFacesShadowPassed = 0;
@@ -1411,6 +1414,9 @@ void Renderer::SetOffsetsRadius(float radius)
 	
 	s_Data.G_LightShader->Bind();
 	s_Data.G_LightShader->SetUniform1f("u_OffsetsRadius", radius);
+	
+	s_Data.G_PointLightShader->Bind();
+	s_Data.G_PointLightShader->SetUniform1f("u_OffsetsRadius", radius);
 }
 
 std::shared_ptr<Framebuffer> Renderer::CreateEnvCubemap(std::shared_ptr<Texture> hdrEnvMap, const glm::uvec2& faceSize)
@@ -1833,7 +1839,7 @@ void Renderer::DeferredRender()
 		const PointLightBufferData& light = s_Data.PointLightsData[i];
 		TransformComponent tc{};
 		tc.Position = glm::vec3(light.PosAndLinear);
-		tc.Scale = glm::vec3(LightRadius(1.0f, light.PosAndLinear.w, light.ColorAndQuadratic.w, 1.0));
+		tc.Scale = glm::vec3(LightRadius(1.0f, light.PosAndLinear.w, light.ColorAndQuadratic.w, MaxComponent(glm::vec3(light.ColorAndQuadratic))));
 
 		// Stencil pass
 		Renderer::EnableDepthTest();

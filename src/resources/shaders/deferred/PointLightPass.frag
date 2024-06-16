@@ -40,6 +40,12 @@ uniform sampler2D gNormal;
 uniform sampler2D gColor;
 uniform sampler2D gMaterial;
 
+uniform int u_OffsetsTexSize;
+uniform int u_OffsetsFilterSize;
+uniform float u_OffsetsRadius;
+uniform sampler3D u_OffsetsTexture;
+uniform sampler2DArrayShadow u_PointLightShadowmaps;
+
 out vec4 o_Color;
 
 const float PI = 3.14159265359;
@@ -86,6 +92,69 @@ float geoSmith(vec3 N, vec3 V, vec3 L, float roughness)
 	return ggx1 * ggx2;
 }
 
+float shadowFactor(mat4 lightSpaceMat, int layer, vec3 N, vec3 L, vec3 worldPos)
+{
+	vec4 fragPosLightSpace = lightSpaceMat * vec4(worldPos, 1.0);
+	float bias = max(0.005 * (1.0 - dot(N, L)), 0.00005);
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	projCoords = projCoords * 0.5 + 0.5;
+	projCoords.z -= bias;
+
+	float currentDepth = projCoords.z;
+	if(currentDepth > 1.0)
+	{
+		return 0.0;
+	}
+	
+	vec2 f = mod(gl_FragCoord.xy, vec2(u_OffsetsTexSize));
+	ivec3 offsetCoord;
+	offsetCoord.yz = ivec2(f);
+
+	int samplesDiv2 = int(u_OffsetsFilterSize * u_OffsetsFilterSize / 2.0);
+	vec4 sc = vec4(projCoords, 1.0);
+	const vec2 texelSize = 1.0 / textureSize(u_PointLightShadowmaps, 0).xy;
+
+	float depth = 0.0;
+	float shadow = 0.0;
+	for(int i = 0; i < 4; i++)
+	{
+		offsetCoord.x = i;
+		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
+
+		sc.xy = projCoords.xy + offsets.rg * texelSize;
+		depth = texture(u_PointLightShadowmaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+
+		sc.xy = projCoords.xy + offsets.ba * texelSize;
+		depth = texture(u_PointLightShadowmaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+	}
+
+	shadow /= 8.0;
+	if(shadow == 0.0 || shadow == 1.0)
+	{
+		return shadow;
+	}
+
+	shadow *= 8.0;
+	for(int i = 4; i < samplesDiv2; i++)
+	{
+		offsetCoord.x = i;
+		vec4 offsets = texelFetch(u_OffsetsTexture, offsetCoord, 0) * u_OffsetsRadius;
+
+		sc.xy = projCoords.xy + offsets.rg * texelSize;
+		depth = texture(u_PointLightShadowmaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+
+		sc.xy = projCoords.xy + offsets.ba * texelSize;
+		depth = texture(u_PointLightShadowmaps, vec4(sc.xy, layer, projCoords.z));
+		shadow += depth;
+	}
+
+	shadow /= float(samplesDiv2) * 2.0;
+	return shadow;
+}
+
 void main()
 {
 	vec2 texCoord = gl_FragCoord.xy / u_Camera.screenSize;
@@ -123,7 +192,24 @@ void main()
 	vec3 kS = F;
 	vec3 kD = vec3(1.0) - kS;
 	kD *= 1.0 - metallic;
-	
-	o_Color.rgb = (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0);
+
+	vec3 worldDir = worldPos - lightPos;
+	float maxDot = -1.0;
+	int targetDir = 0;
+	int layer = u_LightID * 6;
+	int localLayer = layer;
+	for(int face = 0; face < 6; face++)
+	{
+		float d = dot(worldDir, pointLight.renderedDirs[face].xyz);
+		if(d > maxDot)
+		{
+			maxDot = d;
+			targetDir = face;
+			localLayer = layer + face;
+		}
+	}
+		
+	float shadow = shadowFactor(pointLight.lightSpaceMatrices[targetDir], localLayer, N, L, worldPos);
+	o_Color.rgb = (kD * diffuseColor.rgb / PI + specular) * radiance * max(dot(N, L), 0.0) * shadow;
 	o_Color.a = diffuseColor.a;
 }

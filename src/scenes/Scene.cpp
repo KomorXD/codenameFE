@@ -54,7 +54,7 @@ void Scene::RenderShadowMaps()
 
 	// Render meshes
 	{
-		auto view = m_Registry.view<TransformComponent, MeshComponent, MaterialComponent>();
+		auto view = m_Registry.view<TransformComponent, MeshComponent, MaterialComponent>(entt::exclude<DirectionalLightComponent, PointLightComponent, SpotLightComponent>);
 		for (entt::entity entity : view)
 		{
 			auto [transform, mesh, material] = view.get<TransformComponent, MeshComponent, MaterialComponent>(entity);
