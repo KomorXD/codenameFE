@@ -122,6 +122,7 @@ struct CameraBufferData
 	glm::mat4 Projection;
 	glm::mat4 View;
 	glm::vec4 Position;
+	glm::vec2 ScreenSize;
 	float Exposure;
 	float Gamma;
 	float Near;
@@ -901,6 +902,7 @@ void Renderer::SceneBegin(Camera& camera)
 	cbd.Projection = camera.GetProjection();
 	cbd.View = camera.GetViewMatrix();
 	cbd.Position = glm::vec4(camera.Position, 1.0f);
+	cbd.ScreenSize = camera.m_ViewportSize;
 	cbd.Exposure = camera.Exposure;
 	cbd.Gamma = camera.Gamma;
 	cbd.Near = camera.m_NearClip;
@@ -1778,7 +1780,6 @@ void Renderer::DeferredRender()
 		mesh.InstanceBuffer->SetData(meshData.Instances.data(), meshData.CurrentInstancesCount * sizeof(MeshInstance));
 		DrawIndexedInstanced(s_Data.G_PassShader, mesh.VAO, meshData.CurrentInstancesCount);
 	}
-	GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 	
 	s_Data.G_FBO->BindColorAttachment(0, 0);
 	s_Data.G_FBO->BindColorAttachment(1, 1);
@@ -1795,4 +1796,5 @@ void Renderer::DeferredRender()
 	DisableDepthTest();
 	DrawArrays(s_Data.G_LightShader, s_Data.ScreenQuadVertexArray, 6);
 	EnableDepthTest();
+	GLCall(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
 }

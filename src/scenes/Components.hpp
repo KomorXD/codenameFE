@@ -59,8 +59,8 @@ struct PointLightComponent
 	glm::vec3 Color = glm::vec3(1.0f);
 	float Intensity	= 5.0f;
 
-	float LinearTerm	= 0.022f;
-	float QuadraticTerm = 0.0019f;
+	float LinearTerm	= 0.22f;
+	float QuadraticTerm = 0.2f;
 
 	PointLightComponent() = default;
 	PointLightComponent(const PointLightComponent& other) = default;
@@ -74,8 +74,8 @@ struct SpotLightComponent
 	float Cutoff = 12.5f;
 	float EdgeSmoothness = 0.0f;
 
-	float LinearTerm	= 0.022f;
-	float QuadraticTerm = 0.0019f;
+	float LinearTerm	= 0.22f;
+	float QuadraticTerm = 0.2f;
 
 	SpotLightComponent() = default;
 	SpotLightComponent(const SpotLightComponent& other) = default;
